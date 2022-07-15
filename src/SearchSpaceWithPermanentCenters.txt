@@ -1,0 +1,129 @@
+import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+@Deprecated
+
+public class SearchSpaceWithPermanentCenters extends SearchSpace{
+    //Permanent higher level services to maintain
+    private final List<List<Integer>> permanentHLCenters;
+
+    //Non-configurable class variables
+    private final List<Integer> minPermanentCenterByOrigin; //minimum existing centers that must be maintained
+    private final List<Double> minPermanentCostByOrigin; //minimum cost
+    private final List<List<Integer>> minPermanentHLPositionByOrigin;
+    private final List<List<Double>> minPermanentHLCostByOrigin;
+    private final Integer permanentCentersCount;
+    private final List<Integer> permanentHLCentersCount;
+    private final Integer permanentAllHLCentersCount;
+
+    public SearchSpaceWithPermanentCenters(Integer minNewCenters, Integer maxNewCenters, List<List<Integer>> permanentHLCenters, List<Double> minimumCasesByLevel, List<Double> servicedProportionByLevel,
+                                           String censusFileLocation, String permanentGraphLocation, String potentialGraphLocation, String azimuthLocation, String haversineLocation,
+                                           Integer threadCount, Integer taskCount, ExecutorService executor) {
+        super(minNewCenters, maxNewCenters, minimumCasesByLevel, servicedProportionByLevel, censusFileLocation, azimuthLocation, haversineLocation, taskCount, executor);
+        this.permanentHLCenters = permanentHLCenters;
+
+        //Con
+        List<List<Double>> permanentGraphArray = FileUtils.getInnerDoubleArrayFromCSV(permanentGraphLocation);
+        List<List<Double>> potentialGraphArray = FileUtils.getInnerDoubleArrayFromCSV(potentialGraphLocation);
+        setGraphArray(ArrayOperations.mergeArrays(potentialGraphArray, permanentGraphArray));
+        setPotentialSitesCount(potentialGraphArray.get(0).size());
+        setOriginCount(getGraphArray().size());
+        setPartitionedOrigins(MultithreadingUtils.orderedPartitionList(IntStream.range(0, getOriginCount()).boxed().collect(Collectors.toList()), threadCount));
+
+        //
+        permanentCentersCount = permanentGraphArray.get(0).size();
+        List<Object> minimumPermanentCenterInfo = getMinimumCenterInfo(permanentGraphArray);
+        minPermanentCenterByOrigin = (List<Integer>) minimumPermanentCenterInfo.get(0);
+        minPermanentCostByOrigin = (List<Double>) minimumPermanentCenterInfo.get(1);
+        permanentHLCentersCount = new ArrayList<>();
+        Set permanentAllHLCenters = new HashSet<>();
+        for (int i = 0; i < this.getHigherCenterLevels(); i++) {
+            permanentHLCentersCount.add(permanentHLCenters.get(i).size());
+            permanentAllHLCenters.addAll(permanentHLCenters.get(i));
+        }
+        permanentAllHLCentersCount = permanentAllHLCenters.size();
+        List<Object> minHLPermanentCenterInfo = getMinimumHLCenterInfo(permanentGraphArray, permanentHLCenters);
+        minPermanentHLPositionByOrigin = (List<List<Integer>>) minHLPermanentCenterInfo.get(0);
+        minPermanentHLCostByOrigin = (List<List<Double>>) minHLPermanentCenterInfo.get(1);
+    }
+
+    //Output is pair consisting of the closest existing centers by origin and cost to travel to those centers
+    //These sites are adjusted by candidate site count (added sequentially afterward)
+    private static List<Object> getMinimumCenterInfo(List<List<Double>> permanentGraphArray) {
+        List<Integer> minimumCostCenterByOrigin = new ArrayList<>();
+        List<Double> minimumCostByOrigin = new ArrayList<>();
+        for (int i = 0; i < permanentGraphArray.size(); i++) {
+            int minimumCostCenter = 0;
+            double minimumCost = permanentGraphArray.get(i).get(0);
+            for (int j = 1; j < permanentGraphArray.get(0).size(); j++) {
+                double currentCost = permanentGraphArray.get(i).get(j);
+                if (currentCost < minimumCost) {
+                    minimumCostCenter = j;
+                    minimumCost = currentCost;
+                }
+            }
+            minimumCostCenterByOrigin.add(minimumCostCenter);
+            minimumCostByOrigin.add(minimumCost);
+        }
+        return Arrays.asList(minimumCostCenterByOrigin, minimumCostByOrigin);
+    }
+
+    //These sites are adjusted by candidate site count (added sequentially afterward)
+    public static List<Object> getMinimumHLCenterInfo(List<List<Double>> permanentGraphArray, List<List<Integer>> permanentHLCenters) {
+        List<List<Integer>> minHLCenterPositionByOrigin = new ArrayList<>();
+        List<List<Double>> minHLCostsByOrigin = new ArrayList<>();
+        for (int i = 0; i < permanentHLCenters.size(); i++) {
+            List<Integer> levelMinCenterPositionByOrigin = new ArrayList<>();
+            List<Double> levelMinCostByOrigin = new ArrayList<>();
+            for (int j = 0; j < permanentGraphArray.size(); j++) {
+                int levelMinCenter = -1;
+                double levelMinCost = Double.POSITIVE_INFINITY;
+                for (int k = 0; k < permanentHLCenters.get(i).size(); k++) {
+                    double currentCost = permanentGraphArray.get(j).get(permanentHLCenters.get(i).get(k));
+                    if (currentCost < levelMinCost) {
+                        levelMinCenter = k;
+                        levelMinCost = currentCost;
+                    }
+                }
+                levelMinCenterPositionByOrigin.add(levelMinCenter);
+                levelMinCostByOrigin.add(levelMinCost);
+            }
+            minHLCenterPositionByOrigin.add(levelMinCenterPositionByOrigin);
+            minHLCostsByOrigin.add(levelMinCostByOrigin);
+        }
+        return Arrays.asList(minHLCenterPositionByOrigin, minHLCostsByOrigin);
+    }
+
+    public List<List<Integer>> getPermanentHLCenters() {
+        return permanentHLCenters;
+    }
+
+    public List<Integer> getMinPermanentCenterByOrigin() {
+        return minPermanentCenterByOrigin;
+    }
+
+    public List<Double> getMinPermanentCostByOrigin() {
+        return minPermanentCostByOrigin;
+    }
+
+    public List<List<Integer>> getMinPermanentHLPositionByOrigin() {
+        return minPermanentHLPositionByOrigin;
+    }
+
+    public List<List<Double>> getMinPermanentHLCostByOrigin() {
+        return minPermanentHLCostByOrigin;
+    }
+
+    public Integer getPermanentCentersCount() {
+        return permanentCentersCount;
+    }
+
+    public List<Integer> getPermanentHLCentersCount() {
+        return permanentHLCentersCount;
+    }
+
+    public Integer getPermanentAllHLCentersCount() {
+        return permanentAllHLCentersCount;
+    }
+}

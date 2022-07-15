@@ -1,0 +1,220 @@
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+//Development only class. Starts at specified positions and tries to get to desired result to ensure robustness.
+public class SpecifiedStart extends SimAnnealingSearch{
+    static List<Integer> specifiedStartPositions = Arrays.asList(1914, 169, 3785, 1681, 1348, 4554, 4903, 3655, 656, 3355, 3414, 5097);
+    static Integer initialIteration = 1;
+
+
+    //Thread count
+    static Integer threadCount = 12;
+
+    //Final neighborhood size and iteration achieved
+    static Integer finalNeighborhoodSize;// = 60; Currently overriding in OptimizeNCenters method based on n if set at -1
+    static Integer finalNeighborhoodSizeIteration;// = 3200;
+
+    static List<List<Integer>> sortedNeighbors;// = SimAnnealingNeighbor.sortNeighbors(azimuthArray, haversineArray);
+
+    //Development only
+    public SpecifiedStart() {
+        String censusFileLocation = "M:\\Optimization Project\\alberta2016.csv";
+        String graphLocation = censusFileLocation.replace(".csv", "_graph.csv");
+        String azimuthLocation = censusFileLocation.replace(".csv", "_azimuth.csv");
+        String haversineLocation = censusFileLocation.replace(".csv", "_haversine.csv");
+        this.minimumCases = 10000;
+        this.initialTemp = 10000;
+        this.finalTemp = 10;
+        this.coolingRate = 0.99995;
+        this.finalNeighborhoodSize = 480; //Determining finalNeighborhoodSize based on number of centers to optimize if -1
+        this.finalNeighborhoodSizeIteration = 1;
+        this.censusArray = FileUtils.parseCSV(censusFileLocation);
+        this.censusHeadings = censusArray.get(0);
+        this.graphArray = FileUtils.parseCSV(graphLocation);
+        this.potentialSitesCount = graphArray.get(0).size() - 1;
+        List<List<String>> azimuthArray = FileUtils.parseCSV(azimuthLocation);
+        List<List<String>> haversineArray = FileUtils.parseCSV(haversineLocation);
+        //this.sortedNeighbors = SimAnnealingNeighbor.sortNeighbors(azimuthArray, haversineArray);
+
+        //Development only
+        this.updateFrequency = 1000; //frequency of updates in ms // development only
+        this.minNewCenters = 12; //Usually 1.
+        this.maxNewCenters = 12; //Maximum number of cancer centers to try
+    }
+
+    public static void main(String[] args) throws InterruptedException {
+        new SpecifiedStart();
+        System.out.println("Starting optimization algorithm"); //development only
+        //This can be multithreaded with each thread working on a different number n.
+        double minimumCost = Double.POSITIVE_INFINITY;
+        List<Integer> minimumPositions = new ArrayList<>();
+
+
+        //Assign one partition to each thread to compute minimum cost per partition. Put in minimumMap with entry corresponding to minimum in partition.
+        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+        CountDownLatch latch = new CountDownLatch(threadCount);
+
+        //Map
+        ConcurrentHashMap<List<Integer>, Double> minima = new ConcurrentHashMap<>();
+        for (int i = 0; i < threadCount; i++) {
+            executor.submit(() -> {
+                try {
+                    List<Object> solutionWithNCenters = optimizeNCenters(12);
+                    minima.put((List<Integer>) solutionWithNCenters.get(1), (double) solutionWithNCenters.get(0));
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                latch.countDown();
+            });
+        }
+        latch.await();
+        executor.shutdown(); //does not accept new jobs after completing above submissions, can switch order with latch.await() if desired.
+
+        System.out.println("Minimum cost map " + minima);
+
+        double totalCost = 0;
+        for (double cost : minima.values()) {
+            totalCost += cost;
+        }
+        System.out.println("Average cost " + totalCost/threadCount);
+    }
+
+    //Optimize with shrinking
+    public static List<Object> optimizeNCenters(Integer n) throws InterruptedException {
+        long timer = System.currentTimeMillis(); // development only
+
+        //Overriding finalNeighborhoodSize locally for multithreading based on number of centers to optimize if -1 chosen
+        Integer localFinalNeighborhoodSize;
+        if (finalNeighborhoodSize == -1) {
+            localFinalNeighborhoodSize = (int) Math.min(Math.ceil(3 * potentialSitesCount / n), potentialSitesCount - n); //to account for 1 center
+            //localFinalNeighborhoodSize = Math.max(localFinalNeighborhoodSize, 1200); //minimum empirical neighborhood size to not get trapped locally
+        } else {
+            localFinalNeighborhoodSize = finalNeighborhoodSize;
+        }
+
+        //Create random list of current cancer center positions and list of remaining potential positions.
+        Random random = new Random();List<Integer> allPositions = IntStream.rangeClosed(1, potentialSitesCount).boxed().collect(Collectors.toList());
+        List<Integer> currentPositions = new ArrayList<>(pickNRandomFromList(allPositions, n, random));
+        //List<Integer> currentPositions = new ArrayList<>(specifiedStartPositions);
+
+        //Compute initial cost and list of the closest of current positions for each originating population center
+        double currentCost = (double) initialCost(currentPositions, graphArray, censusArray).get(0);
+        List<Integer> currentMinimumCostPositionsByOrigin = (List<Integer>) initialCost(currentPositions, graphArray, censusArray).get(1);
+
+        //Best positions
+        List<Integer> bestPositions = new ArrayList<>();
+        double bestCost = Double.POSITIVE_INFINITY;
+        double bestCostTemp = 0;
+        List<Integer> bestMinimumCostPositionsByOrigin = new ArrayList<>();
+
+        //Memory of recently left sites
+        Integer memoryLength = 1000; //must be smaller than neighborhood
+        List<Integer> lastMoveIterations = new ArrayList<Integer>(Arrays.asList(-1));
+        lastMoveIterations.addAll(Collections.nCopies(potentialSitesCount, -1 + memoryLength * -1));
+
+        System.out.println("Initial cost " + currentCost + " at " + currentPositions); //Initial cost from random placement.
+
+        //Main simulated annealing algorithm
+        double temp = initialTemp * Math.pow(coolingRate, initialIteration);
+        Integer simAnnealingIteration = 0;
+        double totalCostChange = 0;
+        double totalEntropyChange = 0;
+        while (temp > finalTemp) {
+            simAnnealingIteration += 1;
+            Integer neighborhoodSize;
+            if (simAnnealingIteration >= finalNeighborhoodSizeIteration) {
+                neighborhoodSize = localFinalNeighborhoodSize;
+            } else {
+                neighborhoodSize = getNeighborhoodSize(potentialSitesCount - n, localFinalNeighborhoodSize, simAnnealingIteration);
+            }
+            //Try moving each cancer center once for every cycle
+            for (int i = 0; i < n; ++i ) {
+                //Generate a list of potential next sites given particular site and remove all current sites from consideration.
+                List<Integer> nextSiteCandidates = new ArrayList<>(sortedNeighbors.get(currentPositions.get(i)));
+                nextSiteCandidates.removeAll(currentPositions);
+                if (temp < 1.005) {
+                    System.out.println(nextSiteCandidates);
+                }
+                //Find new positions to test and makes sure not tabu
+                boolean unacceptableNewSite = true;
+                List<Integer> newPositions = new ArrayList<>();
+                Integer newSite;
+                List<Object> updatedResult = new ArrayList<>();
+                double newCost = 0;
+                while (unacceptableNewSite) {
+                    Integer randomIndex = random.nextInt(neighborhoodSize);
+                    newSite = nextSiteCandidates.get(randomIndex);
+                    newPositions = currentPositions.stream().collect(Collectors.toList());
+                    newPositions.set(i, newSite);
+                    //Compute cost of new positions and update list of the closest of current positions for each population center
+                    updatedResult = updatedCost(newPositions, graphArray, censusArray, i, newSite, currentMinimumCostPositionsByOrigin);
+                    newCost = (double) updatedResult.get(0);
+                    if (simAnnealingIteration - lastMoveIterations.get(newSite) >= memoryLength || newCost < bestCost) {
+                        unacceptableNewSite = false;
+                    } else {
+                        //System.out.println("Attempted to move to " + newSite + " on move " + simAnnealingIteration + " which had last moved iteration " + lastMoveIterations.get(newSite));
+                    }
+                }
+
+                //Compute cost of new positions and update list of the closest of current positions for each population center
+                //List<Object> updatedResult = updatedCost(newPositions, graphArray, censusArray, i, newSite, currentMinimumCostPositionsByOrigin);
+                //double newCost = (double) updatedResult.get(0);
+                List<Integer> updatedMinimumPositionsByOrigin = (List<Integer>) updatedResult.get(1);
+
+                //Decide on whether to accept new positions
+                if (newCost <= currentCost) {
+                    lastMoveIterations.set(currentPositions.get(i), simAnnealingIteration);
+                    currentPositions = newPositions;
+                    currentCost = newCost;
+                    currentMinimumCostPositionsByOrigin = updatedMinimumPositionsByOrigin;
+                    if (newCost <= bestCost) {
+                        bestPositions = newPositions;
+                        bestCost = newCost;
+                        bestCostTemp = temp;
+                        bestMinimumCostPositionsByOrigin = updatedMinimumPositionsByOrigin;
+                    }
+                } else if (acceptanceProbability(currentCost, newCost, temp) > Math.random()) {
+                    lastMoveIterations.set(currentPositions.get(i), simAnnealingIteration);
+                    currentPositions = newPositions;
+                    currentCost = newCost;
+                    currentMinimumCostPositionsByOrigin = updatedMinimumPositionsByOrigin;
+                }
+            }
+            //Decide on temperature
+            temp *= coolingRate;
+
+            if (temp < 0.85 * bestCostTemp) {
+                System.out.println("No recent improvement on best cost " + bestCost + ". Current cost " + currentCost);
+                currentPositions = bestPositions;
+                currentCost = bestCost;
+                currentMinimumCostPositionsByOrigin = bestMinimumCostPositionsByOrigin;
+                temp = bestCostTemp * 0.90;
+                bestCostTemp = temp;
+            }
+
+            long elapsedTime = System.currentTimeMillis() - timer; //development only
+            if (elapsedTime > updateFrequency) { //development only
+                System.out.println("Temperature is now " + temp +" on optimization for " + n + " center(s). Neighborhood size was " + neighborhoodSize + " for iteration " + simAnnealingIteration); // development only
+                System.out.println("The current cost is " + currentCost + " at positions " + currentPositions); // development only
+                timer = System.currentTimeMillis(); // development only
+            } // development only
+
+            //For multithreading to allow interruption after sufficient search is completed.
+            if (Thread.interrupted()) {
+                throw new InterruptedException();
+            }
+        }
+        List<Object> output = new ArrayList<>(Arrays.asList(bestCost, bestPositions)); //contains two elements: Double minimum cost and List<Integer> minimum positions.
+        return output;
+    }
+
+    //Shrinking neighborhood size, full at iteration 1
+    public static Integer getNeighborhoodSize(Integer maxNeighborhoodSize, Integer finalNeighborhoodSize, Integer simAnnealingIteration) {
+        return finalNeighborhoodSize + (int) Math.floor((maxNeighborhoodSize - finalNeighborhoodSize) * (finalNeighborhoodSizeIteration - simAnnealingIteration) / finalNeighborhoodSizeIteration);
+    }
+}
