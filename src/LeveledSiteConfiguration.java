@@ -19,7 +19,7 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
     }
 
     //Generates initial configuration
-    public LeveledSiteConfiguration(int minimumCenterCount, int maximumCenterCount, List<Integer> potentialSites, SearchSpace searchParameters, Integer taskCount, ExecutorService executor) {
+    public LeveledSiteConfiguration(int minimumCenterCount, int maximumCenterCount, List<Integer> potentialSites, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
         //Create random list of current cancer center positions and list of remaining potential positions.
         Random random = new Random();
         sites = new ArrayList<>(pickNRandomFromList(potentialSites, random.nextInt(maximumCenterCount - minimumCenterCount + 1) + minimumCenterCount, random));
@@ -53,7 +53,7 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
 
     //Get new leveled site configuration by shifting one of the lowest level sites
     //Multithreaded variant
-    public LeveledSiteConfiguration shiftLowestLevelSite(Integer positionToShift, int neighborhoodSize, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
+    public LeveledSiteConfiguration shiftLowestLevelSite(int positionToShift, int neighborhoodSize, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
         //Get shifted sites
         Integer siteToShift = sites.get(positionToShift);
         Integer newSite = SimAnnealingNeighbor.getUnusedNeighbor(sites, siteToShift, neighborhoodSize, searchParameters.getSortedNeighbors());
@@ -123,7 +123,7 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
         candidateRemovalSites.removeAll(allHigherLevelSites);
         Random random = new Random();
         Integer removalSite = candidateRemovalSites.get(random.nextInt(candidateRemovalSites.size()));
-        Integer removalPosition = newSites.indexOf(removalSite);
+        int removalPosition = newSites.indexOf(removalSite);
         newSites.remove(removalSite);
 
         //Compute new parameters
