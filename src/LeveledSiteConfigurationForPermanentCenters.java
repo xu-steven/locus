@@ -18,7 +18,7 @@ public class LeveledSiteConfigurationForPermanentCenters extends SiteConfigurati
         this.higherLevelMinimumPositionsByOrigin = higherLevelMinimumPositionsByOrigin;
     }
 
-    public LeveledSiteConfigurationForPermanentCenters(Integer minimumCenterCount, Integer maximumCenterCount, List<Integer> potentialSites, SearchSpace searchParameters, Integer taskCount, ExecutorService executor) {
+    public LeveledSiteConfigurationForPermanentCenters(int minimumCenterCount, int maximumCenterCount, List<Integer> potentialSites, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
         //Create random list of current cancer center positions and list of remaining potential positions.
         Random random = new Random();
         sites = new ArrayList<>(pickNRandomFromList(potentialSites, random.nextInt(maximumCenterCount - minimumCenterCount + 1) + minimumCenterCount, random));
@@ -62,7 +62,7 @@ public class LeveledSiteConfigurationForPermanentCenters extends SiteConfigurati
     }
 
     //Multithreaded variant
-    public LeveledSiteConfigurationForPermanentCenters shiftLowestLevelSite(Integer positionToShift, Integer neighborhoodSize, SearchSpace searchParameters, Integer taskCount, ExecutorService executor) {
+    public LeveledSiteConfigurationForPermanentCenters shiftLowestLevelSite(Integer positionToShift, int neighborhoodSize, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
         //Get shifted sites
         Integer siteToShift = sites.get(positionToShift);
         Integer newSite = SimAnnealingNeighbor.getUnusedNeighbor(sites, siteToShift, neighborhoodSize, searchParameters.getSortedNeighbors());
@@ -109,7 +109,7 @@ public class LeveledSiteConfigurationForPermanentCenters extends SiteConfigurati
     }
 
     //Unchanged from without permanent centers (only one of three)
-    public LeveledSiteConfigurationForPermanentCenters addLowestLevelSite(List<Integer> potentialSites, SearchSpace searchParameters, Integer taskCount, ExecutorService executor) {
+    public LeveledSiteConfigurationForPermanentCenters addLowestLevelSite(List<Integer> potentialSites, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
         //Add lowest level site
         List<Integer> newSites = new ArrayList<>(sites);
         List<Integer> unusedSites = new ArrayList<>(potentialSites);
@@ -129,7 +129,7 @@ public class LeveledSiteConfigurationForPermanentCenters extends SiteConfigurati
     }
 
     //Variant with multithreading of previous removeLowestLevelSite
-    public LeveledSiteConfigurationForPermanentCenters removeLowestLevelSite(SearchSpace searchParameters, Integer taskCount, ExecutorService executor) {
+    public LeveledSiteConfigurationForPermanentCenters removeLowestLevelSite(SearchSpace searchParameters, int taskCount, ExecutorService executor) {
         //Remove one of the lowest level sites
         List<Integer> newSites = new ArrayList<>(sites);
         List<Integer> candidateRemovalSites = new ArrayList<>(newSites);
@@ -154,7 +154,7 @@ public class LeveledSiteConfigurationForPermanentCenters extends SiteConfigurati
     }
 
     //Update LeveledSiteConfiguration at a specified level with new configuration and costs
-    public void updateHigherLevelConfiguration(Integer level, SiteConfigurationForPermanentCenters newThisLevelSiteConfiguration, double currentThisLevelCost, double newThisLevelCost) {
+    public void updateHigherLevelConfiguration(int level, SiteConfigurationForPermanentCenters newThisLevelSiteConfiguration, double currentThisLevelCost, double newThisLevelCost) {
         cost = cost + newThisLevelCost - currentThisLevelCost;
         higherLevelSitesArray.set(level, newThisLevelSiteConfiguration.getSites());
         higherLevelCosts.set(level, newThisLevelCost);

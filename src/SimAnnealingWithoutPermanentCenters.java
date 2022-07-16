@@ -9,11 +9,11 @@ public class SimAnnealingWithoutPermanentCenters extends SimAnnealingSearch{
 
     public SimAnnealingWithoutPermanentCenters() {
         //Simulated annealing configuration
-        this.initialTemp = 10000;
-        this.finalTemp = 10;
+        this.initialTemp = 1000000;
+        this.finalTemp = 1;
         this.coolingRate = 0.9995;
         this.finalNeighborhoodSize = -1; //Determining finalNeighborhoodSize based on number of centers to optimize if -1
-        this.finalNeighborhoodSizeIteration = 2000;
+        this.finalNeighborhoodSizeIteration = 20000;
 
         //Multithreading configuration
         int threadCount = 6;

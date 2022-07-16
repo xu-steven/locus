@@ -18,7 +18,7 @@ public class SiteConfigurationForPermanentCenters {
     }
 
     //Multithreaded variant of shiftToPotentialSite
-    public SiteConfigurationForPermanentCenters shiftSite(Integer level, List<Integer> potentialSites, Double servicedProportion, Double minimumCases, SearchSpace searchParameters, Integer taskCount, ExecutorService executor) {
+    public SiteConfigurationForPermanentCenters shiftSite(int level, List<Integer> potentialSites, double servicedProportion, double minimumCases, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
         //Randomly shift a site to one of potential sites
         List<Integer> newSites = new ArrayList<>(sites);
         List<Integer> unusedSites = new ArrayList<>(potentialSites);
@@ -38,7 +38,7 @@ public class SiteConfigurationForPermanentCenters {
     }
 
     //Add a site to current configuration without regard for different levels
-    public SiteConfigurationForPermanentCenters addSite(List<Integer> potentialSites, Double servicedProportion, Double minimumCases, SearchSpace searchParameters, Integer taskCount, ExecutorService executor) {
+    public SiteConfigurationForPermanentCenters addSite(List<Integer> potentialSites, double servicedProportion, double minimumCases, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
         //Add site
         List<Integer> newSites = new ArrayList<>(sites);
         List<Integer> unusedSites = new ArrayList<>(potentialSites);
@@ -56,7 +56,7 @@ public class SiteConfigurationForPermanentCenters {
     }
 
     //Multithreaded removeSite variant
-    public SiteConfigurationForPermanentCenters removeSite(Integer level, Double servicedProportion, Double minimumCases, SearchSpace searchParameters, Integer taskCount, ExecutorService executor) {
+    public SiteConfigurationForPermanentCenters removeSite(int level, double servicedProportion, double minimumCases, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
         //Remove site
         List<Integer> newSites = new ArrayList<>(sites);
         Random random = new Random();
@@ -76,8 +76,8 @@ public class SiteConfigurationForPermanentCenters {
     //For base level
     public static List<Object> initialCost(List<Integer> sites, Integer permanentCentersCount, List<Integer> minPermanentCenterByOrigin, List<Double> minPermanentCostByOrigin,
                                            double minimumCases, List<Double> caseCountByOrigin, List<List<Double>> graphArray,
-                                           Integer taskCount, Map<Integer, List<Integer>> partitionedOrigins, ExecutorService executor) {
-        Integer siteCount = sites.size();
+                                           int taskCount, Map<Integer, List<Integer>> partitionedOrigins, ExecutorService executor) {
+        int siteCount = sites.size();
         if (siteCount == 0) {
             return Arrays.asList((double) 100000000, new ArrayList<>());
         }
@@ -129,10 +129,10 @@ public class SiteConfigurationForPermanentCenters {
     }
 
     //For higher levels
-    public static List<Object> initialCost(Integer level, List<Integer> sites, List<Integer> permanentHLCentersCount, List<List<Integer>> minPermanentHLPositionByOrigin, List<List<Double>> minPermanentHLCostByOrigin,
+    public static List<Object> initialCost(int level, List<Integer> sites, List<Integer> permanentHLCentersCount, List<List<Integer>> minPermanentHLPositionByOrigin, List<List<Double>> minPermanentHLCostByOrigin,
                                            double minimumCases, List<Double> caseCountByOrigin, List<List<Double>> graphArray,
-                                           Integer taskCount, Map<Integer, List<Integer>> partitionedOrigins, ExecutorService executor) {
-        Integer siteCount = sites.size();
+                                           int taskCount, Map<Integer, List<Integer>> partitionedOrigins, ExecutorService executor) {
+        int siteCount = sites.size();
         if (siteCount == 0) {
             return Arrays.asList((double) 100000000, new ArrayList<>());
         }
@@ -190,10 +190,10 @@ public class SiteConfigurationForPermanentCenters {
 
     //For base level
     public static List<Object> shiftSiteCost(List<Integer> sites, Integer movedPosition, Integer newSite, List<Integer> oldMinimumCostPositionByOrigin,
-                                             Integer permanentCentersCount, List<Integer> minPermanentCenterByOrigin, List<Double> minPermanentCostByOrigin,
+                                             int permanentCentersCount, List<Integer> minPermanentCenterByOrigin, List<Double> minPermanentCostByOrigin,
                                              double minimumCases, List<Double> caseCountByOrigin, List<List<Double>> graphArray,
-                                             Integer taskCount, Map<Integer, List<Integer>> partitionedOrigins, ExecutorService executor) {
-        Integer siteCount = sites.size();
+                                             int taskCount, Map<Integer, List<Integer>> partitionedOrigins, ExecutorService executor) {
+        int siteCount = sites.size();
         if (siteCount == 0) {
             return Arrays.asList((double) 100000000, new ArrayList<>());
         }
@@ -259,11 +259,11 @@ public class SiteConfigurationForPermanentCenters {
     }
 
     //For higher levels
-    public static List<Object> shiftSiteCost(Integer level, List<Integer> sites, Integer movedPosition, Integer newSite, List<Integer> oldMinimumCostPositionByOrigin,
+    public static List<Object> shiftSiteCost(int level, List<Integer> sites, Integer movedPosition, Integer newSite, List<Integer> oldMinimumCostPositionByOrigin,
                                              List<Integer> permanentHLCentersCount, List<List<Integer>> minPermanentHLPositionByOrigin, List<List<Double>> minPermanentHLCostByOrigin,
                                              double minimumCases, List<Double> caseCountByOrigin, List<List<Double>> graphArray,
-                                             Integer taskCount, Map<Integer, List<Integer>> partitionedOrigins, ExecutorService executor) {
-        Integer siteCount = sites.size();
+                                             int taskCount, Map<Integer, List<Integer>> partitionedOrigins, ExecutorService executor) {
+        int siteCount = sites.size();
         if (siteCount == 0) {
             return Arrays.asList((double) 100000000, new ArrayList<>());
         }
@@ -331,8 +331,8 @@ public class SiteConfigurationForPermanentCenters {
     //Using initialCost from site configuration as originally no sites implies that there were no permanent centers
     public static List<Object> addSiteCost(List<Integer> sites, List<Integer> oldMinimumCostPositionByOrigin,
                                            double minimumCases, List<Double> caseCountByOrigin, List<List<Double>> graphArray,
-                                           Integer taskCount, Map<Integer, List<Integer>> partitionedOrigins, ExecutorService executor) {
-        Integer siteCount = sites.size();
+                                           int taskCount, Map<Integer, List<Integer>> partitionedOrigins, ExecutorService executor) {
+        int siteCount = sites.size();
         Integer newPosition = siteCount - 1;
         Integer newSite = sites.get(newPosition);
         //If there were originally no sites
@@ -387,10 +387,10 @@ public class SiteConfigurationForPermanentCenters {
 
     //For base level
     public static List<Object> removeSiteCost(List<Integer> sites, Integer removedPosition, List<Integer> oldMinimumCostPositionByOrigin,
-                                              Integer permanentCentersCount, List<Integer> minPermanentCenterByOrigin, List<Double> minPermanentCostByOrigin,
+                                              int permanentCentersCount, List<Integer> minPermanentCenterByOrigin, List<Double> minPermanentCostByOrigin,
                                               double minimumCases, List<Double> caseCountByOrigin, List<List<Double>> graphArray,
-                                              Integer taskCount, Map<Integer, List<Integer>> partitionedOrigins, ExecutorService executor) {
-        Integer siteCount = sites.size();
+                                              int taskCount, Map<Integer, List<Integer>> partitionedOrigins, ExecutorService executor) {
+        int siteCount = sites.size();
         if (siteCount == 0) {
             return Arrays.asList((double) 100000000, new ArrayList<>());
         }
@@ -453,11 +453,11 @@ public class SiteConfigurationForPermanentCenters {
     }
 
     //For higher levels
-    public static List<Object> removeSiteCost(Integer level, List<Integer> sites, Integer removedPosition, List<Integer> oldMinimumCostPositionByOrigin,
+    public static List<Object> removeSiteCost(int level, List<Integer> sites, Integer removedPosition, List<Integer> oldMinimumCostPositionByOrigin,
                                               List<Integer> permanentHLCentersCount, List<List<Integer>> minPermanentHLPositionByOrigin, List<List<Double>> minPermanentHLCostByOrigin,
                                               double minimumCases, List<Double> caseCountByOrigin, List<List<Double>> graphArray,
-                                              Integer taskCount, Map<Integer, List<Integer>> partitionedOrigins, ExecutorService executor) {
-        Integer siteCount = sites.size();
+                                              int taskCount, Map<Integer, List<Integer>> partitionedOrigins, ExecutorService executor) {
+        int siteCount = sites.size();
         if (siteCount == 0) {
             return Arrays.asList((double) 100000000, new ArrayList<>());
         }

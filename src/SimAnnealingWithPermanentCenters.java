@@ -18,7 +18,7 @@ public class SimAnnealingWithPermanentCenters extends SimAnnealingSearch{
         finalNeighborhoodSizeIteration = 2000;
 
         //Multithreading configuration
-        Integer threadCount = 6;
+        int threadCount = 6;
         executor = Executors.newFixedThreadPool(threadCount);
 
         //File locations
@@ -54,31 +54,31 @@ public class SimAnnealingWithPermanentCenters extends SimAnnealingSearch{
     }
 
     //Multithreading variant of leveledOptimizeCenters
-    public static List<Object> leveledOptimizeCenters(Integer minimumNewCenterCount, Integer maximumNewCenterCount, Integer taskCount) throws InterruptedException {
+    public static List<Object> leveledOptimizeCenters(int minimumNewCenterCount, int maximumNewCenterCount, int taskCount) throws InterruptedException {
         long timer = System.currentTimeMillis(); // development only
 
         //Overriding finalNeighborhoodSize locally for multithreading based on number of centers to optimize if -1 chosen
         List<Integer> potentialSites = IntStream.range(0, searchParameters.getPotentialSitesCount()).boxed().collect(Collectors.toList());
-        Integer localFinalNeighborhoodSize = SimAnnealingNeighbor.getFinalNeighborhoodSize(searchParameters.getPotentialSitesCount(), minimumNewCenterCount, finalNeighborhoodSize);
+        int localFinalNeighborhoodSize = SimAnnealingNeighbor.getFinalNeighborhoodSize(searchParameters.getPotentialSitesCount(), minimumNewCenterCount, finalNeighborhoodSize);
 
         //Create initial configuration
         LeveledSiteConfigurationForPermanentCenters currentSiteConfiguration = new LeveledSiteConfigurationForPermanentCenters(minimumNewCenterCount, maximumNewCenterCount, potentialSites, searchParameters, taskCount, executor);
-        Double currentCost = currentSiteConfiguration.getCost();
-        Integer currentCenterCount = currentSiteConfiguration.getSites().size();
+        double currentCost = currentSiteConfiguration.getCost();
+        int currentCenterCount = currentSiteConfiguration.getSites().size();
 
         System.out.println("Initial cost " + currentCost + " at sites " + currentSiteConfiguration.getSites() + " and higher level sites " + currentSiteConfiguration.getHigherLevelSitesArray()); //Initial cost from random placement.
 
         //Main simulated annealing algorithm
         double temp = initialTemp;
-        Integer simAnnealingIteration = 0;
+        int simAnnealingIteration = 0;
         while (temp > finalTemp) {
             simAnnealingIteration += 1;
-            Integer neighborhoodSize = SimAnnealingNeighbor.getNeighborhoodSize(currentCenterCount, searchParameters.getPotentialSitesCount(), localFinalNeighborhoodSize, simAnnealingIteration, finalNeighborhoodSizeIteration);
+            int neighborhoodSize = SimAnnealingNeighbor.getNeighborhoodSize(currentCenterCount, searchParameters.getPotentialSitesCount(), localFinalNeighborhoodSize, simAnnealingIteration, finalNeighborhoodSizeIteration);
 
             //Try moving each cancer center once for every cycle
             for (int i = searchParameters.getPermanentCentersCount(); i < currentCenterCount; ++i ) {
                 LeveledSiteConfigurationForPermanentCenters newSiteConfiguration = currentSiteConfiguration.shiftLowestLevelSite(i, neighborhoodSize, searchParameters, taskCount, executor);
-                Double newCost = newSiteConfiguration.getCost();
+                double newCost = newSiteConfiguration.getCost();
                 //Decide whether to accept new positions
                 if (acceptanceProbability(currentCost, newCost, temp) > Math.random()) {
                     currentSiteConfiguration = newSiteConfiguration;
@@ -89,7 +89,7 @@ public class SimAnnealingWithPermanentCenters extends SimAnnealingSearch{
             //Try adding or removing one of current sites
             if (Math.random() < 0.5 && currentCenterCount < maximumNewCenterCount + searchParameters.getPermanentCentersCount()) { //add site
                 LeveledSiteConfigurationForPermanentCenters newSiteConfiguration = currentSiteConfiguration.addLowestLevelSite(potentialSites, searchParameters, taskCount, executor);
-                Double newCost = newSiteConfiguration.getCost();
+                double newCost = newSiteConfiguration.getCost();
                 if (acceptanceProbability(currentCost, newCost, temp) > Math.random()) {
                     currentSiteConfiguration = newSiteConfiguration;
                     currentCost = newCost;
@@ -97,7 +97,7 @@ public class SimAnnealingWithPermanentCenters extends SimAnnealingSearch{
                 }
             } else if (currentCenterCount - searchParameters.getPermanentCentersCount() > currentSiteConfiguration.getAllHigherLevelSites().size() - searchParameters.getPermanentAllHLCentersCount()) { //remove site
                 LeveledSiteConfigurationForPermanentCenters newSiteConfiguration = currentSiteConfiguration.removeLowestLevelSite(searchParameters, taskCount, executor);
-                Double newCost = newSiteConfiguration.getCost();
+                double newCost = newSiteConfiguration.getCost();
                 if (acceptanceProbability(currentCost, newCost, temp) > Math.random()) {
                      currentSiteConfiguration = newSiteConfiguration;
                      currentCost = newCost;
@@ -110,7 +110,7 @@ public class SimAnnealingWithPermanentCenters extends SimAnnealingSearch{
             for (int i = 0; i < searchParameters.getHigherCenterLevels(); ++i ) {
                 //Create artificial level configuration
                 List<Integer> currentThisLevelSites = currentSiteConfiguration.getHigherLevelSitesArray().get(i);
-                Integer currentThisLevelSiteCount = currentThisLevelSites.size();
+                int currentThisLevelSiteCount = currentThisLevelSites.size();
                 double currentThisLevelCost = currentSiteConfiguration.getHigherLevelCosts().get(i);
                 List<Integer> currentThisLevelMinimumPositionsByOrigin = currentSiteConfiguration.getHigherLevelMinimumPositionsByOrigin().get(i);
                 SiteConfigurationForPermanentCenters currentThisLevelSiteConfiguration = new SiteConfigurationForPermanentCenters(currentThisLevelSites, currentThisLevelCost, currentThisLevelMinimumPositionsByOrigin);
