@@ -8,7 +8,7 @@ import java.util.stream.IntStream;
 public class SimAnnealingNeighbor {
 
     //Sort neighbors by ID -> insert in random alternating order by azimuth classification from shortest to longest haversine distance
-    public static List<List<Integer>> sortNeighbors(List<List<Double>> azimuthArray, List<List<Double>> haversineArray, Integer taskCount, ExecutorService executor) {
+    public static List<List<Integer>> sortNeighbors(List<List<Double>> azimuthArray, List<List<Double>> haversineArray, int taskCount, ExecutorService executor) {
         System.out.println("Generating sorted neighbors.");
         Map<Integer, List<Integer>> partitionedOrigins = MultithreadingUtils.orderedPartitionList(IntStream.range(0, azimuthArray.size()).boxed().collect(Collectors.toList()), taskCount);
         CountDownLatch latch = new CountDownLatch(taskCount);
@@ -30,8 +30,8 @@ public class SimAnnealingNeighbor {
                     //For every alternate site location, put it in a corresponding hashmap
                     for (int k = 0; k < haversineArray.get(0).size(); k++) {
                         if (azimuthArray.get(j).get(k) == -1.0) continue; //use -1.0 to identify same position, see FileUtils.getInnerAzimuthArrayFromCSV
-                        Integer azimuthClass = classifyAzimuth(azimuthArray.get(j).get(k));
-                        Double haversineDistance = haversineArray.get(j).get(k);
+                        int azimuthClass = classifyAzimuth(azimuthArray.get(j).get(k));
+                        double haversineDistance = haversineArray.get(j).get(k);
                         if (azimuthClass == 0) {
                             azimuthClassZeroMap.put(k, haversineDistance);
                         } else if (azimuthClass == 1) {
@@ -100,7 +100,7 @@ public class SimAnnealingNeighbor {
     }
 
     //Only use if number of origins is equal to number of potential sites.
-    public static List<List<Integer>> sortNeighbors(List<List<Double>> azimuthArray, List<List<Double>> haversineArray, Integer taskCount, ExecutorService executor, Map<Integer, List<Integer>> partitionedOrigins) {
+    public static List<List<Integer>> sortNeighbors(List<List<Double>> azimuthArray, List<List<Double>> haversineArray, int taskCount, ExecutorService executor, Map<Integer, List<Integer>> partitionedOrigins) {
         System.out.println("Generating sorted neighbors.");
         CountDownLatch latch = new CountDownLatch(taskCount);
         ConcurrentHashMap<Integer, List<List<Integer>>> partitionedOutput = new ConcurrentHashMap<>();
@@ -121,8 +121,8 @@ public class SimAnnealingNeighbor {
                     //For every alternate site location, put it in a corresponding hashmap
                     for (int k = 0; k < haversineArray.get(0).size(); k++) {
                         if (azimuthArray.get(j).get(k) == -1.0) continue; //use -1.0 to identify same position, see FileUtils.getInnerAzimuthArrayFromCSV
-                        Integer azimuthClass = classifyAzimuth(azimuthArray.get(j).get(k));
-                        Double haversineDistance = haversineArray.get(j).get(k);
+                        int azimuthClass = classifyAzimuth(azimuthArray.get(j).get(k));
+                        double haversineDistance = haversineArray.get(j).get(k);
                         if (azimuthClass == 0) {
                             azimuthClassZeroMap.put(k, haversineDistance);
                         } else if (azimuthClass == 1) {
@@ -191,8 +191,8 @@ public class SimAnnealingNeighbor {
     }
 
     //Classifies into 6 directional wedges from 0 to 5
-    public static Integer classifyAzimuth (Double forwardAzimuth) {
-        Integer wedge = -1;
+    public static int classifyAzimuth (double forwardAzimuth) {
+        int wedge = -1;
         for (int i = 0; i <= 5; i++ ) {
             if((forwardAzimuth >= i * 60) && (forwardAzimuth < (i + 1) * 60)) {
                 wedge = i;
@@ -220,8 +220,8 @@ public class SimAnnealingNeighbor {
         return mergedWedges;
     }
 
-    private static Integer getMaxWedgeSize (List<List<Integer>> wedges) {
-        Integer maxWedgeSize = 0;
+    private static int getMaxWedgeSize (List<List<Integer>> wedges) {
+        int maxWedgeSize = 0;
         for (List<Integer> wedge : wedges) {
             maxWedgeSize = Math.max(wedge.size(), maxWedgeSize);
         }
@@ -229,7 +229,7 @@ public class SimAnnealingNeighbor {
     }
 
     //Get new site
-    public static Integer getUnusedNeighbor(List<Integer> currentSites, Integer siteToShift, Integer neighborhoodSize, List<List<Integer>> sortedNeighbors) {
+    public static int getUnusedNeighbor(List<Integer> currentSites, Integer siteToShift, int neighborhoodSize, List<List<Integer>> sortedNeighbors) {
         //Generate a list of potential next sites given particular site and remove all current sites from consideration.
         List<Integer> nextSiteCandidates = new ArrayList<>(sortedNeighbors.get(siteToShift));
         nextSiteCandidates.removeAll(currentSites);
@@ -239,9 +239,9 @@ public class SimAnnealingNeighbor {
     }
 
     //Get final neighborhood size, adjusting for -1 case where algorithm automatically determines final size
-    public static Integer getFinalNeighborhoodSize (Integer potentialSitesCount, Integer centerCount, Integer initialFinalNeighborhoodSize) {
+    public static int getFinalNeighborhoodSize (int potentialSitesCount, int centerCount, int initialFinalNeighborhoodSize) {
         if (initialFinalNeighborhoodSize == -1) {
-            Integer adjustedFinalNeighborhoodSize = (int) Math.min(Math.ceil(1.5 * potentialSitesCount / centerCount), potentialSitesCount - centerCount);
+            int adjustedFinalNeighborhoodSize = (int) Math.min(Math.ceil(1.5 * potentialSitesCount / centerCount), potentialSitesCount - centerCount);
             adjustedFinalNeighborhoodSize = Math.max(adjustedFinalNeighborhoodSize, 670); //minimum empirical neighborhood size
             adjustedFinalNeighborhoodSize = Math.min(adjustedFinalNeighborhoodSize, 1336); //maximum empirical neighborhood size
             return adjustedFinalNeighborhoodSize;
@@ -251,7 +251,7 @@ public class SimAnnealingNeighbor {
     }
 
     //Shrinking neighborhood size, full at iteration 1
-    public static Integer getNeighborhoodSize(Integer centerCount, Integer potentialSitesCount, Integer finalNeighborhoodSize, Integer simAnnealingIteration, Integer finalNeighborhoodSizeIteration) {
+    public static int getNeighborhoodSize(int centerCount, int potentialSitesCount, int finalNeighborhoodSize, int simAnnealingIteration, int finalNeighborhoodSizeIteration) {
         if (simAnnealingIteration >= finalNeighborhoodSizeIteration) {
             return finalNeighborhoodSize;
         } else {

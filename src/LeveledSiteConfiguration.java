@@ -19,7 +19,7 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
     }
 
     //Generates initial configuration
-    public LeveledSiteConfiguration(int minimumCenterCount, int maximumCenterCount, List<Integer> potentialSites, SearchSpace searchParameters, Integer taskCount, ExecutorService executor) {
+    public LeveledSiteConfiguration(int minimumCenterCount, int maximumCenterCount, List<Integer> potentialSites, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
         //Create random list of current cancer center positions and list of remaining potential positions.
         Random random = new Random();
         sites = new ArrayList<>(pickNRandomFromList(potentialSites, random.nextInt(maximumCenterCount - minimumCenterCount + 1) + minimumCenterCount, random));

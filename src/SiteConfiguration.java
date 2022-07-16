@@ -45,7 +45,7 @@ public class SiteConfiguration {
     }
 
     //Shift site according to a potential site
-    public SiteConfiguration shiftSite(List<Integer> potentialSites, Double servicedProportion, Double minimumCases, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
+    public SiteConfiguration shiftSite(List<Integer> potentialSites, double servicedProportion, double minimumCases, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
         //Randomly shift a site to one of potential sites
         List<Integer> newSites = new ArrayList<>(sites);
         List<Integer> unusedSites = new ArrayList<>(potentialSites);
@@ -63,7 +63,7 @@ public class SiteConfiguration {
     }
 
     //Add a site to current configuration without regard for different levels
-    public SiteConfiguration addSite(List<Integer> potentialSites, Double servicedProportion, Double minimumCases, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
+    public SiteConfiguration addSite(List<Integer> potentialSites, double servicedProportion, double minimumCases, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
         //Add site
         List<Integer> newSites = new ArrayList<>(sites);
         List<Integer> unusedSites = new ArrayList<>(potentialSites);
@@ -80,7 +80,7 @@ public class SiteConfiguration {
     }
 
     //Remove a site without regard for other levels
-    public SiteConfiguration removeSite(Double servicedProportion, Double minimumCases, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
+    public SiteConfiguration removeSite(double servicedProportion, double minimumCases, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
         //Remove site
         List<Integer> newSites = new ArrayList<>(sites);
         Random random = new Random();
