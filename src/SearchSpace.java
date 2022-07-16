@@ -15,8 +15,8 @@ public class SearchSpace {
 
     //Non-configurable class variables
     private final double minimumCases;// = 10000;
-    private final Integer higherCenterLevels;
-    private final Integer originCount;
+    private final int higherCenterLevels;
+    private final int originCount;
     private final Map<Integer, List<Integer>> partitionedOrigins;
     private final List<Double> caseCountByOrigin;
     private final List<List<Double>> graphArray;// = parseCSV(graphLocation);
@@ -28,13 +28,13 @@ public class SearchSpace {
     private List<Double> minPermanentCostByOrigin; //minimum cost
     private List<List<Integer>> minPermanentHLPositionByOrigin;
     private List<List<Double>> minPermanentHLCostByOrigin;
-    private Integer permanentCentersCount;
+    private int permanentCentersCount;
     private List<Integer> permanentHLCentersCount;
-    private Integer permanentAllHLCentersCount;
+    private int permanentAllHLCentersCount;
 
-    public SearchSpace(Integer minNewCenters, Integer maxNewCenters, List<Double> minimumCasesByLevel, List<Double> servicedProportionByLevel,
+    public SearchSpace(int minNewCenters, int maxNewCenters, List<Double> minimumCasesByLevel, List<Double> servicedProportionByLevel,
                        String censusFileLocation, String graphLocation, String azimuthLocation, String haversineLocation,
-                       Integer threadCount, Integer taskCount, ExecutorService executor) {
+                       int threadCount, int taskCount, ExecutorService executor) {
         this.minNewCenters = minNewCenters;
         this.maxNewCenters = maxNewCenters;
         this.minimumCasesByLevel = minimumCasesByLevel;
@@ -52,9 +52,9 @@ public class SearchSpace {
     }
 
     //When there are permanent centers to put in graphArray
-    public SearchSpace(Integer minNewCenters, Integer maxNewCenters, List<List<Integer>> permanentHLCenters, List<Double> minimumCasesByLevel, List<Double> servicedProportionByLevel,
+    public SearchSpace(int minNewCenters, int maxNewCenters, List<List<Integer>> permanentHLCenters, List<Double> minimumCasesByLevel, List<Double> servicedProportionByLevel,
                                            String censusFileLocation, String permanentGraphLocation, String potentialGraphLocation, String azimuthLocation, String haversineLocation,
-                                           Integer threadCount, Integer taskCount, ExecutorService executor) {
+                                           int threadCount, int taskCount, ExecutorService executor) {
         this.minNewCenters = minNewCenters;
         this.maxNewCenters = maxNewCenters;
         this.minimumCasesByLevel = minimumCasesByLevel;
@@ -137,11 +137,11 @@ public class SearchSpace {
         return Arrays.asList(minHLCenterPositionByOrigin, minHLCostsByOrigin);
     }
 
-    public Integer getMinNewCenters() {
+    public int getMinNewCenters() {
         return minNewCenters;
     }
 
-    public Integer getMaxNewCenters() {
+    public int getMaxNewCenters() {
         return maxNewCenters;
     }
 
@@ -157,11 +157,11 @@ public class SearchSpace {
         return minimumCases;
     }
 
-    public Integer getHigherCenterLevels() {
+    public int getHigherCenterLevels() {
         return higherCenterLevels;
     }
 
-    public Integer getOriginCount() {
+    public int getOriginCount() {
         return originCount;
     }
 
@@ -205,7 +205,7 @@ public class SearchSpace {
         return minPermanentHLCostByOrigin;
     }
 
-    public Integer getPermanentCentersCount() {
+    public int getPermanentCentersCount() {
         return permanentCentersCount;
     }
 
@@ -213,7 +213,7 @@ public class SearchSpace {
         return permanentHLCentersCount;
     }
 
-    public Integer getPermanentAllHLCentersCount() {
+    public int getPermanentAllHLCentersCount() {
         return permanentAllHLCentersCount;
     }
 }

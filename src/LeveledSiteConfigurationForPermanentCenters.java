@@ -153,6 +153,23 @@ public class LeveledSiteConfigurationForPermanentCenters extends SiteConfigurati
         return new LeveledSiteConfigurationForPermanentCenters(newSites, newCost, newMinimumPositionsByOrigin, higherLevelSitesArray, allHigherLevelSites, higherLevelCosts, higherLevelMinimumPositionsByOrigin);
     }
 
+    //Update LeveledSiteConfiguration at a specified level with new configuration and costs
+    public void updateHigherLevelConfiguration(Integer level, SiteConfigurationForPermanentCenters newThisLevelSiteConfiguration, double currentThisLevelCost, double newThisLevelCost) {
+        cost = cost + newThisLevelCost - currentThisLevelCost;
+        higherLevelSitesArray.set(level, newThisLevelSiteConfiguration.getSites());
+        higherLevelCosts.set(level, newThisLevelCost);
+        higherLevelMinimumPositionsByOrigin.set(level, newThisLevelSiteConfiguration.getMinimumPositionsByOrigin());
+        allHigherLevelSites = null;
+    }
+
+    //Updates allHigherLevelSites in siteConfiguration using higher level sites array (requires updated higher level sites array but outdated set allHigherLevelSites)
+    public void updateAllHigherLevelSites() {
+        allHigherLevelSites = new HashSet<>();
+        for (List<Integer> higherLevelSites : higherLevelSitesArray) {
+            allHigherLevelSites.addAll(higherLevelSites);
+        }
+    }
+
     //Update sites array by replacing removedSite with newSite for all sites in the array. Output is updated sites array, updated positions, and history of updates, true for each level that was changed and false if not.
     public static List<Object> updateSitesArray(List<List<Integer>> sitesArray, Integer removedSite, Integer newSite) {
         List<List<Integer>> updatedSitesArray = new ArrayList<>();

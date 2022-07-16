@@ -19,7 +19,7 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
     }
 
     //Generates initial configuration
-    public LeveledSiteConfiguration(Integer minimumCenterCount, Integer maximumCenterCount, List<Integer> potentialSites, SearchSpace searchParameters, Integer taskCount, ExecutorService executor) {
+    public LeveledSiteConfiguration(int minimumCenterCount, int maximumCenterCount, List<Integer> potentialSites, SearchSpace searchParameters, Integer taskCount, ExecutorService executor) {
         //Create random list of current cancer center positions and list of remaining potential positions.
         Random random = new Random();
         sites = new ArrayList<>(pickNRandomFromList(potentialSites, random.nextInt(maximumCenterCount - minimumCenterCount + 1) + minimumCenterCount, random));
@@ -53,7 +53,7 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
 
     //Get new leveled site configuration by shifting one of the lowest level sites
     //Multithreaded variant
-    public LeveledSiteConfiguration shiftLowestLevelSite(Integer positionToShift, Integer neighborhoodSize, SearchSpace searchParameters, Integer taskCount, ExecutorService executor) {
+    public LeveledSiteConfiguration shiftLowestLevelSite(Integer positionToShift, int neighborhoodSize, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
         //Get shifted sites
         Integer siteToShift = sites.get(positionToShift);
         Integer newSite = SimAnnealingNeighbor.getUnusedNeighbor(sites, siteToShift, neighborhoodSize, searchParameters.getSortedNeighbors());
@@ -96,7 +96,7 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
     }
 
     //Add one of the base level site
-    public LeveledSiteConfiguration addLowestLevelSite(List<Integer> potentialSites, SearchSpace searchParameters, Integer taskCount, ExecutorService executor) {
+    public LeveledSiteConfiguration addLowestLevelSite(List<Integer> potentialSites, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
         //Add lowest level site
         List<Integer> newSites = new ArrayList<>(sites);
         List<Integer> unusedSites = new ArrayList<>(potentialSites);
@@ -116,7 +116,7 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
     }
 
     //Remove lowest level site that is not used by higher level site
-    public LeveledSiteConfiguration removeLowestLevelSite(SearchSpace searchParameters, Integer taskCount, ExecutorService executor) {
+    public LeveledSiteConfiguration removeLowestLevelSite(SearchSpace searchParameters, int taskCount, ExecutorService executor) {
         //Remove one of the lowest level sites
         List<Integer> newSites = new ArrayList<>(sites);
         List<Integer> candidateRemovalSites = new ArrayList<>(newSites);
@@ -137,6 +137,23 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
         return new LeveledSiteConfiguration(newSites, newCost, newMinimumPositionsByOrigin, higherLevelSitesArray, allHigherLevelSites, higherLevelCosts, higherLevelMinimumPositionsByOrigin);
     }
 
+
+    //Update LeveledSiteConfiguration at a specified level with new configuration and costs
+    public void updateHigherLevelConfiguration(int level, SiteConfiguration newThisLevelSiteConfiguration, double currentThisLevelCost, double newThisLevelCost) {
+        cost = cost + newThisLevelCost - currentThisLevelCost;
+        higherLevelSitesArray.set(level, newThisLevelSiteConfiguration.getSites());
+        higherLevelCosts.set(level, newThisLevelCost);
+        higherLevelMinimumPositionsByOrigin.set(level, newThisLevelSiteConfiguration.getMinimumPositionsByOrigin());
+        allHigherLevelSites = null;
+    }
+
+    //Updates allHigherLevelSites in siteConfiguration using higher level sites array (requires updated higher level sites array but outdated set allHigherLevelSites)
+    public void updateAllHigherLevelSites() {
+        allHigherLevelSites = new HashSet<>();
+        for (List<Integer> higherLevelSites : higherLevelSitesArray) {
+            allHigherLevelSites.addAll(higherLevelSites);
+        }
+    }
 
     //Update sites array by replacing removedSite with newSite for all sites in the array. Output is updated sites array, updated positions, and history of updates, true for each level that was changed and false if not.
     public static List<Object> updateSitesArray(List<List<Integer>> sitesArray, Integer removedSite, Integer newSite) {
@@ -162,7 +179,7 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
         return sites;
     }
 
-    public Double getCost() {
+    public double getCost() {
         return cost;
     }
 

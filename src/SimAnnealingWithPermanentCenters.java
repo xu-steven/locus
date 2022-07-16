@@ -129,11 +129,11 @@ public class SimAnnealingWithPermanentCenters extends SimAnnealingSearch{
                 double newThisLevelCost = newThisLevelSiteConfiguration.getCost();
                 //Decide on accepting
                 if (acceptanceProbability(currentThisLevelCost, newThisLevelCost, temp) > Math.random()) {
-                    currentSiteConfiguration = updateHigherLevelConfiguration(currentSiteConfiguration, i, newThisLevelSiteConfiguration, currentThisLevelCost, newThisLevelCost);
+                    currentSiteConfiguration.updateHigherLevelConfiguration(i, newThisLevelSiteConfiguration, currentThisLevelCost, newThisLevelCost);
                 }
             }
             if (currentSiteConfiguration.getAllHigherLevelSites() == null) { //if any changes were accepted
-                currentSiteConfiguration = updateAllHigherLevelSites(currentSiteConfiguration);
+                currentSiteConfiguration.updateAllHigherLevelSites();
                 currentCost = currentSiteConfiguration.getCost();
             }
 
@@ -153,26 +153,5 @@ public class SimAnnealingWithPermanentCenters extends SimAnnealingSearch{
             }
         }
         return Arrays.asList(currentCost, currentSiteConfiguration.getSites(), currentSiteConfiguration.getHigherLevelSitesArray()); //contains 3 elements: minimum cost, minimum positions, and higher level minimum positions.
-    }
-
-    //Update LeveledSiteConfiguration at a specified level with new configuration and costs
-    public static LeveledSiteConfigurationForPermanentCenters updateHigherLevelConfiguration(LeveledSiteConfigurationForPermanentCenters currentSiteConfiguration, Integer level, SiteConfigurationForPermanentCenters newThisLevelSiteConfiguration, double currentThisLevelCost, double newThisLevelCost) {
-        double newCost = currentSiteConfiguration.getCost() + newThisLevelCost - currentThisLevelCost;
-        List<List<Integer>> newHigherLevelSitesArray = new ArrayList<>(currentSiteConfiguration.getHigherLevelSitesArray());
-        newHigherLevelSitesArray.set(level, newThisLevelSiteConfiguration.getSites());
-        List<Double> newHigherLevelCosts = currentSiteConfiguration.getHigherLevelCosts();
-        newHigherLevelCosts.set(level, newThisLevelCost);
-        List<List<Integer>> newHigherLevelMinimumPositionsByOrigin = currentSiteConfiguration.getHigherLevelMinimumPositionsByOrigin();
-        newHigherLevelMinimumPositionsByOrigin.set(level, newThisLevelSiteConfiguration.getMinimumPositionsByOrigin());
-        return new LeveledSiteConfigurationForPermanentCenters(currentSiteConfiguration.getSites(), newCost, currentSiteConfiguration.getMinimumPositionsByOrigin(), newHigherLevelSitesArray, null, newHigherLevelCosts, newHigherLevelMinimumPositionsByOrigin);
-    }
-
-    //Updates allHigherLevelSites in siteConfiguration using higher level sites array (requires updated higher level sites array but outdated set allHigherLevelSites)
-    public static LeveledSiteConfigurationForPermanentCenters updateAllHigherLevelSites(LeveledSiteConfigurationForPermanentCenters siteConfiguration) {
-        Set<Integer> allHigherLevelSites = new HashSet<>();
-        for (List<Integer> higherLevelSites : siteConfiguration.getHigherLevelSitesArray()) {
-            allHigherLevelSites.addAll(higherLevelSites);
-        }
-        return new LeveledSiteConfigurationForPermanentCenters(siteConfiguration.getSites(), siteConfiguration.getCost(), siteConfiguration.getMinimumPositionsByOrigin(), siteConfiguration.getHigherLevelSitesArray(), allHigherLevelSites, siteConfiguration.getHigherLevelCosts(), siteConfiguration.getHigherLevelMinimumPositionsByOrigin());
     }
 }

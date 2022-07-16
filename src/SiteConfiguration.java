@@ -17,7 +17,7 @@ public class SiteConfiguration {
     }
 
     //Generates site configuration
-    public SiteConfiguration(Integer minimumCenterCount, Integer maximumCenterCount, List<Integer> potentialSites, SearchSpace searchParameters, Integer taskCount, ExecutorService executor) {
+    public SiteConfiguration(int minimumCenterCount, int maximumCenterCount, List<Integer> potentialSites, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
         //Create random list of current cancer center positions and list of remaining potential positions.
         Random random = new Random();
         sites = new ArrayList<>(pickNRandomFromList(potentialSites, random.nextInt(maximumCenterCount - minimumCenterCount + 1) + minimumCenterCount, random));
@@ -29,7 +29,7 @@ public class SiteConfiguration {
     }
 
     //Get new leveled site configuration by shifting one of the lowest level sites. Only used for optimization without levels.
-    public SiteConfiguration shiftSiteWithoutLevels(Integer positionToShift, Integer neighborhoodSize, SearchSpace searchParameters, Integer taskCount, ExecutorService executor) {
+    public SiteConfiguration shiftSiteWithoutLevels(Integer positionToShift, int neighborhoodSize, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
         //Get shifted sites
         Integer siteToShift = sites.get(positionToShift);
         Integer newSite = SimAnnealingNeighbor.getUnusedNeighbor(sites, siteToShift, neighborhoodSize, searchParameters.getSortedNeighbors());
@@ -45,7 +45,7 @@ public class SiteConfiguration {
     }
 
     //Shift site according to a potential site
-    public SiteConfiguration shiftSite(List<Integer> potentialSites, Double servicedProportion, Double minimumCases, SearchSpace searchParameters, Integer taskCount, ExecutorService executor) {
+    public SiteConfiguration shiftSite(List<Integer> potentialSites, Double servicedProportion, Double minimumCases, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
         //Randomly shift a site to one of potential sites
         List<Integer> newSites = new ArrayList<>(sites);
         List<Integer> unusedSites = new ArrayList<>(potentialSites);
@@ -63,7 +63,7 @@ public class SiteConfiguration {
     }
 
     //Add a site to current configuration without regard for different levels
-    public SiteConfiguration addSite(List<Integer> potentialSites, Double servicedProportion, Double minimumCases, SearchSpace searchParameters, Integer taskCount, ExecutorService executor) {
+    public SiteConfiguration addSite(List<Integer> potentialSites, Double servicedProportion, Double minimumCases, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
         //Add site
         List<Integer> newSites = new ArrayList<>(sites);
         List<Integer> unusedSites = new ArrayList<>(potentialSites);
@@ -80,7 +80,7 @@ public class SiteConfiguration {
     }
 
     //Remove a site without regard for other levels
-    public SiteConfiguration removeSite(Double servicedProportion, Double minimumCases, SearchSpace searchParameters, Integer taskCount, ExecutorService executor) {
+    public SiteConfiguration removeSite(Double servicedProportion, Double minimumCases, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
         //Remove site
         List<Integer> newSites = new ArrayList<>(sites);
         Random random = new Random();
@@ -99,8 +99,8 @@ public class SiteConfiguration {
     //Variation of totalCost to save compute resources. For initial sites.
     //Cost function of configuration with given cancer center positions, graph, expected case count. Technically does not optimize for case where one permits travel to further cancer center to lower cost.
     public static List<Object> initialCost(List<Integer> sites, double minimumCases, List<Double> caseCountByOrigin, List<List<Double>> graphArray,
-                                           Integer taskCount, Map<Integer, List<Integer>> partitionedOrigins, ExecutorService executor) {
-        Integer siteCount = sites.size();
+                                           int taskCount, Map<Integer, List<Integer>> partitionedOrigins, ExecutorService executor) {
+        int siteCount = sites.size();
         if (siteCount == 0) {
             return Arrays.asList((double) 100000000, new ArrayList<>());
         }
@@ -151,8 +151,8 @@ public class SiteConfiguration {
     //Input movedPosition is index from [0, 1, 2, ..., n-1] for n centers that was shifted to a new site; newSite is actual indexed position of new site; oldMinimumCostPositionByOrigin is list of the lowest travel cost centers for each population center using previous iteration sites prior to shift.
     //Cost function of configuration with given cancer center positions, graph, expected case count. Technically does not optimize for case where one permits travel to further cancer center to lower cost.
     public static List<Object> shiftSiteCost(List<Integer> sites, Integer movedPosition, Integer newSite, List<Integer> oldMinimumCostPositionByOrigin, double minimumCases, List<Double> caseCountByOrigin, List<List<Double>> graphArray,
-                                             Integer taskCount, Map<Integer, List<Integer>> partitionedOrigins, ExecutorService executor) {
-        Integer siteCount = sites.size();
+                                             int taskCount, Map<Integer, List<Integer>> partitionedOrigins, ExecutorService executor) {
+        int siteCount = sites.size();
         if (siteCount == 0) {
             return Arrays.asList((double) 100000000, new ArrayList<>());
         }
@@ -217,8 +217,8 @@ public class SiteConfiguration {
     //Input movedPosition is index from [0, 1, 2, ..., n-1] for n centers that was shifted to a new site; newSite is actual indexed position of new site; oldMinimumCostPositionByOrigin is list of the lowest travel cost centers for each population center using previous iteration sites prior to shift.
     //Cost function of configuration with given cancer center positions, graph, expected case count. Technically does not optimize for case where one permits travel to further cancer center to lower cost.
     public static List<Object> addSiteCost(List<Integer> sites, List<Integer> oldMinimumCostPositionByOrigin, double minimumCases, List<Double> caseCountByOrigin, List<List<Double>> graphArray,
-                                           Integer taskCount, Map<Integer, List<Integer>> partitionedOrigins, ExecutorService executor) {
-        Integer siteCount = sites.size();
+                                           int taskCount, Map<Integer, List<Integer>> partitionedOrigins, ExecutorService executor) {
+        int siteCount = sites.size();
         Integer newPosition = siteCount - 1;
         Integer newSite = sites.get(newPosition);
         //If there were originally no sites
@@ -275,8 +275,8 @@ public class SiteConfiguration {
     //Input movedPosition is index from [0, 1, 2, ..., n-1] for n centers that was shifted to a new site; newSite is actual indexed position of new site; oldMinimumCostPositionByOrigin is list of the lowest travel cost centers for each population center using previous iteration sites prior to shift.
     //Cost function of configuration with given cancer center positions, graph, expected case count. Technically does not optimize for case where one permits travel to further cancer center to lower cost.
     public static List<Object> removeSiteCost(List<Integer> sites, Integer removedPosition, List<Integer> oldMinimumCostPositionByOrigin, double minimumCases, List<Double> caseCountByOrigin, List<List<Double>> graphArray,
-                                              Integer taskCount, Map<Integer, List<Integer>> partitionedOrigins, ExecutorService executor) {
-        Integer siteCount = sites.size();
+                                              int taskCount, Map<Integer, List<Integer>> partitionedOrigins, ExecutorService executor) {
+        int siteCount = sites.size();
         if (siteCount == 0) {
             return Arrays.asList((double) 100000000, new ArrayList<>());
         }
@@ -347,7 +347,7 @@ public class SiteConfiguration {
         return sites;
     }
 
-    public Double getCost() {
+    public double getCost() {
         return cost;
     }
 

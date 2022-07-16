@@ -3,7 +3,7 @@ import java.util.Map;
 
 public final class CostCalculator {
     //Calculates cost from hashmap centre -> (cases, minimum travel cost)
-    public static Double computeCost(Map<Integer, List<Double>> minimumCostMap, double minimumCases) {
+    public static double computeCost(Map<Integer, List<Double>> minimumCostMap, double minimumCases) {
         double totalCost = 0;
         for (List<Double> centerCasesCost : minimumCostMap.values()) {
             double cases = centerCasesCost.get(0);
