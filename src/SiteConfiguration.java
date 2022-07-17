@@ -109,7 +109,7 @@ public class SiteConfiguration {
         ConcurrentHashMap<Integer, List<Object>> partitionedOutput = new ConcurrentHashMap<>();
         for (int i = 0; i < taskCount; i++) {
             int finalI = i;
-            executor.submit(() -> {
+            executor.execute(() -> {
                 List<Integer> partitionToOptimize = partitionedOrigins.get(finalI);
                 Map<Integer, List<Double>> partitionMinimumCostMap = new HashMap<>();
                 List<Double> initialCasesCost = new ArrayList<>(Arrays.asList((double) 0, (double) 0));
@@ -161,7 +161,7 @@ public class SiteConfiguration {
         ConcurrentHashMap<Integer, List<Object>> partitionedOutput = new ConcurrentHashMap<>();
         for (int i = 0; i < taskCount; i++) {
             int finalI = i;
-            executor.submit(() -> {
+            executor.execute(() -> {
                 List<Integer> partitionToOptimize = partitionedOrigins.get(finalI);
                 Map<Integer, List<Double>> partitionMinimumCostMap = new HashMap<>();
                 List<Double> initialCasesCost = new ArrayList<>(Arrays.asList((double) 0, (double) 0));
@@ -230,7 +230,7 @@ public class SiteConfiguration {
         ConcurrentHashMap<Integer, List<Object>> partitionedOutput = new ConcurrentHashMap<>();
         for (int i = 0; i < taskCount; i++) {
             int finalI = i;
-            executor.submit(() -> {
+            executor.execute(() -> {
                 List<Integer> partitionToOptimize = partitionedOrigins.get(finalI);
                 Map<Integer, List<Double>> partitionMinimumCostMap = new HashMap<>();
                 List<Double> initialCasesCost = new ArrayList<>(Arrays.asList((double) 0, (double) 0));
@@ -285,7 +285,7 @@ public class SiteConfiguration {
         ConcurrentHashMap<Integer, List<Object>> partitionedOutput = new ConcurrentHashMap<>();
         for (int i = 0; i < taskCount; i++) {
             int finalI = i;
-            executor.submit(() -> {
+            executor.execute(() -> {
                 List<Integer> partitionToOptimize = partitionedOrigins.get(finalI);
                 Map<Integer, List<Double>> partitionMinimumCostMap = new HashMap<>();
                 List<Double> initialCasesCost = new ArrayList<>(Arrays.asList((double) 0, (double) 0));

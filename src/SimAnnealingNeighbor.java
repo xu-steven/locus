@@ -229,13 +229,21 @@ public class SimAnnealingNeighbor {
     }
 
     //Get new site
-    public static int getUnusedNeighbor(List<Integer> currentSites, Integer siteToShift, int neighborhoodSize, List<List<Integer>> sortedNeighbors) {
+    public static Integer getUnusedNeighbor(List<Integer> currentSites, Integer siteToShift, int neighborhoodSize, List<List<Integer>> sortedNeighbors) {
         //Generate a list of potential next sites given particular site and remove all current sites from consideration.
         List<Integer> nextSiteCandidates = new ArrayList<>(sortedNeighbors.get(siteToShift));
-        nextSiteCandidates.removeAll(currentSites);
+        //nextSiteCandidates.removeAll(currentSites); //ensures that neighbor is unused
         //Find new positions to test
         Random random = new Random();
-        return nextSiteCandidates.get(random.nextInt(neighborhoodSize));
+        //Alternative performance-oriented implementation to ensure that neighbor is unused
+        while (true) {
+            Integer neighbor = nextSiteCandidates.get(random.nextInt(neighborhoodSize));
+            if (currentSites.contains(neighbor)) {
+                continue;
+            } else {
+                return neighbor;
+            }
+        }
     }
 
     //Get final neighborhood size, adjusting for -1 case where algorithm automatically determines final size
@@ -258,6 +266,10 @@ public class SimAnnealingNeighbor {
             return finalNeighborhoodSize + (int) Math.floor((potentialSitesCount - centerCount - finalNeighborhoodSize) * (finalNeighborhoodSizeIteration - simAnnealingIteration) / finalNeighborhoodSizeIteration);
         }
     }
+
+
+
+
 
     //Sketch why 6 directions are sufficient, i.e. wedges of less than 60 degrees
     //Sufficient to show that there exists a path from any point to another for finite points {x} (justify later).
