@@ -239,7 +239,7 @@ public class SimAnnealingNeighbor {
         while (true) {
             Integer neighbor = nextSiteCandidates.get(random.nextInt(neighborhoodSize));
             if (currentSites.contains(neighbor)) {
-                if (currentSites.size() > neighborhoodSize) {
+                if (currentSites.size() >= neighborhoodSize) {
                     nextSiteCandidates.removeAll(currentSites);
                     return nextSiteCandidates.get(random.nextInt(neighborhoodSize));
                 }

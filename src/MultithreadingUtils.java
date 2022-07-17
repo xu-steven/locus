@@ -35,13 +35,9 @@ public final class MultithreadingUtils {
 
     //Combining partitioned outputs
     public static List<Object> combinePartitionedOutput (Map<Integer, List<Object>> partitionedOutput, Integer siteCount, Integer taskCount) {
-        Map<Integer, List<Double>> minimumCostMap = new HashMap<>(); //Map from centre to (cases, minimum travel cost)
-        List<Integer> minimumCostPositionByOrigin = new ArrayList<>(); //List of the closest positions, in the order of origins/start population centers.
-        List<Double> initialCasesCost = new ArrayList<>(Arrays.asList((double) 0, (double) 0));
-        for (int i = 0; i < siteCount; ++i) {
-            minimumCostMap.put(i, initialCasesCost);
-        }
-        for (int i = 0; i < taskCount; i++) {
+        Map<Integer, List<Double>> minimumCostMap = new HashMap<>((HashMap<Integer, List<Double>>) partitionedOutput.get(0).get(0)); //Map from centre to (cases, minimum travel cost)
+        List<Integer> minimumCostPositionByOrigin = new ArrayList<>((ArrayList<Integer>) partitionedOutput.get(0).get(1)); //List of the closest positions, in the order of origins/start population centers.
+        for (int i = 1; i < taskCount; i++) {
             Map<Integer, List<Double>> partitionMinimumCostMap = (HashMap<Integer, List<Double>>) partitionedOutput.get(i).get(0);
             for (int j = 0; j < siteCount; j++) {
                 List<Double> partitionPositionCasesCost = partitionMinimumCostMap.get(j);
