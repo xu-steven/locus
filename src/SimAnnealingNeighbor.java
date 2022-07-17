@@ -239,7 +239,10 @@ public class SimAnnealingNeighbor {
         while (true) {
             Integer neighbor = nextSiteCandidates.get(random.nextInt(neighborhoodSize));
             if (currentSites.contains(neighbor)) {
-                continue;
+                if (currentSites.size() > neighborhoodSize) {
+                    nextSiteCandidates.removeAll(currentSites);
+                    return nextSiteCandidates.get(random.nextInt(neighborhoodSize));
+                }
             } else {
                 return neighbor;
             }
@@ -266,10 +269,6 @@ public class SimAnnealingNeighbor {
             return finalNeighborhoodSize + (int) Math.floor((potentialSitesCount - centerCount - finalNeighborhoodSize) * (finalNeighborhoodSizeIteration - simAnnealingIteration) / finalNeighborhoodSizeIteration);
         }
     }
-
-
-
-
 
     //Sketch why 6 directions are sufficient, i.e. wedges of less than 60 degrees
     //Sufficient to show that there exists a path from any point to another for finite points {x} (justify later).
