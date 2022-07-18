@@ -4,12 +4,12 @@ import java.util.*;
 
 public class Population {
     //Current year
-    public Integer year;
+    public int year;
 
     //Map from age group (lower, upper bounds) to population. Final age includes all persons exceeding age as well.
     public Map<List<Integer>, Double> malePopulationPyramid;
     public Map<List<Integer>, Double> femalePopulationPyramid;
-    Integer oldestPyramidCohortAge;
+    int oldestPyramidCohortAge;
 
     //Adjusted map age -> population with 1 year age increments, with final year including all >= that age
     public Map<Integer, Double> maleAdjustedPyramid;
@@ -18,20 +18,20 @@ public class Population {
     //Mortality data; year -> (age -> mortality)
     public Map<Integer, Map<Integer, Double>> maleMortality;
     public Map<Integer, Map<Integer, Double>> femaleMortality;
-    Integer oldestMortalityCohortAge;
+    static int oldestMortalityCohortAge;
 
     //year -> male to female birth ratio
     public Map<Integer, Double> sexRatioAtBirth;
 
     //Fraction of population aged 0-6 months of total age 0 population
-    public Double currentMaleProportionUnderSixMonths;
-    public Double currentFemaleProportionUnderSixMonths;
+    public double currentMaleProportionUnderSixMonths;
+    public double currentFemaleProportionUnderSixMonths;
 
     //Migration data
     public Map<Integer, Map<Integer, Double>> maleMigration;
     public Map<Integer, Map<Integer, Double>> femaleMigration;
-    Integer oldestMigrationCohortAge;
-    Integer migrationFormat = 0; //0 if absolute migration numbers, 1 if rates per capita
+    int oldestMigrationCohortAge;
+    int migrationFormat = 0; //0 if absolute migration numbers, 1 if rates per capita
 
     public Population() {
         List<Object> mortalityInfo = parseMortalityCSV("M:\\Optimization Project\\demographic projections\\alberta_mortality.csv");
@@ -53,7 +53,7 @@ public class Population {
 
 
     //Project population
-    public void projectPopulation(Integer years) {
+    public void projectPopulation(int years) {
 
     }
 
@@ -70,51 +70,51 @@ public class Population {
     }
 
     //Projects population of cohort in next year, i.e. Pop(t + 1, age + 1)
-    public Double projectNextYearPopulation(String sex, Integer age, Integer year, Double currentYearPopulation) {
-        Double nextYearPopulation;
+    public double projectNextYearPopulation(String sex, int age, int year, double currentYearPopulation) {
+        double nextYearPopulation;
         if (sex.equals("Male")) {
-            nextYearPopulation = (currentYearPopulation - 0.5 * projectDeaths(sex, age, year, currentYearPopulation) + 0.5 * projectMigration(sex, age, year, currentYearPopulation) + (1 - migrationFormat) * 0.5 * projectMigration(sex, age + 1, year + 1, null))
+            nextYearPopulation = (currentYearPopulation - 0.5 * projectDeaths(sex, age, year, currentYearPopulation) + 0.5 * projectMigration(sex, age, year, currentYearPopulation) + (1 - migrationFormat) * 0.5 * projectMigration(sex, age + 1, year + 1, -1.0))
                     / (1 + maleMortality.get(year + 1).get(age + 1) - migrationFormat * maleMigration.get(year + 1).get(age + 1));
         } else {
-            nextYearPopulation = (currentYearPopulation - 0.5 * projectDeaths(sex, age, year, currentYearPopulation) + 0.5 * projectMigration(sex, age, year, currentYearPopulation) + (1 - migrationFormat) * 0.5 * projectMigration(sex, age + 1, year + 1, null))
+            nextYearPopulation = (currentYearPopulation - 0.5 * projectDeaths(sex, age, year, currentYearPopulation) + 0.5 * projectMigration(sex, age, year, currentYearPopulation) + (1 - migrationFormat) * 0.5 * projectMigration(sex, age + 1, year + 1, -1.0))
                     / (1 + femaleMortality.get(year + 1).get(age + 1) - migrationFormat * femaleMigration.get(year + 1).get(age + 1));
         }
         return nextYearPopulation;
     }
 
     //Projects population of the oldest cohort in next year
-    public Double projectNextYearMaxAgePopulation(String sex, Integer year) {
-        Double nextYearPopulation;
-        Integer secondOldestPyramidCohortAge = oldestPyramidCohortAge - 1;
-        Double currentYearSecondOldestCohortPopulation;
-        Double currentYearOldestCohortPopulation;
+    public double projectNextYearMaxAgePopulation(String sex, int year) {
+        double nextYearPopulation;
+        int secondOldestPyramidCohortAge = oldestPyramidCohortAge - 1;
+        double currentYearSecondOldestCohortPopulation;
+        double currentYearOldestCohortPopulation;
         if (sex.equals("Male")) {
             currentYearSecondOldestCohortPopulation = maleAdjustedPyramid.get(secondOldestPyramidCohortAge);
             currentYearOldestCohortPopulation = maleAdjustedPyramid.get(oldestPyramidCohortAge);
             nextYearPopulation = (currentYearSecondOldestCohortPopulation - 0.5 * projectDeaths(sex, secondOldestPyramidCohortAge, year, currentYearSecondOldestCohortPopulation) + 0.5 * projectMigration(sex, secondOldestPyramidCohortAge, year, currentYearSecondOldestCohortPopulation)
                     + currentYearOldestCohortPopulation - 0.5 * projectDeaths(sex, oldestPyramidCohortAge, year, currentYearOldestCohortPopulation) + 0.5 * projectMigration(sex, oldestPyramidCohortAge, year, currentYearOldestCohortPopulation)
-                    + (1 - migrationFormat) * 0.5 * projectMigration(sex, oldestPyramidCohortAge, year + 1, null)) //not population dependent if format 0, i.e. absolute numbers
+                    + (1 - migrationFormat) * 0.5 * projectMigration(sex, oldestPyramidCohortAge, year + 1, -1.0)) //not population dependent if format 0, i.e. absolute numbers
                     / (1 + maleMortality.get(year + 1).get(oldestPyramidCohortAge) - migrationFormat * maleMigration.get(year + 1).get(oldestPyramidCohortAge));
         } else {
             currentYearSecondOldestCohortPopulation = femaleAdjustedPyramid.get(secondOldestPyramidCohortAge);
             currentYearOldestCohortPopulation = femaleAdjustedPyramid.get(oldestPyramidCohortAge);
             nextYearPopulation = (currentYearSecondOldestCohortPopulation - 0.5 * projectDeaths(sex, secondOldestPyramidCohortAge, year, currentYearSecondOldestCohortPopulation) + 0.5 * projectMigration(sex, secondOldestPyramidCohortAge, year, currentYearSecondOldestCohortPopulation)
                     + currentYearOldestCohortPopulation - 0.5 * projectDeaths(sex, oldestPyramidCohortAge, year, currentYearOldestCohortPopulation) + 0.5 * projectMigration(sex, oldestPyramidCohortAge, year, currentYearOldestCohortPopulation)
-                    + (1 - migrationFormat) * 0.5 * projectMigration(sex, oldestPyramidCohortAge, year + 1, null)) //not population dependent if format 0, i.e. absolute numbers
+                    + (1 - migrationFormat) * 0.5 * projectMigration(sex, oldestPyramidCohortAge, year + 1, -1.0)) //not population dependent if format 0, i.e. absolute numbers
                     / (1 + femaleMortality.get(year + 1).get(oldestPyramidCohortAge) - migrationFormat * femaleMigration.get(year + 1).get(oldestPyramidCohortAge));
         }
         return nextYearPopulation;
     }
 
     //Projects total male and female births next year, updates age zero separation
-    public List<Double> projectNextYearAgeZeroPopulation(Integer year, Map<Integer, Double> nextYearFemalePyramid) {
-        Double survivingMaleBirths = 0.5 * projectBirths("Male", year, femaleAdjustedPyramid) * (0.33 * meanInfantSurvival("Male", year, 0.5, 1.0) + 0.67 * meanInfantSurvival("Male", year + 1, 0.5, 1.0)) //estimates as average of infant mortality between two years
+    public List<Double> projectNextYearAgeZeroPopulation(int year, Map<Integer, Double> nextYearFemalePyramid) {
+        double survivingMaleBirths = 0.5 * projectBirths("Male", year, femaleAdjustedPyramid) * (0.33 * meanInfantSurvival("Male", year, 0.5, 1.0) + 0.67 * meanInfantSurvival("Male", year + 1, 0.5, 1.0)) //estimates as average of infant mortality between two years
                 + 0.5 * projectBirths("Male", year + 1, nextYearFemalePyramid) * meanInfantSurvival("Male", year + 1, 0.0, 0.5);
-        Double survivingFemaleBirths = 0.5 * projectBirths("Female", year, femaleAdjustedPyramid) * (0.33 * meanInfantSurvival("Female", year, 0.5, 1.0) + 0.67 * meanInfantSurvival("Female", year + 1, 0.5, 1.0)) //estimates as average of infant mortality between two years
+        double survivingFemaleBirths = 0.5 * projectBirths("Female", year, femaleAdjustedPyramid) * (0.33 * meanInfantSurvival("Female", year, 0.5, 1.0) + 0.67 * meanInfantSurvival("Female", year + 1, 0.5, 1.0)) //estimates as average of infant mortality between two years
                 + 0.5 * projectBirths("Female", year + 1, nextYearFemalePyramid) * meanInfantSurvival("Female", year + 1, 0.0, 0.5);
-        Double nextYearMaleAgeZeroPopulation = (survivingMaleBirths + (1 - migrationFormat) * 0.5 * projectMigration("Male", 0, year + 1, null))
+        double nextYearMaleAgeZeroPopulation = (survivingMaleBirths + (1 - migrationFormat) * 0.5 * projectMigration("Male", 0, year + 1, -1.0))
                 / (1 - migrationFormat * maleMigration.get(year + 1).get(0)); //using RUP formulation, can also consider 0.125/0.375 split of migration according to probability year 0 and year 1 migrant remaining age 0
-        Double nextYearFemaleAgeZeroPopulation = (survivingFemaleBirths + (1 - migrationFormat) * 0.5 * projectMigration("Female", 0, year + 1, null))
+        double nextYearFemaleAgeZeroPopulation = (survivingFemaleBirths + (1 - migrationFormat) * 0.5 * projectMigration("Female", 0, year + 1, -1.0))
                 / (1 - migrationFormat * femaleMigration.get(year + 1).get(0)); //using RUP formulation, can also consider 0.125/0.375 split of migration according to probability year 0 and year 1 migrant remaining age 0
 
         //Update age zero separation
@@ -131,36 +131,36 @@ public class Population {
     }
 
     //Projects age 1 population
-    public Double projectNextYearAgeOnePopulation(String sex, Integer year, Double currentYearAgeZeroPopulation) {
-        Double nextYearPopulation;
+    public double projectNextYearAgeOnePopulation(String sex, int year, double currentYearAgeZeroPopulation) {
+        double nextYearPopulation;
         if (sex.equals("Male")) {
             nextYearPopulation = (currentYearAgeZeroPopulation * currentMaleProportionUnderSixMonths * (0.67 * (1 - maleMortality.get(year).get(0)) / meanInfantSurvival(sex, year, 0.0, 0.5) + 0.33 * (1 - maleMortality.get(year + 1).get(0)) / meanInfantSurvival(sex, year + 1, 0.0, 0.5)) * (1 - 0.25 * maleMortality.get(year + 1).get(1)) //assumes constant rate of death in year 1, given low ; can use log estimates
                     + currentYearAgeZeroPopulation * (1 - currentMaleProportionUnderSixMonths) * (1 - maleMortality.get(year).get(0)) / meanInfantSurvival("Male", year, 0.5, 1.0) * (1 - 0.25 * maleMortality.get(year).get(1) - 0.5 * maleMortality.get(year + 1).get(1)) //mortality exposures varies from full year to half year in this group in age
-                    + 0.5 * projectMigration(sex, 0, year, currentYearAgeZeroPopulation) + (1 - migrationFormat) * 0.5 * projectMigration(sex, 1, year + 1, null))
+                    + 0.5 * projectMigration(sex, 0, year, currentYearAgeZeroPopulation) + (1 - migrationFormat) * 0.5 * projectMigration(sex, 1, year + 1, -1.0))
                     / (1 - migrationFormat * maleMigration.get(year + 1).get(1));
         } else {
             nextYearPopulation = (currentYearAgeZeroPopulation * currentFemaleProportionUnderSixMonths * (0.67 * (1 - femaleMortality.get(year).get(0)) / meanInfantSurvival(sex, year, 0.0, 0.5) + 0.33 * (1 - femaleMortality.get(year + 1).get(0)) / meanInfantSurvival(sex, year + 1, 0.0, 0.5)) * (1 - 0.25 * femaleMortality.get(year + 1).get(1)) //assumes constant rate of death in year 1, given low ; can use log estimates
                     + currentYearAgeZeroPopulation * (1 - currentFemaleProportionUnderSixMonths) * (1 - femaleMortality.get(year).get(0)) / meanInfantSurvival(sex, year, 0.5, 1.0) * (1 - 0.25 * femaleMortality.get(year).get(1) - 0.5 * maleMortality.get(year + 1).get(1)) //mortality exposures varies from full year to half year in this group in age
-                    + 0.5 * projectMigration(sex, 0, year, currentYearAgeZeroPopulation) + (1 - migrationFormat) * 0.5 * projectMigration(sex, 1, year + 1, null))
+                    + 0.5 * projectMigration(sex, 0, year, currentYearAgeZeroPopulation) + (1 - migrationFormat) * 0.5 * projectMigration(sex, 1, year + 1, -1.0))
                     / (1 - migrationFormat * femaleMigration.get(year + 1).get(1));
         }
         return nextYearPopulation;
     }
 
-    public Double projectDeaths(String sex, Integer age, Integer year, Double currentYearPopulation) {
+    public double projectDeaths(String sex, int age, int year, double currentYearPopulation) {
         return 0.0;
     }
 
-    public Double projectMigration(String sex, Integer age, Integer year, Double currentYearPopulation) {
+    public double projectMigration(String sex, int age, int year, double currentYearPopulation) {
         return 0.0;
     }
 
-    public Double projectBirths(String sex, Integer year, Map<Integer, Double> femalePyramid) {
+    public double projectBirths(String sex, int year, Map<Integer, Double> femalePyramid) {
         return 0.0;
     }
 
     //Mean proportion of surviving live births from a to b years ago with constant birth rate; a,b <= 1
-    public Double meanInfantSurvival(String sex, Integer year, Double a, Double b) {
+    public double meanInfantSurvival(String sex, int year, double a, double b) {
         return 0.0;
     }
 
