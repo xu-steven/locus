@@ -34,19 +34,19 @@ public final class MultithreadingUtils {
     }
 
     //Combining partitioned outputs
-    public static List<Object> combinePartitionedOutput (Map<Integer, List<Object>> partitionedOutput, Integer siteCount, Integer taskCount) {
-        Map<Integer, List<Double>> minimumCostMap = new HashMap<>((HashMap<Integer, List<Double>>) partitionedOutput.get(0).get(0)); //Map from centre to (cases, minimum travel cost)
-        List<Integer> minimumCostPositionByOrigin = new ArrayList<>((ArrayList<Integer>) partitionedOutput.get(0).get(1)); //List of the closest positions, in the order of origins/start population centers.
+    public static PositionsAndMap combinePartitionedOutput (Map<Integer, PositionsAndMap> partitionedOutput, Integer siteCount, Integer taskCount) {
+        HashMap<Integer, CasesAndCost> minimumCostMap = new HashMap<>(partitionedOutput.get(0).getMap()); //Map from centre to (cases, minimum travel cost)
+        ArrayList<Integer> minimumCostPositionByOrigin = new ArrayList<>(partitionedOutput.get(0).getPositions()); //List of the closest positions, in the order of origins/start population centers.
         for (int i = 1; i < taskCount; i++) {
-            Map<Integer, List<Double>> partitionMinimumCostMap = (HashMap<Integer, List<Double>>) partitionedOutput.get(i).get(0);
+            Map<Integer, CasesAndCost> partitionMinimumCostMap = partitionedOutput.get(i).getMap();
             for (int j = 0; j < siteCount; j++) {
-                List<Double> partitionPositionCasesCost = partitionMinimumCostMap.get(j);
-                double positionCaseCount = minimumCostMap.get(j).get(0) + partitionPositionCasesCost.get(0);
-                double positionCost = minimumCostMap.get(j).get(1) + partitionPositionCasesCost.get(1);
-                minimumCostMap.put(j, Arrays.asList(positionCaseCount, positionCost));
+                CasesAndCost partitionPositionCasesCost = partitionMinimumCostMap.get(j);
+                double positionCaseCount = minimumCostMap.get(j).getCases() + partitionPositionCasesCost.getCases();
+                double positionCost = minimumCostMap.get(j).getCost() + partitionPositionCasesCost.getCost();
+                minimumCostMap.put(j, new CasesAndCost(positionCaseCount, positionCost));
             }
-            minimumCostPositionByOrigin.addAll((ArrayList<Integer>) partitionedOutput.get(i).get(1));
+            minimumCostPositionByOrigin.addAll(partitionedOutput.get(i).getPositions());
         }
-        return Arrays.asList(minimumCostMap, minimumCostPositionByOrigin);
+        return new PositionsAndMap(minimumCostPositionByOrigin, minimumCostMap);
     }
 }
