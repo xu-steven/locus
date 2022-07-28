@@ -8,9 +8,9 @@ public class LeveledSiteConfigurationForPermanentCenters extends SiteConfigurati
     protected List<List<Integer>> higherLevelSitesArray; //array containing lists of higher level sites
     protected Set<Integer> allHigherLevelSites;
     protected List<Double> higherLevelCosts; //cost for each higher level
-    protected List<List<Integer>> higherLevelMinimumPositionsByOrigin; //analogue of minimumPositionsByOrigin for each higher level
+    protected int[][] higherLevelMinimumPositionsByOrigin; //analogue of minimumPositionsByOrigin for each higher level
 
-    public LeveledSiteConfigurationForPermanentCenters(List<Integer> sites, double cost, List<Integer> minimumPositionsByOrigin, List<List<Integer>> higherLevelSitesArray, Set<Integer> allHigherLevelSites, List<Double> higherLevelCosts, List<List<Integer>> higherLevelMinimumPositionsByOrigin) {
+    public LeveledSiteConfigurationForPermanentCenters(List<Integer> sites, double cost, int[] minimumPositionsByOrigin, List<List<Integer>> higherLevelSitesArray, Set<Integer> allHigherLevelSites, List<Double> higherLevelCosts, int[][] higherLevelMinimumPositionsByOrigin) {
         super(sites, cost, minimumPositionsByOrigin);
         this.higherLevelSitesArray = higherLevelSitesArray;
         this.allHigherLevelSites = allHigherLevelSites;
@@ -43,21 +43,21 @@ public class LeveledSiteConfigurationForPermanentCenters extends SiteConfigurati
 
         //Compute initial cost and list of the closest of current positions for each originating population center
         ConfigurationCostAndPositions initialCostAndPositions = initialCost(sites, searchParameters.getPermanentCentersCount(), searchParameters.getMinPermanentPositionByOrigin(), searchParameters.getMinPermanentCostByOrigin(),
-                searchParameters.getMinimumCasesByLevel().get(0), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(),
+                searchParameters.getMinimumCasesByLevel().get(0), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(),
                 taskCount, searchParameters.getPartitionedOrigins(), executor);
         cost = initialCostAndPositions.getCost() * searchParameters.getServicedProportionByLevel().get(0);
         minimumPositionsByOrigin = initialCostAndPositions.getPositions();
 
         //Adjust cost for higher level positions
         higherLevelCosts = new ArrayList<>();
-        higherLevelMinimumPositionsByOrigin = new ArrayList<>();
+        higherLevelMinimumPositionsByOrigin = new int[searchParameters.getHigherCenterLevels()][searchParameters.getOriginCount()];
         for (int i = 0; i < searchParameters.getHigherCenterLevels(); ++i) {
             ConfigurationCostAndPositions initialHigherLevelCostAndPositions = initialCost(i, higherLevelSitesArray.get(i), searchParameters.getPermanentHLCentersCount(), searchParameters.getMinPermanentHLPositionByOrigin(),
-                    searchParameters.getMinPermanentHLCostByOrigin(), searchParameters.getMinimumCasesByLevel().get(i + 1), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
+                    searchParameters.getMinPermanentHLCostByOrigin(), searchParameters.getMinimumCasesByLevel().get(i + 1), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
             double initialHigherLevelCost = initialHigherLevelCostAndPositions.getCost() * searchParameters.getServicedProportionByLevel().get(i + 1);
             cost += initialHigherLevelCost;
             higherLevelCosts.add(initialHigherLevelCost);
-            higherLevelMinimumPositionsByOrigin.add(initialHigherLevelCostAndPositions.getPositions());
+            higherLevelMinimumPositionsByOrigin[i] = initialHigherLevelCostAndPositions.getPositions();
         }
     }
 
@@ -71,15 +71,15 @@ public class LeveledSiteConfigurationForPermanentCenters extends SiteConfigurati
         //Compute cost of new positions and update list of the closest of current positions for each population center
         ConfigurationCostAndPositions updatedResult = shiftSiteCost(newSites, positionToShift, newSite, minimumPositionsByOrigin,
                 searchParameters.getPermanentCentersCount(), searchParameters.getMinPermanentPositionByOrigin(), searchParameters.getMinPermanentCostByOrigin(),
-                searchParameters.getMinimumCases(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
+                searchParameters.getMinimumCases(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
         double newCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel().get(0);
-        List<Integer> newMinimumPositionsByOrigin = updatedResult.getPositions();
+        int[] newMinimumPositionsByOrigin = updatedResult.getPositions();
         //Update higher level sites array
         List<List<Integer>> newHigherLevelSitesArray = new ArrayList<>(higherLevelSitesArray);
         Set<Integer> newAllHigherLevelSites = new HashSet<>(allHigherLevelSites);
         Boolean higherLevelSitesChanged = allHigherLevelSites.contains(siteToShift);
         List<Double> newHigherLevelCosts = new ArrayList<>(higherLevelCosts);
-        List<List<Integer>> newHigherLevelMinimumPositionsByOrigin = new ArrayList<>(higherLevelMinimumPositionsByOrigin);
+        int[][] newHigherLevelMinimumPositionsByOrigin = higherLevelMinimumPositionsByOrigin.clone();
         if (higherLevelSitesChanged) {
             List<Object> updatedArrayAndHistory = updateSitesArray(higherLevelSitesArray, siteToShift, newSite);
             newHigherLevelSitesArray = (List<List<Integer>>) updatedArrayAndHistory.get(0);
@@ -89,13 +89,13 @@ public class LeveledSiteConfigurationForPermanentCenters extends SiteConfigurati
             List<Integer> updatedPositions = (List<Integer>) updatedArrayAndHistory.get(2);
             for (int j = 0; j < searchParameters.getHigherCenterLevels(); j++) {
                 if (updateHistory.get(j)) {
-                    updatedResult = SiteConfigurationForPermanentCenters.shiftSiteCost(j, newHigherLevelSitesArray.get(j), updatedPositions.get(j), newSite, higherLevelMinimumPositionsByOrigin.get(j),
+                    updatedResult = SiteConfigurationForPermanentCenters.shiftSiteCost(j, newHigherLevelSitesArray.get(j), updatedPositions.get(j), newSite, higherLevelMinimumPositionsByOrigin[j],
                             searchParameters.getPermanentHLCentersCount(), searchParameters.getMinPermanentHLPositionByOrigin(), searchParameters.getMinPermanentHLCostByOrigin(),
-                            searchParameters.getMinimumCasesByLevel().get(j + 1), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
+                            searchParameters.getMinimumCasesByLevel().get(j + 1), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
                     double levelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel().get(j + 1);
                     newCost += levelCost;
                     newHigherLevelCosts.set(j, levelCost);
-                    newHigherLevelMinimumPositionsByOrigin.set(j, updatedResult.getPositions());
+                    newHigherLevelMinimumPositionsByOrigin[j] = updatedResult.getPositions();
                 } else {
                     newCost += higherLevelCosts.get(j);
                 }
@@ -118,12 +118,12 @@ public class LeveledSiteConfigurationForPermanentCenters extends SiteConfigurati
         newSites.add(unusedSites.get(random.nextInt(unusedSites.size())));
 
         //Compute new parameters
-        ConfigurationCostAndPositions updatedResult = addSiteCost(newSites, minimumPositionsByOrigin, searchParameters.getMinimumCases(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
+        ConfigurationCostAndPositions updatedResult = addSiteCost(newSites, minimumPositionsByOrigin, searchParameters.getMinimumCases(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
         double newCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel().get(0);
         for (double levelCost : higherLevelCosts) { //higher level costs do not change with addition of a lowest level center
             newCost += levelCost;
         }
-        List<Integer> newMinimumPositionsByOrigin = updatedResult.getPositions();
+        int[] newMinimumPositionsByOrigin = updatedResult.getPositions();
 
         return new LeveledSiteConfigurationForPermanentCenters(newSites, newCost, newMinimumPositionsByOrigin, higherLevelSitesArray, allHigherLevelSites, higherLevelCosts, higherLevelMinimumPositionsByOrigin);
     }
@@ -137,18 +137,18 @@ public class LeveledSiteConfigurationForPermanentCenters extends SiteConfigurati
         candidateRemovalSites.removeIf(i -> i >= searchParameters.getPotentialSitesCount());
         Random random = new Random();
         Integer removalSite = candidateRemovalSites.get(random.nextInt(candidateRemovalSites.size()));
-        Integer removalPosition = newSites.indexOf(removalSite);
+        int removalPosition = newSites.indexOf(removalSite);
         newSites.remove(removalSite);
 
         //Compute new parameters
         ConfigurationCostAndPositions updatedResult = SiteConfigurationForPermanentCenters.removeSiteCost(newSites, removalPosition, minimumPositionsByOrigin,
                 searchParameters.getPermanentCentersCount(), searchParameters.getMinPermanentPositionByOrigin(), searchParameters.getMinPermanentCostByOrigin(),
-                searchParameters.getMinimumCases(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
+                searchParameters.getMinimumCases(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
         double newCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel().get(0);
         for (double levelCost : higherLevelCosts) { //higher level costs do not change by requirement
             newCost += levelCost;
         }
-        List<Integer> newMinimumPositionsByOrigin = updatedResult.getPositions();
+        int[] newMinimumPositionsByOrigin = updatedResult.getPositions();
 
         return new LeveledSiteConfigurationForPermanentCenters(newSites, newCost, newMinimumPositionsByOrigin, higherLevelSitesArray, allHigherLevelSites, higherLevelCosts, higherLevelMinimumPositionsByOrigin);
     }
@@ -158,7 +158,7 @@ public class LeveledSiteConfigurationForPermanentCenters extends SiteConfigurati
         cost = cost + newThisLevelCost - currentThisLevelCost;
         higherLevelSitesArray.set(level, newThisLevelSiteConfiguration.getSites());
         higherLevelCosts.set(level, newThisLevelCost);
-        higherLevelMinimumPositionsByOrigin.set(level, newThisLevelSiteConfiguration.getMinimumPositionsByOrigin());
+        higherLevelMinimumPositionsByOrigin[level] = newThisLevelSiteConfiguration.getMinimumPositionsByOrigin();
         allHigherLevelSites = null;
     }
 
@@ -202,7 +202,7 @@ public class LeveledSiteConfigurationForPermanentCenters extends SiteConfigurati
         return higherLevelCosts;
     }
 
-    public List<List<Integer>> getHigherLevelMinimumPositionsByOrigin() {
+    public int[][] getHigherLevelMinimumPositionsByOrigin() {
         return higherLevelMinimumPositionsByOrigin;
     }
 }

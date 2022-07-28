@@ -8,9 +8,9 @@ import java.util.stream.IntStream;
 public class SimAnnealingNeighbor {
 
     //Sort neighbors by ID -> insert in random alternating order by azimuth classification from shortest to longest haversine distance
-    public static List<List<Integer>> sortNeighbors(List<List<Double>> azimuthArray, List<List<Double>> haversineArray, int taskCount, ExecutorService executor) {
+    public static List<List<Integer>> sortNeighbors(double[][] azimuthArray, double[][] haversineArray, int taskCount, ExecutorService executor) {
         System.out.println("Generating sorted neighbors.");
-        Map<Integer, List<Integer>> partitionedOrigins = MultithreadingUtils.orderedPartitionList(IntStream.range(0, azimuthArray.size()).boxed().collect(Collectors.toList()), taskCount);
+        Map<Integer, List<Integer>> partitionedOrigins = MultithreadingUtils.orderedPartitionList(IntStream.range(0, azimuthArray.length).boxed().collect(Collectors.toList()), taskCount);
         CountDownLatch latch = new CountDownLatch(taskCount);
         ConcurrentHashMap<Integer, List<List<Integer>>> partitionedOutput = new ConcurrentHashMap<>();
         for (int i = 0; i < taskCount; i++) {
@@ -28,10 +28,10 @@ public class SimAnnealingNeighbor {
                     Map<Integer, Double> azimuthClassFiveMap = new HashMap<>();
 
                     //For every alternate site location, put it in a corresponding hashmap
-                    for (int k = 0; k < haversineArray.get(0).size(); k++) {
-                        if (azimuthArray.get(j).get(k) == -1.0) continue; //use -1.0 to identify same position, see FileUtils.getInnerAzimuthArrayFromCSV
-                        int azimuthClass = classifyAzimuth(azimuthArray.get(j).get(k));
-                        double haversineDistance = haversineArray.get(j).get(k);
+                    for (int k = 0; k < haversineArray[0].length; k++) {
+                        if (azimuthArray[j][k] == -1.0) continue; //use -1.0 to identify same position, see FileUtils.getInnerAzimuthArrayFromCSV
+                        int azimuthClass = classifyAzimuth(azimuthArray[j][k]);
+                        double haversineDistance = haversineArray[j][k];
                         if (azimuthClass == 0) {
                             azimuthClassZeroMap.put(k, haversineDistance);
                         } else if (azimuthClass == 1) {
@@ -100,7 +100,7 @@ public class SimAnnealingNeighbor {
     }
 
     //Only use if number of origins is equal to number of potential sites.
-    public static List<List<Integer>> sortNeighbors(List<List<Double>> azimuthArray, List<List<Double>> haversineArray, int taskCount, ExecutorService executor, Map<Integer, List<Integer>> partitionedOrigins) {
+    public static List<List<Integer>> sortNeighbors(double[][] azimuthArray, double[][] haversineArray, int taskCount, ExecutorService executor, Map<Integer, List<Integer>> partitionedOrigins) {
         System.out.println("Generating sorted neighbors.");
         CountDownLatch latch = new CountDownLatch(taskCount);
         ConcurrentHashMap<Integer, List<List<Integer>>> partitionedOutput = new ConcurrentHashMap<>();
@@ -119,10 +119,10 @@ public class SimAnnealingNeighbor {
                     Map<Integer, Double> azimuthClassFiveMap = new HashMap<>();
 
                     //For every alternate site location, put it in a corresponding hashmap
-                    for (int k = 0; k < haversineArray.get(0).size(); k++) {
-                        if (azimuthArray.get(j).get(k) == -1.0) continue; //use -1.0 to identify same position, see FileUtils.getInnerAzimuthArrayFromCSV
-                        int azimuthClass = classifyAzimuth(azimuthArray.get(j).get(k));
-                        double haversineDistance = haversineArray.get(j).get(k);
+                    for (int k = 0; k < haversineArray[0].length; k++) {
+                        if (azimuthArray[j][k] == -1.0) continue; //use -1.0 to identify same position, see FileUtils.getInnerAzimuthArrayFromCSV
+                        int azimuthClass = classifyAzimuth(azimuthArray[j][k]);
+                        double haversineDistance = haversineArray[j][k];
                         if (azimuthClass == 0) {
                             azimuthClassZeroMap.put(k, haversineDistance);
                         } else if (azimuthClass == 1) {

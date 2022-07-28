@@ -1,7 +1,4 @@
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -9,24 +6,101 @@ import java.util.List;
 public final class FileUtils {
     private FileUtils(){}
 
+    //Find number of origins based on graph location
+    public static int getOriginCount(String graphLocation) {
+        InputStream inputStream;
+        int originCount = 0;
+        try {
+            inputStream = new BufferedInputStream(new FileInputStream(graphLocation));
+            byte[] chars = new byte[1024];
+            int readChars = inputStream.read(chars);
+            if (readChars == -1) {
+                return 0;
+            }
+            while (readChars == 1024) {
+                for (int i = 0; i < 1024; i++) {
+                    if (chars[i] == '\n') {
+                        ++originCount;
+                    }
+                }
+                readChars = inputStream.read(chars);
+            }
+            while (readChars != -1) {
+                for (int i = 0; i < readChars; ++i) {
+                    if (chars[i] == '\n') {
+                        ++originCount;
+                    }
+                }
+                readChars = inputStream.read(chars);
+            }
+            inputStream.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return Math.max(1, originCount) - 1;
+    }
+
+    //Find number of origins based on graph location
+    public static int getSitesCount(String graphLocation) {
+        InputStream inputStream;
+        int potentialSitesCount = 0;
+        try {
+            inputStream = new BufferedInputStream(new FileInputStream(graphLocation));
+            byte[] chars = new byte[1024];
+            int readChars = inputStream.read(chars);
+            if (readChars == -1) {
+                return 0;
+            }
+            boolean reachedNextLine = false;
+            while (readChars == 1024) {
+                for (int i = 0; i < 1024; i++) {
+                    if (chars[i] == ',') {
+                        ++potentialSitesCount;
+                    } else if (chars[i] == '\n') {
+                        reachedNextLine = true;
+                        break;
+                    }
+                }
+                if (reachedNextLine) break;
+                readChars = inputStream.read(chars);
+            }
+            if (!reachedNextLine) {
+                while (readChars != -1) {
+                    for (int i = 0; i < readChars; ++i) {
+                        if (chars[i] == ',') {
+                            ++potentialSitesCount;
+                        } else if (chars[i] == '\n') {
+                            reachedNextLine = true;
+                            break;
+                        }
+                    }
+                    if (reachedNextLine) break;
+                    readChars = inputStream.read(chars);
+                }
+            }
+            inputStream.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return potentialSitesCount;
+    }
+
     //Delete first row and column (identifiers) of census CSV to form census array
-    public static List<List<Double>> getInnerDoubleArrayFromCSV(String fileLocation) {
+    public static double[][] getInnerDoubleArrayFromCSV(String fileLocation, int originCount, int siteCount) {
         System.out.println("Importing " + fileLocation + " into memory.");
         BufferedReader reader;
         String currentLine;
-        List<List<Double>> innerDoubleArray = new ArrayList<>();
+        double[][] innerDoubleArray = new double[originCount][siteCount];
         try {
             reader = new BufferedReader(new FileReader(fileLocation));
-            int counter = 0;
+            int originCounter = 0;
+            reader.readLine(); //skip first line
             while ((currentLine = reader.readLine()) != null) {
-                counter += 1;
-                if (counter == 1) continue;
                 String[] values = currentLine.split(",");
-                List<Double> doubleValues = new ArrayList<>();
                 for (int i = 1; i < values.length; i++) {
-                    doubleValues.add(Double.valueOf(values[i]));
+                    innerDoubleArray[originCounter][i - 1] = Double.valueOf(values[i]);
                 }
-                innerDoubleArray.add(doubleValues);
+                originCounter += 1;
             }
             reader.close();
         } catch (Exception e) {
@@ -37,27 +111,25 @@ public final class FileUtils {
     }
 
     //Variant of getInnerDoubleArrayFromCSV that reclassifies N/A as -1 to denote identical origin and site
-    public static List<List<Double>> getInnerAzimuthArrayFromCSV(String fileLocation) {
+    public static double[][] getInnerAzimuthArrayFromCSV(String fileLocation, int originCount, int siteCount) {
         System.out.println("Importing " + fileLocation + " into memory.");
         BufferedReader reader;
         String currentLine;
-        List<List<Double>> innerDoubleArray = new ArrayList<>();
+        double[][] innerDoubleArray = new double[originCount][siteCount];
         try {
             reader = new BufferedReader(new FileReader(fileLocation));
-            int counter = 0;
+            int originCounter = 0;
+            reader.readLine(); //skip first line
             while ((currentLine = reader.readLine()) != null) {
-                counter += 1;
-                if (counter == 1) continue;
                 String[] values = currentLine.split(",");
-                List<Double> doubleValues = new ArrayList<>();
                 for (int i = 1; i < values.length; i++) {
                     if (values[i].equals("N/A")) {
-                        doubleValues.add(-1.0);
+                        innerDoubleArray[originCounter][i - 1] = -1.0;
                     } else {
-                        doubleValues.add(Double.valueOf(values[i]));
+                        innerDoubleArray[originCounter][i - 1] = Double.valueOf(values[i]);
                     }
                 }
-                innerDoubleArray.add(doubleValues);
+                originCounter += 1;
             }
             reader.close();
         } catch (Exception e) {
@@ -68,23 +140,23 @@ public final class FileUtils {
     }
 
     //Extract case counts from CSV with column heading
-    public static List<Double> getCaseCountsFromCSV(String fileLocation, String caseCountColumnHeading) {
+    public static double[] getCaseCountsFromCSV(String fileLocation, String caseCountColumnHeading, int originCount) {
         System.out.println("Importing case counts into memory.");
         BufferedReader reader;
         String currentLine;
-        List<Double> caseCounts = new ArrayList<>();
+        double[] caseCounts = new double[originCount];
         try {
             reader = new BufferedReader(new FileReader(fileLocation));
-            int counter = 0;
+            int counter = -1;
             int caseCountHeadingIndex = -1;
             while ((currentLine = reader.readLine()) != null) {
-                counter += 1;
                 String[] values = currentLine.split(",");
-                if (counter == 1) {
+                if (counter == -1) {
                     caseCountHeadingIndex = findColumnIndex(Arrays.asList(values), caseCountColumnHeading);
                 } else {
-                    caseCounts.add(Double.valueOf(values[caseCountHeadingIndex]));
+                    caseCounts[counter] = Double.valueOf(values[caseCountHeadingIndex]);
                 }
+                counter += 1;
             }
             reader.close();
         } catch (Exception e) {

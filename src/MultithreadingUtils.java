@@ -49,4 +49,19 @@ public final class MultithreadingUtils {
         }
         return new PositionsAndMap(minimumCostPositionByOrigin, minimumCostMap);
     }
+
+    //Combining partitioned outputs
+    public static HashMap<Integer, CasesAndCost> combinePartitionedMinimumCostMap (HashMap<Integer, CasesAndCost>[] partitionedMinimumCostMap, Integer siteCount, Integer taskCount) {
+        HashMap<Integer, CasesAndCost> minimumCostMap = new HashMap<>(partitionedMinimumCostMap[0]); //Map from centre to (cases, minimum travel cost)
+        for (int i = 1; i < taskCount; i++) {
+            Map<Integer, CasesAndCost> partitionMinimumCostMap = partitionedMinimumCostMap[i];
+            for (int j = 0; j < siteCount; j++) {
+                CasesAndCost partitionPositionCasesCost = partitionMinimumCostMap.get(j);
+                double positionCaseCount = minimumCostMap.get(j).getCases() + partitionPositionCasesCost.getCases();
+                double positionCost = minimumCostMap.get(j).getCost() + partitionPositionCasesCost.getCost();
+                minimumCostMap.put(j, new CasesAndCost(positionCaseCount, positionCost));
+            }
+        }
+        return minimumCostMap;
+    }
 }

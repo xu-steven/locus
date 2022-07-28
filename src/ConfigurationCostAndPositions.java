@@ -1,11 +1,11 @@
 import java.util.List;
 
-public record ConfigurationCostAndPositions(double cost, List<Integer> minimumCostPositions) {
+public record ConfigurationCostAndPositions(double cost, int[] minimumCostPositions) {
     public double getCost() {
         return cost;
     }
 
-    public List<Integer> getPositions() {
+    public int[] getPositions() {
         return minimumCostPositions;
     }
 }

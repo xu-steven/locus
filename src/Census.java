@@ -9,11 +9,11 @@ import java.util.List;
 
 public class Census {
     public static List<String> orderedSubsetNames; //same order as population by subset
-    public static List<List<Double>> populationBySubset;
+    public static double[][] populationBySubset;
 
     public Census(String censusFileLocation) {
         this.orderedSubsetNames = FileUtils.getCSVHeadings(censusFileLocation);
-        this.populationBySubset = FileUtils.getInnerDoubleArrayFromCSV(censusFileLocation);
+        this.populationBySubset = FileUtils.getInnerDoubleArrayFromCSV(censusFileLocation, FileUtils.getOriginCount(censusFileLocation), FileUtils.getSitesCount(censusFileLocation));
     }
 
     public static void main(String[] args) throws IOException {
@@ -50,10 +50,10 @@ public class Census {
     public static List<Double> projectCases(String incidenceFileLocation) {
         List<Double> orderedIncidenceDensityRate = getIncidenceDensityRate(incidenceFileLocation);
         List<Double> projectedCasesByOrigin = new ArrayList<>();
-        for (int i = 0; i < populationBySubset.size(); i++) {
+        for (int i = 0; i < populationBySubset.length; i++) {
             Double currentOriginCases = 0.0;
             for (int j = 0; j < orderedSubsetNames.size(); j++) {
-                currentOriginCases += populationBySubset.get(i).get(j) * orderedIncidenceDensityRate.get(j);
+                currentOriginCases += populationBySubset[i][j] * orderedIncidenceDensityRate.get(j);
             }
             projectedCasesByOrigin.add(currentOriginCases);
         }

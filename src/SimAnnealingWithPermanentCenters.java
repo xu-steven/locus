@@ -1,11 +1,7 @@
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 public class SimAnnealingWithPermanentCenters extends SimAnnealingSearch{
 
@@ -112,16 +108,16 @@ public class SimAnnealingWithPermanentCenters extends SimAnnealingSearch{
                 List<Integer> currentThisLevelSites = currentSiteConfiguration.getHigherLevelSitesArray().get(i);
                 int currentThisLevelSiteCount = currentThisLevelSites.size();
                 double currentThisLevelCost = currentSiteConfiguration.getHigherLevelCosts().get(i);
-                List<Integer> currentThisLevelMinimumPositionsByOrigin = currentSiteConfiguration.getHigherLevelMinimumPositionsByOrigin().get(i);
+                int[] currentThisLevelMinimumPositionsByOrigin = currentSiteConfiguration.getHigherLevelMinimumPositionsByOrigin()[i];
                 SiteConfigurationForPermanentCenters currentThisLevelSiteConfiguration = new SiteConfigurationForPermanentCenters(currentThisLevelSites, currentThisLevelCost, currentThisLevelMinimumPositionsByOrigin);
                 //Create new site configuration and compute cost
                 SiteConfigurationForPermanentCenters newThisLevelSiteConfiguration;
                 double adjustmentType = Math.random();
-                if ((adjustmentType < 0.1 || currentThisLevelSiteCount == searchParameters.getPermanentHLCentersCount().get(i)) && currentThisLevelSiteCount != currentSiteConfiguration.getSites().size()) { //add higher level site to level
+                if ((adjustmentType < 0.1 || currentThisLevelSiteCount == searchParameters.getPermanentHLCentersCount()[i]) && currentThisLevelSiteCount != currentSiteConfiguration.getSites().size()) { //add higher level site to level
                     newThisLevelSiteConfiguration = currentThisLevelSiteConfiguration.addSite(currentSiteConfiguration.getSites(), searchParameters.getServicedProportionByLevel().get(i + 1), searchParameters.getMinimumCasesByLevel().get(i + 1), searchParameters, taskCount, executor);
-                } else if ((adjustmentType < 0.2 || currentThisLevelSiteCount == currentSiteConfiguration.getSites().size()) && currentThisLevelSiteCount > searchParameters.getPermanentHLCentersCount().get(i)) { //remove higher level site from level
+                } else if ((adjustmentType < 0.2 || currentThisLevelSiteCount == currentSiteConfiguration.getSites().size()) && currentThisLevelSiteCount > searchParameters.getPermanentHLCentersCount()[i]) { //remove higher level site from level
                     newThisLevelSiteConfiguration = currentThisLevelSiteConfiguration.removeSite(i, searchParameters.getServicedProportionByLevel().get(i + 1), searchParameters.getMinimumCasesByLevel().get(i + 1), searchParameters, taskCount, executor);
-                } else if (currentThisLevelSiteCount > searchParameters.getPermanentHLCentersCount().get(i)){
+                } else if (currentThisLevelSiteCount > searchParameters.getPermanentHLCentersCount()[i]){
                     newThisLevelSiteConfiguration = currentThisLevelSiteConfiguration.shiftSite(i, currentSiteConfiguration.getSites(), searchParameters.getServicedProportionByLevel().get(i + 1), searchParameters.getMinimumCasesByLevel().get(i + 1), searchParameters, taskCount, executor);
                 } else { //shift one of the higher level sites
                     newThisLevelSiteConfiguration = currentThisLevelSiteConfiguration;

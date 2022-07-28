@@ -1,13 +1,17 @@
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Stream;
 
 public class ArrayOperations {
     //Merge two double arrays with same number of rows, [][].
-    public static <E> List<List<E>> mergeArrays(List<List<E>> firstArray, List<List<E>> secondArray) {
-        List<List<E>> mergedArray = new ArrayList<>();
-        for (int i = 0; i < firstArray.size(); i++) {
-            mergedArray.add(Stream.concat(firstArray.get(i).stream(), secondArray.get(i).stream()).toList());
+    public static double[][] mergeDoubleArrays(double[][] firstArray, double[][] secondArray) {
+        double[][] mergedArray = new double[firstArray.length][firstArray[0].length + secondArray[0].length];
+        for (int i = 0; i < firstArray.length; i++) {
+            for (int j = 0; j < firstArray[i].length; j++) {
+                mergedArray[i][j] = firstArray[i][j];
+            }
+            for (int j = firstArray[i].length; j < firstArray[i].length + secondArray[i].length; j++) {
+                mergedArray[i][j] = secondArray[i][j - firstArray[i].length];
+            }
         }
         return mergedArray;
     }

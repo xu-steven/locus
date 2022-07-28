@@ -9,8 +9,8 @@ public class SimAnnealingWithoutPermanentCenters extends SimAnnealingSearch{
 
     public SimAnnealingWithoutPermanentCenters() {
         //Simulated annealing configuration
-        this.initialTemp = 1000000;
-        this.finalTemp = 1;
+        this.initialTemp = 10000;
+        this.finalTemp = 10;
         this.coolingRate = 0.9995;
         this.finalNeighborhoodSize = -1; //Determining finalNeighborhoodSize based on number of centers to optimize if -1
         this.finalNeighborhoodSizeIteration = 20000;
@@ -39,7 +39,7 @@ public class SimAnnealingWithoutPermanentCenters extends SimAnnealingSearch{
         List<List<Integer>> higherLevelMinimumSitesArray = new ArrayList<>();
         //development start
         long runtime = 0;
-        for (int i = 0; i < 50; i++) {//dev
+        for (int i = 0; i < 20; i++) {//dev
             long startTime = System.currentTimeMillis();
             List<Object> solutionWithNCenters = leveledOptimizeCenters(6, 6, 6);
             long endTime = System.currentTimeMillis();
@@ -172,7 +172,7 @@ public class SimAnnealingWithoutPermanentCenters extends SimAnnealingSearch{
                 List<Integer> currentThisLevelSites = currentSiteConfiguration.getHigherLevelSitesArray().get(i);
                 int currentThisLevelSiteCount = currentThisLevelSites.size();
                 double currentThisLevelCost = currentSiteConfiguration.getHigherLevelCosts().get(i);
-                List<Integer> currentThisLevelMinimumPositionsByOrigin = currentSiteConfiguration.getHigherLevelMinimumPositionsByOrigin().get(i);
+                int[] currentThisLevelMinimumPositionsByOrigin = currentSiteConfiguration.getHigherLevelMinimumPositionsByOrigin()[i];
                 SiteConfiguration currentThisLevelSiteConfiguration = new SiteConfiguration(currentThisLevelSites, currentThisLevelCost, currentThisLevelMinimumPositionsByOrigin);
                 //Create new site configuration and compute cost
                 SiteConfiguration newThisLevelSiteConfiguration;
@@ -271,7 +271,7 @@ public class SimAnnealingWithoutPermanentCenters extends SimAnnealingSearch{
                 List<Integer> currentThisLevelSites = currentSiteConfiguration.getHigherLevelSitesArray().get(i);
                 int currentThisLevelSiteCount = currentThisLevelSites.size();
                 double currentThisLevelCost = currentSiteConfiguration.getHigherLevelCosts().get(i);
-                List<Integer> currentThisLevelMinimumPositionsByOrigin = currentSiteConfiguration.getHigherLevelMinimumPositionsByOrigin().get(i);
+                int[] currentThisLevelMinimumPositionsByOrigin = currentSiteConfiguration.getHigherLevelMinimumPositionsByOrigin()[i];
                 SiteConfiguration currentThisLevelSiteConfiguration = new SiteConfiguration(currentThisLevelSites, currentThisLevelCost, currentThisLevelMinimumPositionsByOrigin);
                 //Create new site configuration and compute cost
                 SiteConfiguration newThisLevelSiteConfiguration;
