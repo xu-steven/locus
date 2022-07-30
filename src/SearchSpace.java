@@ -7,8 +7,8 @@ public class SearchSpace {
     //New center properties
     private final int minNewCenters; //Usually 1.
     private final int maxNewCenters; //Maximum number of cancer centers to try
-    private final List<Double> minimumCasesByLevel; //list in ascending order minimum cases for increasingly tertiary cancer center services
-    private final List<Double> servicedProportionByLevel; //list in ascending order
+    private final double[] minimumCasesByLevel; //list in ascending order minimum cases for increasingly tertiary cancer center services
+    private final double[] servicedProportionByLevel; //list in ascending order
 
     //Permanent higher level services to maintain
     private List<List<Integer>> permanentHLCenters;
@@ -32,29 +32,29 @@ public class SearchSpace {
     private int[] permanentHLCentersCount;
     private int permanentAllHLCentersCount;
 
-    public SearchSpace(int minNewCenters, int maxNewCenters, List<Double> minimumCasesByLevel, List<Double> servicedProportionByLevel,
+    public SearchSpace(int minNewCenters, int maxNewCenters, double[] minimumCasesByLevel, double[] servicedProportionByLevel,
                        String censusFileLocation, String graphLocation, String azimuthLocation, String haversineLocation,
-                       int threadCount, int taskCount, ExecutorService executor) {
+                       int taskCount, ExecutorService executor) {
         this.minNewCenters = minNewCenters;
         this.maxNewCenters = maxNewCenters;
         this.minimumCasesByLevel = minimumCasesByLevel;
         this.servicedProportionByLevel = servicedProportionByLevel;
 
         //Determining remaining variables
-        this.minimumCases = minimumCasesByLevel.get(0);
-        this.higherCenterLevels = minimumCasesByLevel.size() - 1;
+        this.minimumCases = minimumCasesByLevel[0];
+        this.higherCenterLevels = minimumCasesByLevel.length - 1;
         this.potentialSitesCount = FileUtils.getSitesCount(graphLocation);
         this.originCount = FileUtils.getOriginCount(graphLocation);
         this.caseCountByOrigin = FileUtils.getCaseCountsFromCSV(censusFileLocation, "Population", originCount);
         this.graphArray = FileUtils.getInnerDoubleArrayFromCSV(graphLocation, originCount, potentialSitesCount);
-        this.partitionedOrigins = MultithreadingUtils.orderedPartitionList(IntStream.range(0, originCount).boxed().collect(Collectors.toList()), threadCount);
+        this.partitionedOrigins = MultithreadingUtils.orderedPartitionList(IntStream.range(0, originCount).boxed().collect(Collectors.toList()), taskCount);
         this.sortedNeighbors = SimAnnealingNeighbor.sortNeighbors(FileUtils.getInnerAzimuthArrayFromCSV(azimuthLocation, originCount, potentialSitesCount), FileUtils.getInnerDoubleArrayFromCSV(haversineLocation, originCount, potentialSitesCount), taskCount, executor);
     }
 
     //When there are permanent centers to put in graphArray
-    public SearchSpace(int minNewCenters, int maxNewCenters, List<List<Integer>> permanentHLCenters, List<Double> minimumCasesByLevel, List<Double> servicedProportionByLevel,
+    public SearchSpace(int minNewCenters, int maxNewCenters, List<List<Integer>> permanentHLCenters, double[] minimumCasesByLevel, double[] servicedProportionByLevel,
                                            String censusFileLocation, String permanentGraphLocation, String potentialGraphLocation, String azimuthLocation, String haversineLocation,
-                                           int threadCount, int taskCount, ExecutorService executor) {
+                                           int taskCount, ExecutorService executor) {
         this.minNewCenters = minNewCenters;
         this.maxNewCenters = maxNewCenters;
         this.minimumCasesByLevel = minimumCasesByLevel;
@@ -62,15 +62,15 @@ public class SearchSpace {
         this.permanentHLCenters = permanentHLCenters;
 
         //Determining remaining variables
-        this.minimumCases = minimumCasesByLevel.get(0);
-        this.higherCenterLevels = minimumCasesByLevel.size() - 1;
+        this.minimumCases = minimumCasesByLevel[0];
+        this.higherCenterLevels = minimumCasesByLevel.length - 1;
         this.originCount = FileUtils.getOriginCount(potentialGraphLocation);
         this.potentialSitesCount = FileUtils.getSitesCount(potentialGraphLocation);
         this.caseCountByOrigin = FileUtils.getCaseCountsFromCSV(censusFileLocation, "Population", originCount);
         double[][] permanentGraphArray = FileUtils.getInnerDoubleArrayFromCSV(permanentGraphLocation, originCount, FileUtils.getSitesCount(permanentGraphLocation));
         double[][] potentialGraphArray = FileUtils.getInnerDoubleArrayFromCSV(potentialGraphLocation, originCount, potentialSitesCount);
         this.graphArray = ArrayOperations.mergeDoubleArrays(potentialGraphArray, permanentGraphArray);
-        partitionedOrigins = MultithreadingUtils.orderedPartitionList(IntStream.range(0, originCount).boxed().collect(Collectors.toList()), threadCount);
+        partitionedOrigins = MultithreadingUtils.orderedPartitionList(IntStream.range(0, originCount).boxed().collect(Collectors.toList()), taskCount);
         this.sortedNeighbors = SimAnnealingNeighbor.sortNeighbors(FileUtils.getInnerAzimuthArrayFromCSV(azimuthLocation, originCount, potentialSitesCount), FileUtils.getInnerDoubleArrayFromCSV(haversineLocation, originCount, potentialSitesCount), taskCount, executor);
 
         //Determining remaining permanent center variables
@@ -141,11 +141,11 @@ public class SearchSpace {
         return maxNewCenters;
     }
 
-    public List<Double> getMinimumCasesByLevel() {
+    public double[] getMinimumCasesByLevel() {
         return minimumCasesByLevel;
     }
 
-    public List<Double> getServicedProportionByLevel() {
+    public double[] getServicedProportionByLevel() {
         return servicedProportionByLevel;
     }
 

@@ -7,10 +7,10 @@ import java.util.stream.Collectors;
 public class LeveledSiteConfiguration extends SiteConfiguration {
     protected List<List<Integer>> higherLevelSitesArray; //array containing lists of higher level sites
     protected Set<Integer> allHigherLevelSites;
-    protected List<Double> higherLevelCosts; //cost for each higher level
+    protected double[] higherLevelCosts; //cost for each higher level
     protected int[][] higherLevelMinimumPositionsByOrigin; //analogue of minimumPositionsByOrigin for each higher level
 
-    public LeveledSiteConfiguration(List<Integer> sites, double cost, int[] minimumPositionsByOrigin, List<List<Integer>> higherLevelSitesArray, Set<Integer> allHigherLevelSites, List<Double> higherLevelCosts, int[][] higherLevelMinimumPositionsByOrigin) {
+    public LeveledSiteConfiguration(List<Integer> sites, double cost, int[] minimumPositionsByOrigin, List<List<Integer>> higherLevelSitesArray, Set<Integer> allHigherLevelSites, double[] higherLevelCosts, int[][] higherLevelMinimumPositionsByOrigin) {
         super(sites, cost, minimumPositionsByOrigin);
         this.higherLevelSitesArray = higherLevelSitesArray;
         this.allHigherLevelSites = allHigherLevelSites;
@@ -35,18 +35,18 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
         }
 
         //Compute initial cost and list of the closest of current positions for each originating population center
-        ConfigurationCostAndPositions initialCostAndPositions = initialCost(sites, searchParameters.getMinimumCasesByLevel().get(0), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
-        cost = initialCostAndPositions.getCost() * searchParameters.getServicedProportionByLevel().get(0);
+        ConfigurationCostAndPositions initialCostAndPositions = initialCost(sites, searchParameters.getMinimumCasesByLevel()[0], searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
+        cost = initialCostAndPositions.getCost() * searchParameters.getServicedProportionByLevel()[0];
         minimumPositionsByOrigin = initialCostAndPositions.getPositions();
 
         //Adjust cost for higher level positions
-        higherLevelCosts = new ArrayList<>();
+        higherLevelCosts = new double[searchParameters.getHigherCenterLevels()];
         higherLevelMinimumPositionsByOrigin = new int[searchParameters.getHigherCenterLevels()][searchParameters.getOriginCount()];
         for (int i = 0; i < searchParameters.getHigherCenterLevels(); ++i) {
-            ConfigurationCostAndPositions initialHigherLevelCostAndPositions = initialCost(higherLevelSitesArray.get(i), searchParameters.getMinimumCasesByLevel().get(i + 1), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
-            double initialHigherLevelCost = initialHigherLevelCostAndPositions.getCost() * searchParameters.getServicedProportionByLevel().get(i + 1);
+            ConfigurationCostAndPositions initialHigherLevelCostAndPositions = initialCost(higherLevelSitesArray.get(i), searchParameters.getMinimumCasesByLevel()[i + 1], searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
+            double initialHigherLevelCost = initialHigherLevelCostAndPositions.getCost() * searchParameters.getServicedProportionByLevel()[i + 1];
             cost += initialHigherLevelCost;
-            higherLevelCosts.add(initialHigherLevelCost);
+            higherLevelCosts[i] = initialHigherLevelCost;
             higherLevelMinimumPositionsByOrigin[i] = initialHigherLevelCostAndPositions.getPositions();
         }
     }
@@ -61,33 +61,34 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
         newSites.set(positionToShift, newSite);
         //Compute cost of new positions and update list of the closest of current positions for each population center
         ConfigurationCostAndPositions updatedResult = shiftSiteCost(newSites, positionToShift, newSite, minimumPositionsByOrigin, searchParameters.getMinimumCases(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
-        double newCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel().get(0);
+        double newCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[0];
         int[] newMinimumPositionsByOrigin = updatedResult.getPositions();
         //Update higher level sites array
-        List<List<Integer>> newHigherLevelSitesArray = new ArrayList<>(higherLevelSitesArray);
+        List<List<Integer>> newHigherLevelSitesArray;
         Set<Integer> newAllHigherLevelSites = new HashSet<>(allHigherLevelSites);
         Boolean higherLevelSitesChanged = allHigherLevelSites.contains(siteToShift);
-        List<Double> newHigherLevelCosts = new ArrayList<>(higherLevelCosts);
+        double[] newHigherLevelCosts = higherLevelCosts.clone();
         int[][] newHigherLevelMinimumPositionsByOrigin = higherLevelMinimumPositionsByOrigin.clone();
         if (higherLevelSitesChanged) {
-            List<Object> updatedArrayAndHistory = updateSitesArray(higherLevelSitesArray, siteToShift, newSite);
-            newHigherLevelSitesArray = (List<List<Integer>>) updatedArrayAndHistory.get(0);
+            SitesAndUpdateHistory updatedArrayAndHistory = updateSitesArray(higherLevelSitesArray, siteToShift, newSite);
+            newHigherLevelSitesArray = updatedArrayAndHistory.getUpdatedSitesArray();
             newAllHigherLevelSites.remove(siteToShift);
             newAllHigherLevelSites.add(newSite);
-            List<Boolean> updateHistory = (List<Boolean>) updatedArrayAndHistory.get(1);
-            List<Integer> updatedPositions = (List<Integer>) updatedArrayAndHistory.get(2);
+            boolean[] updateHistory = updatedArrayAndHistory.getUpdateHistory();
+            int[] updatedPositions = updatedArrayAndHistory.getUpdatedPositions();
             for (int j = 0; j < searchParameters.getHigherCenterLevels(); j++) {
-                if (updateHistory.get(j)) {
-                    updatedResult = shiftSiteCost(newHigherLevelSitesArray.get(j), updatedPositions.get(j), newSite, higherLevelMinimumPositionsByOrigin[j], searchParameters.getMinimumCasesByLevel().get(j + 1), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
-                    double levelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel().get(j + 1);
+                if (updateHistory[j]) {
+                    updatedResult = shiftSiteCost(newHigherLevelSitesArray.get(j), updatedPositions[j], newSite, higherLevelMinimumPositionsByOrigin[j], searchParameters.getMinimumCasesByLevel()[j + 1], searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
+                    double levelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[j + 1];
                     newCost += levelCost;
-                    newHigherLevelCosts.set(j, levelCost);
+                    newHigherLevelCosts[j] = levelCost;
                     newHigherLevelMinimumPositionsByOrigin[j] = updatedResult.getPositions();
                 } else {
-                    newCost += higherLevelCosts.get(j);
+                    newCost += higherLevelCosts[j];
                 }
             }
         } else {
+            newHigherLevelSitesArray = new ArrayList<>(higherLevelSitesArray);
             for (double levelCost : higherLevelCosts) {
                 newCost += levelCost;
             }
@@ -106,7 +107,7 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
 
         //Compute new parameters
         ConfigurationCostAndPositions updatedResult = addSiteCost(newSites, minimumPositionsByOrigin, searchParameters.getMinimumCases(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
-        double newCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel().get(0);
+        double newCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[0];
         for (double levelCost : higherLevelCosts) { //higher level costs do not change with addition of a lowest level center
             newCost += levelCost;
         }
@@ -128,7 +129,7 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
 
         //Compute new parameters
         ConfigurationCostAndPositions updatedResult = removeSiteCost(newSites, removalPosition, minimumPositionsByOrigin, searchParameters.getMinimumCases(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
-        double newCost = (double) updatedResult.getCost() * searchParameters.getServicedProportionByLevel().get(0);
+        double newCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[0];
         for (double levelCost : higherLevelCosts) { //higher level costs do not change by requirement
             newCost += levelCost;
         }
@@ -142,7 +143,7 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
     public void updateHigherLevelConfiguration(int level, SiteConfiguration newThisLevelSiteConfiguration, double currentThisLevelCost, double newThisLevelCost) {
         cost = cost + newThisLevelCost - currentThisLevelCost;
         higherLevelSitesArray.set(level, newThisLevelSiteConfiguration.getSites());
-        higherLevelCosts.set(level, newThisLevelCost);
+        higherLevelCosts[level] = newThisLevelCost;
         higherLevelMinimumPositionsByOrigin[level] = newThisLevelSiteConfiguration.getMinimumPositionsByOrigin();
         allHigherLevelSites = null;
     }
@@ -156,23 +157,24 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
     }
 
     //Update sites array by replacing removedSite with newSite for all sites in the array. Output is updated sites array, updated positions, and history of updates, true for each level that was changed and false if not.
-    public static List<Object> updateSitesArray(List<List<Integer>> sitesArray, Integer removedSite, Integer newSite) {
+    public static SitesAndUpdateHistory updateSitesArray(List<List<Integer>> sitesArray, Integer removedSite, Integer newSite) {
         List<List<Integer>> updatedSitesArray = new ArrayList<>();
-        List<Boolean> updateHistory = new ArrayList<>(Collections.nCopies(sitesArray.size(), false));
-        List<Integer> updatedPositions = new ArrayList<>(Collections.nCopies(sitesArray.size(), -1));
+        boolean[] updateHistory = new boolean[sitesArray.size()];
+        int[] updatedPositions = new int[sitesArray.size()];
+        Arrays.fill(updatedPositions, -1);
         for (int j = 0; j < sitesArray.size(); j++) {
             List<Integer> updatedSites = new ArrayList<>(sitesArray.get(j));
             for (int i = 0; i < updatedSites.size(); i++) {
                 if (updatedSites.get(i) == removedSite) {
                     updatedSites.set(i, newSite);
-                    updateHistory.set(j, true);
-                    updatedPositions.set(j, i);
+                    updateHistory[j] = true;
+                    updatedPositions[j] = i;
                     break;
                 }
             }
             updatedSitesArray.add(updatedSites);
         }
-        return Arrays.asList(updatedSitesArray, updateHistory, updatedPositions);
+        return new SitesAndUpdateHistory(updatedSitesArray, updateHistory, updatedPositions);
     }
 
     public List<Integer> getSites() {
@@ -195,7 +197,7 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
         return allHigherLevelSites;
     }
 
-    public List<Double> getHigherLevelCosts() {
+    public double[] getHigherLevelCosts() {
         return higherLevelCosts;
     }
 

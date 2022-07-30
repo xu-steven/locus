@@ -26,8 +26,10 @@ public class SimAnnealingWithoutPermanentCenters extends SimAnnealingSearch{
         String haversineLocation = censusFileLocation.replace("_origins.csv", "_haversine.csv");
 
         //Search space parameters
-        searchParameters = new SearchSpace(12, 12, Arrays.asList((double) 10000, (double) 1000000, (double) 2000000), Arrays.asList(1.0, 0.0, 0.0),
-                censusFileLocation, graphLocation, azimuthLocation, haversineLocation, 6, 6, executor);
+        double[] minimumCasesByLevel = {(double) 10000, (double) 1000000, (double) 2000000};
+        double[] servicedProportionByLevel = {1.0, 0.0, 0.0};
+        searchParameters = new SearchSpace(12, 12, minimumCasesByLevel, servicedProportionByLevel,
+                censusFileLocation, graphLocation, azimuthLocation, haversineLocation, 6, executor);
     }
 
     public static void main(String[] args) throws InterruptedException {
@@ -171,18 +173,18 @@ public class SimAnnealingWithoutPermanentCenters extends SimAnnealingSearch{
                 //Create artificial level configuration
                 List<Integer> currentThisLevelSites = currentSiteConfiguration.getHigherLevelSitesArray().get(i);
                 int currentThisLevelSiteCount = currentThisLevelSites.size();
-                double currentThisLevelCost = currentSiteConfiguration.getHigherLevelCosts().get(i);
+                double currentThisLevelCost = currentSiteConfiguration.getHigherLevelCosts()[i];
                 int[] currentThisLevelMinimumPositionsByOrigin = currentSiteConfiguration.getHigherLevelMinimumPositionsByOrigin()[i];
                 SiteConfiguration currentThisLevelSiteConfiguration = new SiteConfiguration(currentThisLevelSites, currentThisLevelCost, currentThisLevelMinimumPositionsByOrigin);
                 //Create new site configuration and compute cost
                 SiteConfiguration newThisLevelSiteConfiguration;
                 double adjustmentType = Math.random();
                 if ((adjustmentType < 0.1 || currentThisLevelSiteCount == 0) && currentThisLevelSiteCount != currentCenterCount) { //add higher level site to level
-                    newThisLevelSiteConfiguration = currentThisLevelSiteConfiguration.addSite(currentSiteConfiguration.getSites(), searchParameters.getServicedProportionByLevel().get(i + 1), searchParameters.getMinimumCasesByLevel().get(i + 1), searchParameters, taskCount, executor);
+                    newThisLevelSiteConfiguration = currentThisLevelSiteConfiguration.addSite(currentSiteConfiguration.getSites(), searchParameters.getServicedProportionByLevel()[i + 1], searchParameters.getMinimumCasesByLevel()[i + 1], searchParameters, taskCount, executor);
                 } else if (adjustmentType < 0.2 || currentThisLevelSiteCount == currentCenterCount) { //remove higher level site from level
-                    newThisLevelSiteConfiguration = currentThisLevelSiteConfiguration.removeSite(searchParameters.getServicedProportionByLevel().get(i + 1), searchParameters.getMinimumCasesByLevel().get(i + 1), searchParameters, taskCount, executor);
+                    newThisLevelSiteConfiguration = currentThisLevelSiteConfiguration.removeSite(searchParameters.getServicedProportionByLevel()[i + 1], searchParameters.getMinimumCasesByLevel()[i + 1], searchParameters, taskCount, executor);
                 } else { //shift one of the higher level sites
-                    newThisLevelSiteConfiguration = currentThisLevelSiteConfiguration.shiftSite(currentSiteConfiguration.getSites(), searchParameters.getServicedProportionByLevel().get(i + 1), searchParameters.getMinimumCasesByLevel().get(i + 1), searchParameters, taskCount, executor);
+                    newThisLevelSiteConfiguration = currentThisLevelSiteConfiguration.shiftSite(currentSiteConfiguration.getSites(), searchParameters.getServicedProportionByLevel()[i + 1], searchParameters.getMinimumCasesByLevel()[i + 1], searchParameters, taskCount, executor);
                 }
                 double newThisLevelCost = newThisLevelSiteConfiguration.getCost();
                 //Decide on accepting
@@ -270,18 +272,18 @@ public class SimAnnealingWithoutPermanentCenters extends SimAnnealingSearch{
                 //Create artificial level configuration
                 List<Integer> currentThisLevelSites = currentSiteConfiguration.getHigherLevelSitesArray().get(i);
                 int currentThisLevelSiteCount = currentThisLevelSites.size();
-                double currentThisLevelCost = currentSiteConfiguration.getHigherLevelCosts().get(i);
+                double currentThisLevelCost = currentSiteConfiguration.getHigherLevelCosts()[i];
                 int[] currentThisLevelMinimumPositionsByOrigin = currentSiteConfiguration.getHigherLevelMinimumPositionsByOrigin()[i];
                 SiteConfiguration currentThisLevelSiteConfiguration = new SiteConfiguration(currentThisLevelSites, currentThisLevelCost, currentThisLevelMinimumPositionsByOrigin);
                 //Create new site configuration and compute cost
                 SiteConfiguration newThisLevelSiteConfiguration;
                 double adjustmentType = Math.random();
                 if ((adjustmentType < 0.1 || currentThisLevelSiteCount == 0) && currentThisLevelSiteCount != currentCenterCount) { //add higher level site to level
-                    newThisLevelSiteConfiguration = currentThisLevelSiteConfiguration.addSite(currentSiteConfiguration.getSites(), searchParameters.getServicedProportionByLevel().get(i + 1), searchParameters.getMinimumCasesByLevel().get(i + 1), searchParameters, taskCount, executor);
+                    newThisLevelSiteConfiguration = currentThisLevelSiteConfiguration.addSite(currentSiteConfiguration.getSites(), searchParameters.getServicedProportionByLevel()[i + 1], searchParameters.getMinimumCasesByLevel()[i + 1], searchParameters, taskCount, executor);
                 } else if (adjustmentType < 0.2 || currentThisLevelSiteCount == currentCenterCount) { //remove higher level site from level
-                    newThisLevelSiteConfiguration = currentThisLevelSiteConfiguration.removeSite(searchParameters.getServicedProportionByLevel().get(i + 1), searchParameters.getMinimumCasesByLevel().get(i + 1), searchParameters, taskCount, executor);
+                    newThisLevelSiteConfiguration = currentThisLevelSiteConfiguration.removeSite(searchParameters.getServicedProportionByLevel()[i + 1], searchParameters.getMinimumCasesByLevel()[i + 1], searchParameters, taskCount, executor);
                 } else { //shift one of the higher level sites
-                    newThisLevelSiteConfiguration = currentThisLevelSiteConfiguration.shiftSite(currentSiteConfiguration.getSites(), searchParameters.getServicedProportionByLevel().get(i + 1), searchParameters.getMinimumCasesByLevel().get(i + 1), searchParameters, taskCount, executor);
+                    newThisLevelSiteConfiguration = currentThisLevelSiteConfiguration.shiftSite(currentSiteConfiguration.getSites(), searchParameters.getServicedProportionByLevel()[i + 1], searchParameters.getMinimumCasesByLevel()[i + 1], searchParameters, taskCount, executor);
                 }
                 double newThisLevelCost = newThisLevelSiteConfiguration.getCost();
                 //Decide on accepting
