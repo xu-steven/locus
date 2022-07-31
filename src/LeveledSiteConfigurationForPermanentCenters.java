@@ -77,7 +77,7 @@ public class LeveledSiteConfigurationForPermanentCenters extends SiteConfigurati
         //Update higher level sites array
         List<List<Integer>> newHigherLevelSitesArray = new ArrayList<>(higherLevelSitesArray);
         Set<Integer> newAllHigherLevelSites = new HashSet<>(allHigherLevelSites);
-        Boolean higherLevelSitesChanged = allHigherLevelSites.contains(siteToShift);
+        boolean higherLevelSitesChanged = allHigherLevelSites.contains(siteToShift);
         double[] newHigherLevelCosts = higherLevelCosts.clone();
         int[][] newHigherLevelMinimumPositionsByOrigin = higherLevelMinimumPositionsByOrigin.clone();
         if (higherLevelSitesChanged) {

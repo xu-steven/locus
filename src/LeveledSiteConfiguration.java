@@ -66,7 +66,7 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
         //Update higher level sites array
         List<List<Integer>> newHigherLevelSitesArray;
         Set<Integer> newAllHigherLevelSites = new HashSet<>(allHigherLevelSites);
-        Boolean higherLevelSitesChanged = allHigherLevelSites.contains(siteToShift);
+        boolean higherLevelSitesChanged = allHigherLevelSites.contains(siteToShift);
         double[] newHigherLevelCosts = higherLevelCosts.clone();
         int[][] newHigherLevelMinimumPositionsByOrigin = higherLevelMinimumPositionsByOrigin.clone();
         if (higherLevelSitesChanged) {

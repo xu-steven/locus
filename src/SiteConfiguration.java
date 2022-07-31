@@ -111,13 +111,12 @@ public class SiteConfiguration {
         for (int i = 0; i < taskCount; i++) {
             int finalI = i;
             executor.execute(() -> {
-                List<Integer> partitionToOptimize = partitionedOrigins.get(finalI);
                 HashMap<Integer, CasesAndCost> partitionMinimumCostMap = new HashMap<>(10 * siteCount);
                 CasesAndCost initialCasesCost = new CasesAndCost(0.0, 0.0);
                 for (int j = 0; j < siteCount; ++j) {
                     partitionMinimumCostMap.put(j, initialCasesCost);
                 }
-                for (int j : partitionToOptimize) {
+                for (int j : partitionedOrigins.get(finalI)) {
                     int minimumCostPosition = 0;
                     double minimumCostUnadjusted = graphArray[j][sites.get(0)]; //Closest center travel cost, not adjusted for population or cancer center scaling
                     for (int k = 1; k < siteCount; ++k) {
@@ -163,13 +162,12 @@ public class SiteConfiguration {
         for (int i = 0; i < taskCount; i++) {
             int finalI = i;
             executor.execute(() -> {
-                List<Integer> partitionToOptimize = partitionedOrigins.get(finalI);
                 HashMap<Integer, CasesAndCost> partitionMinimumCostMap = new HashMap<>(10 * siteCount);
                 CasesAndCost initialCasesCost = new CasesAndCost(0.0, 0.0);
                 for (int j=0; j < siteCount; ++j) {
                     partitionMinimumCostMap.put(j, initialCasesCost);
                 }
-                for (int j : partitionToOptimize) {
+                for (int j : partitionedOrigins.get(finalI)) {
                     int minimumCostPosition = 0;
                     double minimumCostUnadjusted;
                     int oldMinimumCostPosition = oldMinimumCostPositionByOrigin[j];
@@ -232,13 +230,12 @@ public class SiteConfiguration {
         for (int i = 0; i < taskCount; i++) {
             int finalI = i;
             executor.execute(() -> {
-                List<Integer> partitionToOptimize = partitionedOrigins.get(finalI);
                 HashMap<Integer, CasesAndCost> partitionMinimumCostMap = new HashMap<>(10 * siteCount);
                 CasesAndCost initialCasesCost = new CasesAndCost(0.0, 0.0);
                 for (int j = 0; j < siteCount; ++j) {
                     partitionMinimumCostMap.put(j, initialCasesCost);
                 }
-                for (int j : partitionToOptimize) {
+                for (int j : partitionedOrigins.get(finalI)) {
                     int minimumCostPosition;
                     double minimumCostUnadjusted; //Closest center travel cost, not adjusted for population or cancer center scaling
                     int oldMinimumCostPosition = oldMinimumCostPositionByOrigin[j];
@@ -287,13 +284,12 @@ public class SiteConfiguration {
         for (int i = 0; i < taskCount; i++) {
             int finalI = i;
             executor.execute(() -> {
-                List<Integer> partitionToOptimize = partitionedOrigins.get(finalI);
                 HashMap<Integer, CasesAndCost> partitionMinimumCostMap = new HashMap<>(10 * siteCount);
                 CasesAndCost initialCasesCost = new CasesAndCost(0.0, 0.0);
                 for (int j = 0; j < siteCount; ++j) {
                     partitionMinimumCostMap.put(j, initialCasesCost);
                 }
-                for (int j : partitionToOptimize) {
+                for (int j : partitionedOrigins.get(finalI)) {
                     int minimumCostPosition = 0;
                     double minimumCostUnadjusted;
                     int oldMinimumCostPosition = oldMinimumCostPositionByOrigin[j];
