@@ -1,6 +1,4 @@
-import javax.swing.text.Position;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 
@@ -85,14 +83,14 @@ public class SiteConfigurationForPermanentCenters {
 
         CountDownLatch latch = new CountDownLatch(taskCount);
         int[] minimumCostPositionsByOrigin = new int[originCount];
-        HashMap<Integer, CasesAndCost>[] partitionedMinimumCostMap = new HashMap[taskCount];
+        CasesAndCost[][] partitionedMinimumCostMap = new CasesAndCost[taskCount][siteCount];
         for (int i = 0; i < taskCount; i++) {
             int finalI = i;
             executor.execute(() -> {
-                HashMap<Integer, CasesAndCost> partitionMinimumCostMap = new HashMap<>(10 * siteCount);
+                CasesAndCost[] partitionMinimumCostMap = new CasesAndCost[siteCount];
                 CasesAndCost initialCasesCost = new CasesAndCost(0.0, 0.0);
                 for (int j = 0; j < siteCount; ++j) {
-                    partitionMinimumCostMap.put(j, initialCasesCost);
+                    partitionMinimumCostMap[j] = initialCasesCost;
                 }
                 for (int j : partitionedOrigins.get(finalI)) {
                     int minimumCostPosition = -1;
@@ -110,10 +108,10 @@ public class SiteConfigurationForPermanentCenters {
                     }
                     minimumCostPositionsByOrigin[j] = minimumCostPosition;
                     double currentCaseCount = caseCountByOrigin[j];
-                    double centerCaseCount = partitionMinimumCostMap.get(minimumCostPosition).getCases() + currentCaseCount; //Add new case count to total case count at center
-                    double centerCost = partitionMinimumCostMap.get(minimumCostPosition).getCost() + (minimumCostUnadjusted * currentCaseCount); //Add new travel cost multiplied by case count to total travel cost at center
+                    double centerCaseCount = partitionMinimumCostMap[minimumCostPosition].getCases() + currentCaseCount; //Add new case count to total case count at center
+                    double centerCost = partitionMinimumCostMap[minimumCostPosition].getCost() + (minimumCostUnadjusted * currentCaseCount); //Add new travel cost multiplied by case count to total travel cost at center
                     CasesAndCost minimumCasesCost = new CasesAndCost(centerCaseCount, centerCost);
-                    partitionMinimumCostMap.put(minimumCostPosition, minimumCasesCost);
+                    partitionMinimumCostMap[minimumCostPosition] = minimumCasesCost;
                 }
                 partitionedMinimumCostMap[finalI] = partitionMinimumCostMap;
                 latch.countDown();
@@ -124,7 +122,7 @@ public class SiteConfigurationForPermanentCenters {
         } catch (InterruptedException e){
             throw new AssertionError("Unexpected interruption", e);
         }
-        HashMap<Integer, CasesAndCost> combinedMinimumCostMap = MultithreadingUtils.combinePartitionedMinimumCostMap(partitionedMinimumCostMap, siteCount, taskCount);
+        CasesAndCost[] combinedMinimumCostMap = MultithreadingUtils.combinePartitionedMinimumCostMap(partitionedMinimumCostMap, siteCount, taskCount);
         return new ConfigurationCostAndPositions(CostCalculator.computeCost(combinedMinimumCostMap, minimumCases), minimumCostPositionsByOrigin);
     }
 
@@ -139,14 +137,14 @@ public class SiteConfigurationForPermanentCenters {
 
         CountDownLatch latch = new CountDownLatch(taskCount);
         int[] minimumCostPositionsByOrigin = new int[originCount];
-        HashMap<Integer, CasesAndCost>[] partitionedMinimumCostMap = new HashMap[taskCount];
+        CasesAndCost[][] partitionedMinimumCostMap = new CasesAndCost[taskCount][siteCount];
         for (int i = 0; i < taskCount; i++) {
             int finalI = i;
             executor.execute(() -> {
-                HashMap<Integer, CasesAndCost> partitionMinimumCostMap = new HashMap<>(10 * siteCount);
+                CasesAndCost[] partitionMinimumCostMap = new CasesAndCost[siteCount];
                 CasesAndCost initialCasesCost = new CasesAndCost(0.0, 0.0);
                 for (int j = 0; j < siteCount; ++j) {
-                    partitionMinimumCostMap.put(j, initialCasesCost);
+                    partitionMinimumCostMap[j] = initialCasesCost;
                 }
                 for (int j : partitionedOrigins.get(finalI)) {
                     int minimumCostPosition = -1;
@@ -164,10 +162,10 @@ public class SiteConfigurationForPermanentCenters {
                     }
                     minimumCostPositionsByOrigin[j] = minimumCostPosition;
                     double currentCaseCount = caseCountByOrigin[j];
-                    double centerCaseCount = partitionMinimumCostMap.get(minimumCostPosition).getCases() + currentCaseCount;
-                    double centerCost = partitionMinimumCostMap.get(minimumCostPosition).getCost() + (minimumCostUnadjusted * currentCaseCount); //Add new travel cost multiplied by case count to total travel cost at center
+                    double centerCaseCount = partitionMinimumCostMap[minimumCostPosition].getCases() + currentCaseCount;
+                    double centerCost = partitionMinimumCostMap[minimumCostPosition].getCost() + (minimumCostUnadjusted * currentCaseCount); //Add new travel cost multiplied by case count to total travel cost at center
                     CasesAndCost minimumCasesCost = new CasesAndCost(centerCaseCount, centerCost);
-                    partitionMinimumCostMap.put(minimumCostPosition, minimumCasesCost);
+                    partitionMinimumCostMap[minimumCostPosition] = minimumCasesCost;
                 }
                 partitionedMinimumCostMap[finalI] = partitionMinimumCostMap;
                 latch.countDown();
@@ -178,7 +176,7 @@ public class SiteConfigurationForPermanentCenters {
         } catch (InterruptedException e){
             throw new AssertionError("Unexpected interruption", e);
         }
-        HashMap<Integer, CasesAndCost> combinedMinimumCostMap = MultithreadingUtils.combinePartitionedMinimumCostMap(partitionedMinimumCostMap, siteCount, taskCount);
+        CasesAndCost[] combinedMinimumCostMap = MultithreadingUtils.combinePartitionedMinimumCostMap(partitionedMinimumCostMap, siteCount, taskCount);
         return new ConfigurationCostAndPositions(CostCalculator.computeCost(combinedMinimumCostMap, minimumCases), minimumCostPositionsByOrigin);
     }
 
@@ -194,14 +192,14 @@ public class SiteConfigurationForPermanentCenters {
 
         CountDownLatch latch = new CountDownLatch(taskCount);
         int[] minimumCostPositionsByOrigin = new int[originCount];
-        HashMap<Integer, CasesAndCost>[] partitionedMinimumCostMap = new HashMap[taskCount];
+        CasesAndCost[][] partitionedMinimumCostMap = new CasesAndCost[taskCount][siteCount];
         for (int i = 0; i < taskCount; i++) {
             int finalI = i;
             executor.execute(() -> {
-                HashMap<Integer, CasesAndCost> partitionMinimumCostMap = new HashMap<>(10 * siteCount);
+                CasesAndCost[] partitionMinimumCostMap = new CasesAndCost[siteCount];
                 CasesAndCost initialCasesCost = new CasesAndCost(0.0, 0.0);
                 for (int j=0; j < siteCount; ++j) {
-                    partitionMinimumCostMap.put(j, initialCasesCost);
+                    partitionMinimumCostMap[j] = initialCasesCost;
                 }
                 for (int j : partitionedOrigins.get(finalI)) {
                     int minimumCostPosition = -1;
@@ -233,10 +231,10 @@ public class SiteConfigurationForPermanentCenters {
                     }
                     minimumCostPositionsByOrigin[j] = minimumCostPosition;
                     double currentCaseCount = caseCountByOrigin[j];
-                    double centerCaseCount = partitionMinimumCostMap.get(minimumCostPosition).getCases() + currentCaseCount; //Add new case count to total case count at center
-                    double centerCost = partitionMinimumCostMap.get(minimumCostPosition).getCost() + (minimumCostUnadjusted * currentCaseCount); //Add new travel cost multiplied by case count to total travel cost at center
+                    double centerCaseCount = partitionMinimumCostMap[minimumCostPosition].getCases() + currentCaseCount; //Add new case count to total case count at center
+                    double centerCost = partitionMinimumCostMap[minimumCostPosition].getCost() + (minimumCostUnadjusted * currentCaseCount); //Add new travel cost multiplied by case count to total travel cost at center
                     CasesAndCost minimumCasesCost = new CasesAndCost(centerCaseCount, centerCost);
-                    partitionMinimumCostMap.put(minimumCostPosition, minimumCasesCost);
+                    partitionMinimumCostMap[minimumCostPosition] = minimumCasesCost;
                 }
                 partitionedMinimumCostMap[finalI] = partitionMinimumCostMap;
                 latch.countDown();
@@ -247,7 +245,7 @@ public class SiteConfigurationForPermanentCenters {
         } catch (InterruptedException e){
             throw new AssertionError("Unexpected interruption", e);
         }
-        HashMap<Integer, CasesAndCost> combinedMinimumCostMap = MultithreadingUtils.combinePartitionedMinimumCostMap(partitionedMinimumCostMap, siteCount, taskCount);
+        CasesAndCost[] combinedMinimumCostMap = MultithreadingUtils.combinePartitionedMinimumCostMap(partitionedMinimumCostMap, siteCount, taskCount);
         return new ConfigurationCostAndPositions(CostCalculator.computeCost(combinedMinimumCostMap, minimumCases), minimumCostPositionsByOrigin);
     }
 
@@ -263,14 +261,14 @@ public class SiteConfigurationForPermanentCenters {
 
         CountDownLatch latch = new CountDownLatch(taskCount);
         int[] minimumCostPositionsByOrigin = new int[originCount];
-        HashMap<Integer, CasesAndCost>[] partitionedMinimumCostMap = new HashMap[taskCount];
+        CasesAndCost[][] partitionedMinimumCostMap = new CasesAndCost[taskCount][siteCount];
         for (int i = 0; i < taskCount; i++) {
             int finalI = i;
             executor.execute(() -> {
-                HashMap<Integer, CasesAndCost> partitionMinimumCostMap = new HashMap<>(10 * siteCount);
+                CasesAndCost[] partitionMinimumCostMap = new CasesAndCost[siteCount];
                 CasesAndCost initialCasesCost = new CasesAndCost(0.0, 0.0);
                 for (int j=0; j < siteCount; ++j) {
-                    partitionMinimumCostMap.put(j, initialCasesCost);
+                    partitionMinimumCostMap[j] = initialCasesCost;
                 }
                 for (int j : partitionedOrigins.get(finalI)) {
                     int minimumCostPosition = -1;
@@ -302,10 +300,10 @@ public class SiteConfigurationForPermanentCenters {
                     }
                     minimumCostPositionsByOrigin[j] = minimumCostPosition;
                     double currentCaseCount = caseCountByOrigin[j];
-                    double centerCaseCount = partitionMinimumCostMap.get(minimumCostPosition).getCases() + currentCaseCount; //Add new case count to total case count at center
-                    double centerCost = partitionMinimumCostMap.get(minimumCostPosition).getCost() + (minimumCostUnadjusted * currentCaseCount); //Add new travel cost multiplied by case count to total travel cost at center
+                    double centerCaseCount = partitionMinimumCostMap[minimumCostPosition].getCases() + currentCaseCount; //Add new case count to total case count at center
+                    double centerCost = partitionMinimumCostMap[minimumCostPosition].getCost() + (minimumCostUnadjusted * currentCaseCount); //Add new travel cost multiplied by case count to total travel cost at center
                     CasesAndCost minimumCasesCost = new CasesAndCost(centerCaseCount, centerCost);
-                    partitionMinimumCostMap.put(minimumCostPosition, minimumCasesCost);
+                    partitionMinimumCostMap[minimumCostPosition] = minimumCasesCost;
                 }
                 partitionedMinimumCostMap[finalI] = partitionMinimumCostMap;
                 latch.countDown();
@@ -316,7 +314,7 @@ public class SiteConfigurationForPermanentCenters {
         } catch (InterruptedException e){
             throw new AssertionError("Unexpected interruption", e);
         }
-        HashMap<Integer, CasesAndCost> combinedMinimumCostMap = MultithreadingUtils.combinePartitionedMinimumCostMap(partitionedMinimumCostMap, siteCount, taskCount);
+        CasesAndCost[] combinedMinimumCostMap = MultithreadingUtils.combinePartitionedMinimumCostMap(partitionedMinimumCostMap, siteCount, taskCount);
         return new ConfigurationCostAndPositions(CostCalculator.computeCost(combinedMinimumCostMap, minimumCases), minimumCostPositionsByOrigin);
     }
 
@@ -334,14 +332,14 @@ public class SiteConfigurationForPermanentCenters {
         //If there were some sites
         CountDownLatch latch = new CountDownLatch(taskCount);
         int[] minimumCostPositionsByOrigin = new int[originCount];
-        HashMap<Integer, CasesAndCost>[] partitionedMinimumCostMap = new HashMap[taskCount];
+        CasesAndCost[][] partitionedMinimumCostMap = new CasesAndCost[taskCount][siteCount];
         for (int i = 0; i < taskCount; i++) {
             int finalI = i;
             executor.execute(() -> {
-                HashMap<Integer, CasesAndCost> partitionMinimumCostMap = new HashMap<>(10 * siteCount);
+                CasesAndCost[] partitionMinimumCostMap = new CasesAndCost[siteCount];
                 CasesAndCost initialCasesCost = new CasesAndCost(0.0, 0.0);
                 for (int j = 0; j < siteCount; ++j) {
-                    partitionMinimumCostMap.put(j, initialCasesCost);
+                    partitionMinimumCostMap[j] = initialCasesCost;
                 }
                 for (int j : partitionedOrigins.get(finalI)) {
                     int minimumCostPosition;
@@ -358,10 +356,10 @@ public class SiteConfigurationForPermanentCenters {
                     }
                     minimumCostPositionsByOrigin[j] = minimumCostPosition;
                     double currentCaseCount = caseCountByOrigin[j];
-                    double centerCaseCount = partitionMinimumCostMap.get(minimumCostPosition).getCases() + currentCaseCount; //Add new case count to total case count at center
-                    double centerCost = partitionMinimumCostMap.get(minimumCostPosition).getCost() + (minimumCostUnadjusted * currentCaseCount); //Add new travel cost multiplied by case count to total travel cost at center
+                    double centerCaseCount = partitionMinimumCostMap[minimumCostPosition].getCases() + currentCaseCount; //Add new case count to total case count at center
+                    double centerCost = partitionMinimumCostMap[minimumCostPosition].getCost() + (minimumCostUnadjusted * currentCaseCount); //Add new travel cost multiplied by case count to total travel cost at center
                     CasesAndCost minimumCasesCost = new CasesAndCost(centerCaseCount, centerCost);
-                    partitionMinimumCostMap.put(minimumCostPosition, minimumCasesCost);
+                    partitionMinimumCostMap[minimumCostPosition] = minimumCasesCost;
                 }
                 partitionedMinimumCostMap[finalI] = partitionMinimumCostMap;
                 latch.countDown();
@@ -372,7 +370,7 @@ public class SiteConfigurationForPermanentCenters {
         } catch (InterruptedException e){
             throw new AssertionError("Unexpected interruption", e);
         }
-        HashMap<Integer, CasesAndCost> combinedMinimumCostMap = MultithreadingUtils.combinePartitionedMinimumCostMap(partitionedMinimumCostMap, siteCount, taskCount);
+        CasesAndCost[] combinedMinimumCostMap = MultithreadingUtils.combinePartitionedMinimumCostMap(partitionedMinimumCostMap, siteCount, taskCount);
         return new ConfigurationCostAndPositions(CostCalculator.computeCost(combinedMinimumCostMap, minimumCases), minimumCostPositionsByOrigin);
     }
 
@@ -388,15 +386,14 @@ public class SiteConfigurationForPermanentCenters {
 
         CountDownLatch latch = new CountDownLatch(taskCount);
         int[] minimumCostPositionsByOrigin = new int[originCount];
-        HashMap<Integer, CasesAndCost>[] partitionedMinimumCostMap = new HashMap[taskCount];
-        ConcurrentHashMap<Integer, PositionsAndMap> partitionedOutput = new ConcurrentHashMap<>();
+        CasesAndCost[][] partitionedMinimumCostMap = new CasesAndCost[taskCount][siteCount];
         for (int i = 0; i < taskCount; i++) {
             int finalI = i;
             executor.execute(() -> {
-                HashMap<Integer, CasesAndCost> partitionMinimumCostMap = new HashMap<>(10 * siteCount);
+                CasesAndCost[] partitionMinimumCostMap = new CasesAndCost[siteCount];
                 CasesAndCost initialCasesCost = new CasesAndCost(0.0, 0.0);
                 for (int j = 0; j < siteCount; ++j) {
-                    partitionMinimumCostMap.put(j, initialCasesCost);
+                    partitionMinimumCostMap[j] = initialCasesCost;
                 }
                 for (int j : partitionedOrigins.get(finalI)) {
                     int minimumCostPosition = -1;
@@ -425,10 +422,10 @@ public class SiteConfigurationForPermanentCenters {
                     }
                     minimumCostPositionsByOrigin[j] = minimumCostPosition;
                     double currentCaseCount = caseCountByOrigin[j];
-                    double centerCaseCount = partitionMinimumCostMap.get(minimumCostPosition).getCases() + currentCaseCount; //Add new case count to total case count at center
-                    double centerCost = partitionMinimumCostMap.get(minimumCostPosition).getCost() + (minimumCostUnadjusted * currentCaseCount); //Add new travel cost multiplied by case count to total travel cost at center
+                    double centerCaseCount = partitionMinimumCostMap[minimumCostPosition].getCases() + currentCaseCount; //Add new case count to total case count at center
+                    double centerCost = partitionMinimumCostMap[minimumCostPosition].getCost() + (minimumCostUnadjusted * currentCaseCount); //Add new travel cost multiplied by case count to total travel cost at center
                     CasesAndCost minimumCasesCost = new CasesAndCost(centerCaseCount,centerCost);
-                    partitionMinimumCostMap.put(minimumCostPosition, minimumCasesCost);
+                    partitionMinimumCostMap[minimumCostPosition] = minimumCasesCost;
                 }
                 partitionedMinimumCostMap[finalI] = partitionMinimumCostMap;
                 latch.countDown();
@@ -439,7 +436,7 @@ public class SiteConfigurationForPermanentCenters {
         } catch (InterruptedException e){
             throw new AssertionError("Unexpected interruption", e);
         }
-        HashMap<Integer, CasesAndCost> combinedMinimumCostMap = MultithreadingUtils.combinePartitionedMinimumCostMap(partitionedMinimumCostMap, siteCount, taskCount);
+        CasesAndCost[] combinedMinimumCostMap = MultithreadingUtils.combinePartitionedMinimumCostMap(partitionedMinimumCostMap, siteCount, taskCount);
         return new ConfigurationCostAndPositions(CostCalculator.computeCost(combinedMinimumCostMap, minimumCases), minimumCostPositionsByOrigin);
     }
 
@@ -455,14 +452,14 @@ public class SiteConfigurationForPermanentCenters {
 
         CountDownLatch latch = new CountDownLatch(taskCount);
         int[] minimumCostPositionsByOrigin = new int[originCount];
-        HashMap<Integer, CasesAndCost>[] partitionedMinimumCostMap = new HashMap[taskCount];
+        CasesAndCost[][] partitionedMinimumCostMap = new CasesAndCost[taskCount][siteCount];
         for (int i = 0; i < taskCount; i++) {
             int finalI = i;
             executor.execute(() -> {
-                HashMap<Integer, CasesAndCost> partitionMinimumCostMap = new HashMap<>(10 * siteCount);
+                CasesAndCost[] partitionMinimumCostMap = new CasesAndCost[siteCount];
                 CasesAndCost initialCasesCost = new CasesAndCost(0.0, 0.0);
                 for (int j = 0; j < siteCount; ++j) {
-                    partitionMinimumCostMap.put(j, initialCasesCost);
+                    partitionMinimumCostMap[j] = initialCasesCost;
                 }
                 for (int j : partitionedOrigins.get(finalI)) {
                     int minimumCostPosition = 0;
@@ -491,10 +488,10 @@ public class SiteConfigurationForPermanentCenters {
                     }
                     minimumCostPositionsByOrigin[j] = minimumCostPosition;
                     double currentCaseCount = caseCountByOrigin[j];
-                    double centerCaseCount = partitionMinimumCostMap.get(minimumCostPosition).getCases() + currentCaseCount; //Add new case count to total case count at center
-                    double centerCost = partitionMinimumCostMap.get(minimumCostPosition).getCost() + (minimumCostUnadjusted * currentCaseCount); //Add new travel cost multiplied by case count to total travel cost at center
+                    double centerCaseCount = partitionMinimumCostMap[minimumCostPosition].getCases() + currentCaseCount; //Add new case count to total case count at center
+                    double centerCost = partitionMinimumCostMap[minimumCostPosition].getCost() + (minimumCostUnadjusted * currentCaseCount); //Add new travel cost multiplied by case count to total travel cost at center
                     CasesAndCost minimumCasesCost = new CasesAndCost(centerCaseCount,centerCost);
-                    partitionMinimumCostMap.put(minimumCostPosition, minimumCasesCost);
+                    partitionMinimumCostMap[minimumCostPosition] = minimumCasesCost;
                 }
                 partitionedMinimumCostMap[finalI] = partitionMinimumCostMap;
                 latch.countDown();
@@ -505,7 +502,7 @@ public class SiteConfigurationForPermanentCenters {
         } catch (InterruptedException e){
             throw new AssertionError("Unexpected interruption", e);
         }
-        HashMap<Integer, CasesAndCost> combinedMinimumCostMap = MultithreadingUtils.combinePartitionedMinimumCostMap(partitionedMinimumCostMap, siteCount, taskCount);
+        CasesAndCost[] combinedMinimumCostMap = MultithreadingUtils.combinePartitionedMinimumCostMap(partitionedMinimumCostMap, siteCount, taskCount);
         return new ConfigurationCostAndPositions(CostCalculator.computeCost(combinedMinimumCostMap, minimumCases), minimumCostPositionsByOrigin);
     }
 

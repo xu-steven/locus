@@ -11,6 +11,15 @@ public final class CostCalculator {
         return totalCost;
     }
 
+    //Calculates cost from hashmap centre -> (cases, minimum travel cost)
+    public static double computeCost(CasesAndCost[] minimumCostMap, double minimumCases) {
+        double totalCost = 0;
+        for (int i = 0; i < minimumCostMap.length; i++) {
+            totalCost += caseAdjustedCost(minimumCostMap[i].getCases(), minimumCostMap[i].getCost(), minimumCases);
+        }
+        return totalCost;
+    }
+
     //Cost penalty function depending on amount of cases seen at cancer center. Examples include additive constant (extra cost to administer each center) or multiplicative piecewise to prefer bigger centers.
     public static double caseAdjustedCost(double cases, double cost, double minimumCases) {
         if (cases == 0) {

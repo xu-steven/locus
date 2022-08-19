@@ -1,9 +1,18 @@
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.util.*;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class Population {
+    //Multithreading configuration
+    static int threadCount = 6;
+    static int taskCount = 6;
+    static ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+
     //Current year
     public static int year;
 
@@ -48,7 +57,7 @@ public class Population {
         maleMortality = (Map<Integer, Map<Integer, Double>>) mortalityInfo.get(0);
         femaleMortality = (Map<Integer, Map<Integer, Double>>) mortalityInfo.get(1);
         oldestMortalityCohortAge = (int) mortalityInfo.get(2);
-        List<Object> infantMortalityInfo = parseYearHeadingCSV("M:\\Optimization Project\\demographic projections\\alberta_infant_mortality.csv", 1000);
+        List<Object> infantMortalityInfo = parseCumulativeInfantMortalityCSV("M:\\Optimization Project\\demographic projections\\test_alberta_infant_mortality.csv", 1);
         maleInfantMortality = (Map<Integer, Map<Double, Double>>) infantMortalityInfo.get(0);
         femaleInfantMortality = (Map<Integer, Map<Double, Double>>) infantMortalityInfo.get(1);
         List<Object> fertilityInfo = parseAgeSexHeadingCSV("M:\\Optimization Project\\demographic projections\\alberta_fertility.csv", 1000);
@@ -71,9 +80,11 @@ public class Population {
         System.out.println("Female adjusted period year 2000 is " + femaleAdjustedPyramid);
         pop.projectNextYearPyramid();
         System.out.println(maleInfantMortality);
+        double[][] infantMortality = mapToDoubleArray(maleInfantMortality.get(2000), "2y - 3x", "0", "0.33y", 1000, 0, 1, 1000);
+        //System.out.println(Arrays.deepToString(infantMortality));
+        System.out.println(doubleIntegral(infantMortality, "0", "0.33y", 1000, 0, 1, 1000));
+        executor.shutdown();
     }
-
-
 
     //Project population
     public void projectPopulation(int years) {
@@ -360,6 +371,360 @@ public class Population {
         this.femalePopulationPyramid = remadeFemalePyramid;
     }
 
+    //Computes integral using a function represented by map: (age in months -> cumulative mortality by that age)
+    public static double doubleIntegral(double[][] function, String lowerBoundX, String upperBoundX, int xCount, double lowerBoundY, double upperBoundY, int yCount) {
+        CountDownLatch latch = new CountDownLatch(taskCount);
+        Map<Integer, List<Integer>> partitionedYCount = MultithreadingUtils.orderedPartitionList(IntStream.range(0, yCount).boxed().collect(Collectors.toList()), taskCount);
+        //Integrate with respect to x
+        double[] numericalIntegralWrtX = new double[yCount];
+        for (int i = 0; i < taskCount; i++) {
+            int finalI = i;
+            executor.execute(() -> {
+                for (int j : partitionedYCount.get(finalI)){
+                    numericalIntegralWrtX[j] = 0;
+                    double lowerX = parseBound(lowerBoundX)[0] * (lowerBoundY + j / ((double) yCount - 1) * (upperBoundY - lowerBoundY)) + parseBound(lowerBoundX)[1];
+                    double upperX = parseBound(upperBoundX)[0] * (lowerBoundY + j / ((double) yCount - 1) * (upperBoundY - lowerBoundY)) + parseBound(upperBoundX)[1];
+                    for (int k = 0; k < xCount; k++) {
+                        if (k == 0 || k == xCount - 1) {
+                            numericalIntegralWrtX[j] += function[k][j];
+                        } else if (k % 2 == 1) {
+                            numericalIntegralWrtX[j] += 4 * function[k][j];
+                        } else {
+                            numericalIntegralWrtX[j] += 2 * function[k][j];
+                        }
+                    }
+                    numericalIntegralWrtX[j] *= (upperX - lowerX) / (xCount - 1) / 3;
+                }
+                latch.countDown();
+            });
+        }
+        try {
+            latch.await();
+        } catch (Exception e) {
+            throw new AssertionError("Latch await exception");
+        }
+        //Integrate with respect to y
+        double numericalIntegral = 0;
+        for (int j = 0; j < yCount; j++) {
+            if (j == 0 || j == yCount - 1) {
+                numericalIntegral += numericalIntegralWrtX[j];
+            } else if (j % 2 == 1) {
+                numericalIntegral += 4 * numericalIntegralWrtX[j];
+            } else {
+                numericalIntegral += 2 * numericalIntegralWrtX[j];
+            }
+        }
+        return numericalIntegral * (upperBoundY - lowerBoundY) / (yCount - 1) / 3;
+    }
+
+    //Transform (map: age -> cumulative mortality by that age) to double[][] for computation of integral
+    //compositeFunction g: R^2 -> R of the form (x,y) -> ax + by + c is composed with map: R -> R to make map(g): R^2 -> R
+    public static double[][] mapToDoubleArray(Map<Double, Double> map, String compositeFunction, String lowerBoundX, String upperBoundX, int xCount, double lowerBoundY, double upperBoundY, int yCount) {
+        CountDownLatch latch = new CountDownLatch(taskCount);
+        Map<Integer, List<Integer>> partitionedYCount = MultithreadingUtils.orderedPartitionList(IntStream.range(0, yCount).boxed().collect(Collectors.toList()), taskCount);
+        double[][] outputArray = new double[xCount][yCount];
+        double[] lowerBoundXCoefficients = parseBound(lowerBoundX);
+        double[] upperBoundXCoefficients = parseBound(upperBoundX);
+        for (int i = 0; i < taskCount; i++) {
+            int finalI = i;
+            executor.execute(() -> {
+                for (int j : partitionedYCount.get(finalI)) {
+                    double lowerX = lowerBoundXCoefficients[0] * (lowerBoundY + j / ((double) yCount - 1) * (upperBoundY - lowerBoundY)) + lowerBoundXCoefficients[1];
+                    double upperX = upperBoundXCoefficients[0] * (lowerBoundY + j / ((double) yCount - 1) * (upperBoundY - lowerBoundY)) + upperBoundXCoefficients[1];
+                    double y = lowerBoundY + (upperBoundY - lowerBoundY) * j / ((double) yCount - 1);
+                    for (int k = 0; k < xCount; k++) {
+                        double x = lowerX + (upperX - lowerX) * k / ((double) xCount - 1);
+                        outputArray[k][j] = computeComposition(map, compositeFunction, x, y);
+                    }
+                }
+                latch.countDown();
+            });
+        }
+        try {
+            latch.await();
+        } catch (Exception e) {
+            throw new AssertionError("Latch await exception");
+        }
+        return outputArray;
+    }
+
+    //Computes map(g(x, y)) for compositeFunction g: R2 -> R given by g(x,y) = ax + by + c
+    private static double computeComposition(Map<Double, Double> map, String compositeFunction, double x, double y) {
+        double[] compositeFunctionCoefficients = parseCoefficients(compositeFunction);
+        return evaluateInterpolatedMap(map, compositeFunctionCoefficients[0] * x + compositeFunctionCoefficients[1] * y + compositeFunctionCoefficients[2]);
+    }
+
+    //Evaluates map(x) by interpolation
+    private static double evaluateInterpolatedMap(Map<Double, Double> map, double x) {
+        List<Double> orderedAges = new ArrayList<>(map.keySet());
+        Collections.sort(orderedAges);
+        int bestLowerBoundIndex = -1;
+        for (int i = 0; i < orderedAges.size(); i++) {
+            if (orderedAges.get(i) <= x) {
+                bestLowerBoundIndex = i;
+            }
+        }
+        if (bestLowerBoundIndex == orderedAges.size() - 1) { //x is at least oldest age with known cumulative mortality
+            return map.get(orderedAges.get(bestLowerBoundIndex));
+        } else {
+            return map.get(orderedAges.get(bestLowerBoundIndex)) + (map.get(orderedAges.get(bestLowerBoundIndex + 1)) - map.get(orderedAges.get(bestLowerBoundIndex))) *
+                    ((x - orderedAges.get(bestLowerBoundIndex)) / (orderedAges.get(bestLowerBoundIndex + 1) - orderedAges.get(bestLowerBoundIndex)));
+        }
+    }
+
+    //Computes firstArray_(i,j) + secondArray_(i,j) for all (i,j)
+    private static double[][] addArrays(double[][] firstArray, double[][] secondArray){
+        CountDownLatch latch = new CountDownLatch(taskCount);
+        Map<Integer, List<Integer>> partitionedArrayIndex = MultithreadingUtils.orderedPartitionList(IntStream.range(0, firstArray.length).boxed().collect(Collectors.toList()), taskCount);
+        double[][] output = new double[firstArray.length][firstArray[0].length];
+        for (int i = 0; i < taskCount; i++) {
+            int finalI = i;
+            executor.execute(() -> {
+                for (int j : partitionedArrayIndex.get(finalI)) {
+                    for (int k = 0; k < firstArray[0].length; k++) {
+                        output[j][k] = firstArray[j][k] + secondArray[j][k];
+                    }
+                }
+                latch.countDown();
+            });
+        }
+        try {
+            latch.await();
+        } catch (Exception e) {
+            throw new AssertionError("Latch await exception");
+        }
+        return output;
+    }
+
+    //Computes firstArray_(i,j) - secondArray_(i,j) for all (i,j)
+    private static double[][] subtractArrays(double[][] firstArray, double[][] secondArray){
+        CountDownLatch latch = new CountDownLatch(taskCount);
+        Map<Integer, List<Integer>> partitionedArrayIndex = MultithreadingUtils.orderedPartitionList(IntStream.range(0, firstArray.length).boxed().collect(Collectors.toList()), taskCount);
+        double[][] output = new double[firstArray.length][firstArray[0].length];
+        for (int i = 0; i < taskCount; i++) {
+            int finalI = i;
+            executor.execute(() -> {
+                for (int j : partitionedArrayIndex.get(finalI)) {
+                    for (int k = 0; k < firstArray[0].length; k++) {
+                        output[j][k] = firstArray[j][k] - secondArray[j][k];
+                    }
+                }
+                latch.countDown();
+            });
+        }
+        try {
+            latch.await();
+        } catch (Exception e) {
+            throw new AssertionError("Latch await exception");
+        }
+        return output;
+    }
+
+    //Computes firstArray_(i,j) * secondArray_(i,j) for all (i,j)
+    private static double[][] multiplyArrays(double[][] firstArray, double[][] secondArray){
+        CountDownLatch latch = new CountDownLatch(taskCount);
+        Map<Integer, List<Integer>> partitionedArrayIndex = MultithreadingUtils.orderedPartitionList(IntStream.range(0, firstArray.length).boxed().collect(Collectors.toList()), taskCount);
+        double[][] output = new double[firstArray.length][firstArray[0].length];
+        for (int i = 0; i < taskCount; i++) {
+            int finalI = i;
+            executor.execute(() -> {
+                for (int j : partitionedArrayIndex.get(finalI)) {
+                    for (int k = 0; k < firstArray[0].length; k++) {
+                        output[j][k] = firstArray[j][k] * secondArray[j][k];
+                    }
+                }
+                latch.countDown();
+            });
+        }
+        try {
+            latch.await();
+        } catch (Exception e) {
+            throw new AssertionError("Latch await exception");
+        }
+        return output;
+    }
+
+    //Computes firstArray_(i,j) / secondArray_(i,j) for all (i,j)
+    private static double[][] divideArrays(double[][] firstArray, double[][] secondArray){
+        CountDownLatch latch = new CountDownLatch(taskCount);
+        Map<Integer, List<Integer>> partitionedArrayIndex = MultithreadingUtils.orderedPartitionList(IntStream.range(0, firstArray.length).boxed().collect(Collectors.toList()), taskCount);
+        double[][] output = new double[firstArray.length][firstArray[0].length];
+        for (int i = 0; i < taskCount; i++) {
+            int finalI = i;
+            executor.execute(() -> {
+                for (int j : partitionedArrayIndex.get(finalI)) {
+                    for (int k = 0; k < firstArray[0].length; k++) {
+                        output[j][k] = firstArray[j][k] / secondArray[j][k];
+                    }
+                }
+                latch.countDown();
+            });
+        }
+        try {
+            latch.await();
+        } catch (Exception e) {
+            throw new AssertionError("Latch await exception");
+        }
+        return output;
+    }
+
+    //Creates 2d array of c^(ax+by+k)
+    private static double[][] exponentiateArray(double c, String compositeFunction, String lowerBoundX, String upperBoundX, int xCount, double lowerBoundY, double upperBoundY, int yCount){
+        CountDownLatch latch = new CountDownLatch(taskCount);
+        Map<Integer, List<Integer>> partitionedYCount = MultithreadingUtils.orderedPartitionList(IntStream.range(0, yCount).boxed().collect(Collectors.toList()), taskCount);
+        double[][] outputArray = new double[xCount][yCount];
+        double[] compositeFunctionCoefficients = parseCoefficients(compositeFunction); //ax + by + c to [a, b, c]
+        double[] lowerBoundXCoefficients = parseBound(lowerBoundX);
+        double[] upperBoundXCoefficients = parseBound(upperBoundX);
+        for (int i = 0; i < taskCount; i++) {
+            int finalI = i;
+            executor.execute(() -> {
+                for (int j : partitionedYCount.get(finalI)) {
+                    double lowerX = lowerBoundXCoefficients[0] * (lowerBoundY + j / ((double) yCount - 1) * (upperBoundY - lowerBoundY)) + lowerBoundXCoefficients[1];
+                    double upperX = upperBoundXCoefficients[0] * (lowerBoundY + j / ((double) yCount - 1) * (upperBoundY - lowerBoundY)) + upperBoundXCoefficients[1];
+                    double y = lowerBoundY + (upperBoundY - lowerBoundY) * j / ((double) yCount - 1);
+                    for (int k = 0; k < xCount; k++) {
+                        double x = lowerX + (upperX - lowerX) * k / ((double) xCount - 1);
+                        outputArray[k][j] = Math.pow(c, compositeFunctionCoefficients[0] * x + compositeFunctionCoefficients[1] * y + compositeFunctionCoefficients[2]);
+                    }
+                }
+                latch.countDown();
+            });
+        }
+        try {
+            latch.await();
+        } catch (Exception e) {
+            throw new AssertionError("Latch await exception");
+        }
+        return outputArray;
+    }
+
+
+    //Parses x bound as function of y of the form ay + b
+    public static double[] parseBound(String bound) {
+        double[] parsedBounds = new double[2]; //parsedBounds[0] = a, parsedBounds[1] = b
+        bound.replaceAll("\\s", "");
+
+        //Account for leading negative coefficient
+        double operationMultiplier;
+        if (bound.indexOf("-") == 0) {
+            operationMultiplier = -1;
+            bound = bound.substring(1);
+        } else {
+            operationMultiplier = 1;
+        }
+
+        //Iterate through remainder of function except for final term
+        while (Math.max(bound.indexOf("+"), bound.indexOf("-")) != -1) {
+            int addPosition = bound.indexOf("+");
+            int subtractPosition = bound.indexOf("-");
+            int nextAddOrSubtractPosition;
+            if (addPosition == -1) {
+                nextAddOrSubtractPosition = subtractPosition;
+            } else if (subtractPosition == -1) {
+                nextAddOrSubtractPosition = addPosition;
+            } else {
+                nextAddOrSubtractPosition = Math.min(addPosition, subtractPosition);
+            }
+            int yPosition = bound.indexOf("y");
+            if (yPosition >= 0 && yPosition < nextAddOrSubtractPosition) {
+                if (yPosition == 0) {
+                    parsedBounds[0] = 1 * operationMultiplier;
+                } else {
+                    parsedBounds[0] = Double.parseDouble(bound.substring(0, yPosition)) * operationMultiplier;
+                }
+            } else {
+                parsedBounds[1] = Double.parseDouble(bound.substring(0, nextAddOrSubtractPosition)) * operationMultiplier;
+            }
+            bound = bound.substring(nextAddOrSubtractPosition + 1);
+            if (addPosition == nextAddOrSubtractPosition) {
+                operationMultiplier = 1;
+            } else {
+                operationMultiplier = -1;
+            }
+        }
+
+        //Process final term
+        int yPosition = bound.indexOf("y");
+        if (yPosition >= 0) {
+            if (yPosition == 0) {
+                parsedBounds[0] = 1 * operationMultiplier;
+            } else {
+                parsedBounds[0] = Double.parseDouble(bound.substring(0, yPosition)) * operationMultiplier;
+            }
+        } else {
+            parsedBounds[1] = Double.parseDouble(bound) * operationMultiplier;
+        }
+
+        return parsedBounds;
+    }
+
+    //Parse coefficients [a, b, c] from ax+by+c (can be in any order)
+    private static double[] parseCoefficients(String compositeFunction) {
+        double[] compositeFunctionCoefficients = new double[3]; //g(x,y) = ax + by + c
+        compositeFunction = compositeFunction.replaceAll("\\s", "");
+        double operationMultiplier;
+        if (compositeFunction.indexOf("-") == 0) {
+            operationMultiplier = -1;
+            compositeFunction = compositeFunction.substring(1);
+        } else {
+            operationMultiplier = 1;
+        }
+        while (Math.max(compositeFunction.indexOf("+"), compositeFunction.indexOf("-")) != -1) {
+            int addPosition = compositeFunction.indexOf("+");
+            int subtractPosition = compositeFunction.indexOf("-");
+            int nextAddOrSubtractPosition;
+            if (addPosition == -1) {
+                nextAddOrSubtractPosition = subtractPosition;
+            } else if (subtractPosition == -1) {
+                nextAddOrSubtractPosition = addPosition;
+            } else {
+                nextAddOrSubtractPosition = Math.min(addPosition, subtractPosition);
+            }
+            int xPosition = compositeFunction.indexOf("x");
+            int yPosition = compositeFunction.indexOf("y");
+            if (xPosition >= 0 && xPosition < nextAddOrSubtractPosition) {
+                if (xPosition == 0) {
+                    compositeFunctionCoefficients[0] += 1 * operationMultiplier;
+                } else {
+                    compositeFunctionCoefficients[0] += Double.parseDouble(compositeFunction.substring(0, xPosition)) * operationMultiplier;
+                }
+            } else if (yPosition >= 0 && yPosition < nextAddOrSubtractPosition) {
+                if (yPosition == 0) {
+                    compositeFunctionCoefficients[1] += 1 * operationMultiplier;
+                } else {
+                    compositeFunctionCoefficients[1] += Double.parseDouble(compositeFunction.substring(0, yPosition)) * operationMultiplier;
+                }
+            } else {
+                compositeFunctionCoefficients[2] += Double.parseDouble(compositeFunction.substring(0, nextAddOrSubtractPosition)) * operationMultiplier;
+            }
+            compositeFunction = compositeFunction.substring(nextAddOrSubtractPosition + 1);
+            if (addPosition == nextAddOrSubtractPosition) {
+                operationMultiplier = 1;
+            } else {
+                operationMultiplier = -1;
+            }
+        }
+        int xPosition = compositeFunction.indexOf("x");
+        int yPosition = compositeFunction.indexOf("y");
+        if (xPosition >= 0) {
+            if (xPosition == 0) {
+                compositeFunctionCoefficients[0] += 1 * operationMultiplier;
+            } else {
+                compositeFunctionCoefficients[0] += Double.parseDouble(compositeFunction.substring(0, xPosition)) * operationMultiplier;
+            }
+        } else if (yPosition >= 0) {
+            if (yPosition == 0) {
+                compositeFunctionCoefficients[1] += 1 * operationMultiplier;
+            } else {
+                compositeFunctionCoefficients[1] += Double.parseDouble(compositeFunction.substring(0, yPosition)) * operationMultiplier;
+            }
+        } else {
+            compositeFunctionCoefficients[2] += Double.parseDouble(compositeFunction) * operationMultiplier;
+        }
+        return compositeFunctionCoefficients;
+    }
+
     public List<Object> parseYearHeadingCSV(String fileLocation, double perPopulation) {
         BufferedReader reader;
         String currentLine;
@@ -383,11 +748,11 @@ public class Population {
                 if (sexAgeInfo.get(2) > maxAgeCohort) maxAgeCohort = sexAgeInfo.get(2);
                 if (sexAgeInfo.get(0) == 0) {
                     for (int i = 0; i < years.length; i++) {
-                        Map<Integer, Double> currentYearMortalityData = maleData.get(years[i]);
+                        Map<Integer, Double> currentYearData = maleData.get(years[i]);
                         for (int age = sexAgeInfo.get(1); age <= sexAgeInfo.get(2); age++) {
-                            currentYearMortalityData.put(age, Double.valueOf(values[i + 1]) / perPopulation);
+                            currentYearData.put(age, Double.valueOf(values[i + 1]) / perPopulation);
                         }
-                        maleData.put(years[i], currentYearMortalityData);
+                        maleData.put(years[i], currentYearData);
                     }
                 } else {
                     for (int i = 0; i < years.length; i++) {
@@ -395,6 +760,7 @@ public class Population {
                         for (int j = sexAgeInfo.get(1); j <= sexAgeInfo.get(2); j++) {
                             currentYearData.put(j, Double.valueOf(values[i + 1]) / perPopulation);
                         }
+                        femaleData.put(years[i], currentYearData);
                     }
                 }
             }
@@ -411,6 +777,45 @@ public class Population {
             e.printStackTrace();
         }
         return Arrays.asList(maleData, femaleData, maxAgeCohort);
+    }
+
+    //Cumulative infant mortality CSV with year headings
+    public List<Object> parseCumulativeInfantMortalityCSV(String fileLocation, double perPopulation) {
+        BufferedReader reader;
+        String currentLine;
+        Map<Integer, Map<Double, Double>> maleData = new HashMap<>();
+        Map<Integer, Map<Double, Double>> femaleData = new HashMap<>();
+        try {
+            reader = new BufferedReader(new FileReader(fileLocation));
+            List<String> headings = new ArrayList<>(Arrays.asList(reader.readLine().split(",")));
+            headings.remove(0);
+            int[] years = headings.stream().mapToInt(Integer::parseInt).toArray();
+            for (int i = 0; i < years.length; i++) {
+                maleData.put(years[i], new HashMap<>(Map.of(0.0, 0.0)));
+                femaleData.put(years[i], new HashMap<>(Map.of(0.0, 0.0)));
+            }
+            while ((currentLine = reader.readLine()) != null) {
+                String[] values = currentLine.split(",");
+                List<Double> sexAgeInfo = parseInfantSexAge(values[0]);
+                if (sexAgeInfo.get(0) == 0) {
+                    for (int i = 0; i < years.length; i++) {
+                        Map<Double, Double> currentYearData = maleData.get(years[i]);
+                        currentYearData.put(sexAgeInfo.get(1), Double.valueOf(values[i + 1]) / perPopulation);
+                        maleData.put(years[i], currentYearData);
+                    }
+                } else {
+                    for (int i = 0; i < years.length; i++) {
+                        Map<Double, Double> currentYearData = femaleData.get(years[i]);
+                        currentYearData.put(sexAgeInfo.get(1), Double.valueOf(values[i + 1]) / perPopulation);
+                        femaleData.put(years[i], currentYearData);
+                    }
+                }
+            }
+            reader.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return Arrays.asList(maleData, femaleData);
     }
 
     public List<Object> parseAgeSexHeadingCSV(String fileLocation, double perPopulation) {
@@ -467,6 +872,19 @@ public class Population {
             ageBounds.add(ageBounds.get(0));
         }
         output.addAll(ageBounds);
+        return output;
+    }
+
+    //Reads population partition and outputs list of 3 integers: sex (0 male or 1 female), lower age bound, upper age bound
+    public List<Double> parseInfantSexAge(String sexAge) {
+        List<Double> output = new ArrayList<>();
+        if (sexAge.contains("M")) {
+            output.add(0.0);
+        } else {
+            output.add(1.0);
+        }
+        Double age = Double.valueOf(sexAge.replaceAll("[^\\d.]", ""));
+        output.add(age);
         return output;
     }
 

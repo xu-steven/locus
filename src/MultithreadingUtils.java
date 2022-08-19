@@ -1,4 +1,6 @@
 import java.util.*;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 
 public final class MultithreadingUtils {
     private MultithreadingUtils(){}
@@ -33,6 +35,7 @@ public final class MultithreadingUtils {
         return partitionedList;
     }
 
+    @Deprecated
     //Combining partitioned outputs
     public static PositionsAndMap combinePartitionedOutput (Map<Integer, PositionsAndMap> partitionedOutput, Integer siteCount, Integer taskCount) {
         HashMap<Integer, CasesAndCost> minimumCostMap = new HashMap<>(partitionedOutput.get(0).getMap()); //Map from centre to (cases, minimum travel cost)
@@ -50,8 +53,9 @@ public final class MultithreadingUtils {
         return new PositionsAndMap(minimumCostPositionByOrigin, minimumCostMap);
     }
 
+    @Deprecated
     //Combining partitioned outputs
-    public static HashMap<Integer, CasesAndCost> combinePartitionedMinimumCostMap (HashMap<Integer, CasesAndCost>[] partitionedMinimumCostMap, Integer siteCount, Integer taskCount) {
+    public static HashMap<Integer, CasesAndCost> combinePartitionedMinimumCostMapTaskCountFirst (HashMap<Integer, CasesAndCost>[] partitionedMinimumCostMap, Integer siteCount, Integer taskCount) {
         HashMap<Integer, CasesAndCost> minimumCostMap = new HashMap<>(partitionedMinimumCostMap[0]); //Map from centre to (cases, minimum travel cost)
         for (int i = 1; i < taskCount; i++) {
             Map<Integer, CasesAndCost> partitionMinimumCostMap = partitionedMinimumCostMap[i];
@@ -64,4 +68,68 @@ public final class MultithreadingUtils {
         }
         return minimumCostMap;
     }
+
+    //Combining partitioned outputs
+    public static HashMap<Integer, CasesAndCost> combinePartitionedMinimumCostMap(HashMap<Integer, CasesAndCost>[] partitionedMinimumCostMap, Integer siteCount, Integer taskCount) {
+        HashMap<Integer, CasesAndCost> minimumCostMap = new HashMap<>(); //Map from centre to (cases, minimum travel cost)
+        for (int j = 0; j < siteCount; j++) {
+            double positionCaseCount = partitionedMinimumCostMap[0].get(j).getCases();
+            double positionCost = partitionedMinimumCostMap[0].get(j).getCost();
+            for (int i = 1; i < taskCount; i++) {
+                positionCaseCount += partitionedMinimumCostMap[i].get(j).getCases();
+                positionCost += partitionedMinimumCostMap[i].get(j).getCost();
+            }
+            minimumCostMap.put(j, new CasesAndCost(positionCaseCount, positionCost));
+        }
+        return minimumCostMap;
+    }
+
+    //Combining partitioned outputs
+    public static CasesAndCost[] combinePartitionedMinimumCostMap(CasesAndCost[][] partitionedMinimumCostMap, Integer siteCount, Integer taskCount) {
+        CasesAndCost[] minimumCostMap = new CasesAndCost[siteCount]; //Map from centre to (cases, minimum travel cost)
+        for (int j = 0; j < siteCount; j++) {
+            double positionCaseCount = partitionedMinimumCostMap[0][j].getCases();
+            double positionCost = partitionedMinimumCostMap[0][j].getCost();
+            for (int i = 1; i < taskCount; i++) {
+                positionCaseCount += partitionedMinimumCostMap[i][j].getCases();
+                positionCost += partitionedMinimumCostMap[i][j].getCost();
+            }
+            minimumCostMap[j] = new CasesAndCost(positionCaseCount, positionCost);
+        }
+        return minimumCostMap;
+    }
+
+    //Combining partitioned outputs
+    public static CasesAndCost[] combinePartitionedMinimumCostMap(CasesAndCost[][] partitionedMinimumCostMap, Integer siteCount, Integer taskCount, ExecutorService executor) {
+        CountDownLatch latch = new CountDownLatch(taskCount);
+        CasesAndCost[] minimumCostMap = new CasesAndCost[siteCount]; //Map from centre to (cases, minimum travel cost)
+        for (int j = 0; j < siteCount; j++) {
+            int finalJ = j;
+            executor.execute(() -> {
+                double positionCaseCount = partitionedMinimumCostMap[0][finalJ].getCases();
+                double positionCost = partitionedMinimumCostMap[0][finalJ].getCost();
+                for (int i = 1; i < taskCount; i++) {
+                    positionCaseCount += partitionedMinimumCostMap[i][finalJ].getCases();
+                    positionCost += partitionedMinimumCostMap[i][finalJ].getCost();
+                }
+                minimumCostMap[finalJ] = new CasesAndCost(positionCaseCount, positionCost);
+                latch.countDown();
+            });
+        }
+        return minimumCostMap;
+    }
+
+    @Deprecated
+    //Merge two outputs, use comment in thread to revive
+    public static CasesAndCost addCasesAndCosts (CasesAndCost casesAndCostOne, CasesAndCost casesAndCostTwo) {
+        return new CasesAndCost(casesAndCostOne.getCases() + casesAndCostTwo.getCases(), casesAndCostOne.getCost() + casesAndCostTwo.getCost());
+    }
+    //In place of HashMap<Integer, CasesAndCost>[] partitionedMinimumCostMap
+    //ConcurrentHashMap<Integer, CasesAndCost> combinedMinimumCostMap = new ConcurrentHashMap<>();
+
+    //After partitionMinimumCostMap is created in each thread (before task completed)
+    //for (int j = 0; j < siteCount; j++) {
+    //    int finalJ = j;
+    //    combinedMinimumCostMap.compute(j, (position, positionCasesAndCost) -> (positionCasesAndCost == null) ? partitionMinimumCostMap.get(finalJ) : MultithreadingUtils.addCasesAndCosts(positionCasesAndCost, partitionMinimumCostMap.get(finalJ)));
+    //}
 }
