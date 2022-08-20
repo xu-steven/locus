@@ -11,7 +11,7 @@ public class SearchSpace {
     private final double[] servicedProportionByLevel; //list in ascending order
 
     //Permanent higher level services to maintain
-    private List<List<Integer>> permanentHLCenters;
+    private List<List<Integer>> permanentHLCenters; //Sites are represented by Integer
 
     //Non-configurable class variables
     private final double minimumCases;// = 10000;
@@ -20,7 +20,7 @@ public class SearchSpace {
     private int potentialSitesCount;// = graphArray.get(0).size() - 1;
     private final double[] caseCountByOrigin;
     private final double[][] graphArray;// = parseCSV(graphLocation);
-    private final Map<Integer, List<Integer>> partitionedOrigins;
+    private final int[][] partitionedOrigins; //Origins are represented by int
     private final List<List<Integer>> sortedNeighbors;// = SimAnnealingNeighbor.sortNeighbors(azimuthArray, haversineArray);
 
     //Non-configurable permanent center class variables
@@ -47,7 +47,7 @@ public class SearchSpace {
         this.originCount = FileUtils.getOriginCount(graphLocation);
         this.caseCountByOrigin = FileUtils.getCaseCountsFromCSV(censusFileLocation, "Population", originCount);
         this.graphArray = FileUtils.getInnerDoubleArrayFromCSV(graphLocation, originCount, potentialSitesCount);
-        this.partitionedOrigins = MultithreadingUtils.orderedPartitionList(IntStream.range(0, originCount).boxed().collect(Collectors.toList()), taskCount);
+        this.partitionedOrigins = MultithreadingUtils.orderedPartitionArray(IntStream.range(0, originCount).toArray(), taskCount);
         this.sortedNeighbors = SimAnnealingNeighbor.sortNeighbors(FileUtils.getInnerAzimuthArrayFromCSV(azimuthLocation, originCount, potentialSitesCount), FileUtils.getInnerDoubleArrayFromCSV(haversineLocation, originCount, potentialSitesCount), taskCount, executor);
     }
 
@@ -70,7 +70,7 @@ public class SearchSpace {
         double[][] permanentGraphArray = FileUtils.getInnerDoubleArrayFromCSV(permanentGraphLocation, originCount, FileUtils.getSitesCount(permanentGraphLocation));
         double[][] potentialGraphArray = FileUtils.getInnerDoubleArrayFromCSV(potentialGraphLocation, originCount, potentialSitesCount);
         this.graphArray = ArrayOperations.mergeDoubleArrays(potentialGraphArray, permanentGraphArray);
-        partitionedOrigins = MultithreadingUtils.orderedPartitionList(IntStream.range(0, originCount).boxed().collect(Collectors.toList()), taskCount);
+        partitionedOrigins = MultithreadingUtils.orderedPartitionArray(IntStream.range(0, originCount).toArray(), taskCount);
         this.sortedNeighbors = SimAnnealingNeighbor.sortNeighbors(FileUtils.getInnerAzimuthArrayFromCSV(azimuthLocation, originCount, potentialSitesCount), FileUtils.getInnerDoubleArrayFromCSV(haversineLocation, originCount, potentialSitesCount), taskCount, executor);
 
         //Determining remaining permanent center variables
@@ -161,7 +161,7 @@ public class SearchSpace {
         return originCount;
     }
 
-    public Map<Integer, List<Integer>> getPartitionedOrigins() {
+    public int[][] getPartitionedOrigins() {
         return partitionedOrigins;
     }
 

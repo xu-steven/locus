@@ -1,6 +1,7 @@
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
+import java.util.stream.IntStream;
 
 public final class MultithreadingUtils {
     private MultithreadingUtils(){}
@@ -18,6 +19,21 @@ public final class MultithreadingUtils {
             partitionedList.add(list.subList(numberOfLongerSublist + minimumSublistSize * i, numberOfLongerSublist + minimumSublistSize * (i + 1)));
         }
         return partitionedList;
+    }
+
+    //Partitions array into n sub arrays of same size +/- 1 preserving original order. The longer sub arrays are found first.
+    public static int[][] orderedPartitionArray(int[] array, int n) {
+        int arrayLength = array.length;
+        int minimumSublistSize = (int) Math.floor(arrayLength/n);
+        int numberOfLongerSublist = arrayLength - minimumSublistSize * n;
+        int[][] partitionedArray = new int[n][];
+        for (int i = 0; i < numberOfLongerSublist; i++) {
+            partitionedArray[i] = Arrays.copyOfRange(array, (minimumSublistSize + 1) * i, (minimumSublistSize + 1) * (i + 1));
+        }
+        for (int i = numberOfLongerSublist; i < n; i++) {
+            partitionedArray[i] = Arrays.copyOfRange(array, numberOfLongerSublist + minimumSublistSize * i, numberOfLongerSublist + minimumSublistSize * (i + 1));
+        }
+        return partitionedArray;
     }
 
     //Partitions list into n partitions of same size +/- 1 preserving original order in map. The longer sublists are first.
@@ -69,6 +85,7 @@ public final class MultithreadingUtils {
         return minimumCostMap;
     }
 
+    @Deprecated
     //Combining partitioned outputs
     public static HashMap<Integer, CasesAndCost> combinePartitionedMinimumCostMap(HashMap<Integer, CasesAndCost>[] partitionedMinimumCostMap, Integer siteCount, Integer taskCount) {
         HashMap<Integer, CasesAndCost> minimumCostMap = new HashMap<>(); //Map from centre to (cases, minimum travel cost)

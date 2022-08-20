@@ -41,7 +41,7 @@ public class SimAnnealingWithoutPermanentCenters extends SimAnnealingSearch{
         List<List<Integer>> higherLevelMinimumSitesArray = new ArrayList<>();
         //development start
         long runtime = 0;
-        for (int i = 0; i < 20; i++) {//dev
+        for (int i = 0; i < 200; i++) {//dev
             long startTime = System.currentTimeMillis();
             List<Object> solutionWithNCenters = leveledOptimizeCenters(6, 6, 6);
             long endTime = System.currentTimeMillis();

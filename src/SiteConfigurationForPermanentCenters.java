@@ -75,7 +75,7 @@ public class SiteConfigurationForPermanentCenters {
     //For base level
     public static ConfigurationCostAndPositions initialCost(List<Integer> sites, int permanentCentersCount, int[] minPermanentCenterByOrigin, double[] minPermanentCostByOrigin,
                                            double minimumCases, int originCount, double[] caseCountByOrigin, double[][] graphArray,
-                                           int taskCount, Map<Integer, List<Integer>> partitionedOrigins, ExecutorService executor) {
+                                           int taskCount, int[][] partitionedOrigins, ExecutorService executor) {
         int siteCount = sites.size();
         if (siteCount == 0) {
             return new ConfigurationCostAndPositions(100000000.0, new int[originCount]);
@@ -92,7 +92,7 @@ public class SiteConfigurationForPermanentCenters {
                 for (int j = 0; j < siteCount; ++j) {
                     partitionMinimumCostMap[j] = initialCasesCost;
                 }
-                for (int j : partitionedOrigins.get(finalI)) {
+                for (int j : partitionedOrigins[finalI]) {
                     int minimumCostPosition = -1;
                     double minimumCostUnadjusted = Double.POSITIVE_INFINITY; //Closest center travel cost, not adjusted for population or cancer center scaling
                     for (int k = permanentCentersCount; k < siteCount; ++k) {
@@ -129,7 +129,7 @@ public class SiteConfigurationForPermanentCenters {
     //For higher levels
     public static ConfigurationCostAndPositions initialCost(int level, List<Integer> sites, int[] permanentHLCentersCount, int[][] minPermanentHLPositionByOrigin, double[][] minPermanentHLCostByOrigin,
                                            double minimumCases, int originCount, double[] caseCountByOrigin, double[][] graphArray,
-                                           int taskCount, Map<Integer, List<Integer>> partitionedOrigins, ExecutorService executor) {
+                                           int taskCount, int[][] partitionedOrigins, ExecutorService executor) {
         int siteCount = sites.size();
         if (siteCount == 0) {
             return new ConfigurationCostAndPositions(100000000.0, new int[originCount]);
@@ -146,7 +146,7 @@ public class SiteConfigurationForPermanentCenters {
                 for (int j = 0; j < siteCount; ++j) {
                     partitionMinimumCostMap[j] = initialCasesCost;
                 }
-                for (int j : partitionedOrigins.get(finalI)) {
+                for (int j : partitionedOrigins[finalI]) {
                     int minimumCostPosition = -1;
                     double minimumCostUnadjusted = Double.POSITIVE_INFINITY; //Closest center travel cost, not adjusted for population or cancer center scaling
                     for (int k = permanentHLCentersCount[level]; k < siteCount; ++k) {
@@ -184,7 +184,7 @@ public class SiteConfigurationForPermanentCenters {
     public static ConfigurationCostAndPositions shiftSiteCost(List<Integer> sites, int movedPosition, Integer newSite, int[] oldMinimumCostPositionByOrigin,
                                              int permanentCentersCount, int[] minPermanentCenterByOrigin, double[] minPermanentCostByOrigin,
                                              double minimumCases, int originCount, double[] caseCountByOrigin, double[][] graphArray,
-                                             int taskCount, Map<Integer, List<Integer>> partitionedOrigins, ExecutorService executor) {
+                                             int taskCount, int[][] partitionedOrigins, ExecutorService executor) {
         int siteCount = sites.size();
         if (siteCount == 0) {
             return new ConfigurationCostAndPositions(100000000.0, new int[originCount]);
@@ -201,7 +201,7 @@ public class SiteConfigurationForPermanentCenters {
                 for (int j=0; j < siteCount; ++j) {
                     partitionMinimumCostMap[j] = initialCasesCost;
                 }
-                for (int j : partitionedOrigins.get(finalI)) {
+                for (int j : partitionedOrigins[finalI]) {
                     int minimumCostPosition = -1;
                     double minimumCostUnadjusted;
                     int oldMinimumCostPosition = oldMinimumCostPositionByOrigin[j];
@@ -253,7 +253,7 @@ public class SiteConfigurationForPermanentCenters {
     public static ConfigurationCostAndPositions shiftSiteCost(int level, List<Integer> sites, int movedPosition, Integer newSite, int[] oldMinimumCostPositionByOrigin,
                                              int[] permanentHLCentersCount, int[][] minPermanentHLPositionByOrigin, double[][] minPermanentHLCostByOrigin,
                                              double minimumCases, int originCount, double[] caseCountByOrigin, double[][] graphArray,
-                                             int taskCount, Map<Integer, List<Integer>> partitionedOrigins, ExecutorService executor) {
+                                             int taskCount, int[][] partitionedOrigins, ExecutorService executor) {
         int siteCount = sites.size();
         if (siteCount == 0) {
             return new ConfigurationCostAndPositions(100000000.0, new int[originCount]);
@@ -270,7 +270,7 @@ public class SiteConfigurationForPermanentCenters {
                 for (int j=0; j < siteCount; ++j) {
                     partitionMinimumCostMap[j] = initialCasesCost;
                 }
-                for (int j : partitionedOrigins.get(finalI)) {
+                for (int j : partitionedOrigins[finalI]) {
                     int minimumCostPosition = -1;
                     double minimumCostUnadjusted;
                     int oldMinimumCostPosition = oldMinimumCostPositionByOrigin[j];
@@ -321,7 +321,7 @@ public class SiteConfigurationForPermanentCenters {
     //Using initialCost from site configuration as originally no sites implies that there were no permanent centers
     public static ConfigurationCostAndPositions addSiteCost(List<Integer> sites, int[] oldMinimumCostPositionByOrigin,
                                            double minimumCases, int originCount, double[] caseCountByOrigin, double[][] graphArray,
-                                           int taskCount, Map<Integer, List<Integer>> partitionedOrigins, ExecutorService executor) {
+                                           int taskCount, int[][] partitionedOrigins, ExecutorService executor) {
         int siteCount = sites.size();
         int newPosition = siteCount - 1;
         Integer newSite = sites.get(newPosition);
@@ -341,7 +341,7 @@ public class SiteConfigurationForPermanentCenters {
                 for (int j = 0; j < siteCount; ++j) {
                     partitionMinimumCostMap[j] = initialCasesCost;
                 }
-                for (int j : partitionedOrigins.get(finalI)) {
+                for (int j : partitionedOrigins[finalI]) {
                     int minimumCostPosition;
                     double minimumCostUnadjusted; //Closest center travel cost, not adjusted for population or cancer center scaling
                     int oldMinimumCostPosition = oldMinimumCostPositionByOrigin[j];
@@ -378,7 +378,7 @@ public class SiteConfigurationForPermanentCenters {
     public static ConfigurationCostAndPositions removeSiteCost(List<Integer> sites, int removedPosition, int[] oldMinimumCostPositionByOrigin,
                                               int permanentCentersCount, int[] minPermanentCenterByOrigin, double[] minPermanentCostByOrigin,
                                               double minimumCases, int originCount, double[] caseCountByOrigin, double[][] graphArray,
-                                              int taskCount, Map<Integer, List<Integer>> partitionedOrigins, ExecutorService executor) {
+                                              int taskCount, int[][] partitionedOrigins, ExecutorService executor) {
         int siteCount = sites.size();
         if (siteCount == 0) {
             return new ConfigurationCostAndPositions(100000000.0, new int[originCount]);
@@ -395,7 +395,7 @@ public class SiteConfigurationForPermanentCenters {
                 for (int j = 0; j < siteCount; ++j) {
                     partitionMinimumCostMap[j] = initialCasesCost;
                 }
-                for (int j : partitionedOrigins.get(finalI)) {
+                for (int j : partitionedOrigins[finalI]) {
                     int minimumCostPosition = -1;
                     double minimumCostUnadjusted;
                     int oldMinimumCostPosition = oldMinimumCostPositionByOrigin[j];
@@ -444,7 +444,7 @@ public class SiteConfigurationForPermanentCenters {
     public static ConfigurationCostAndPositions removeSiteCost(int level, List<Integer> sites, int removedPosition, int[] oldMinimumCostPositionByOrigin,
                                               int[] permanentHLCentersCount, int[][] minPermanentHLPositionByOrigin, double[][] minPermanentHLCostByOrigin,
                                               double minimumCases, int originCount, double[] caseCountByOrigin, double[][] graphArray,
-                                              int taskCount, Map<Integer, List<Integer>> partitionedOrigins, ExecutorService executor) {
+                                              int taskCount, int[][] partitionedOrigins, ExecutorService executor) {
         int siteCount = sites.size();
         if (siteCount == 0) {
             return new ConfigurationCostAndPositions(100000000.0, new int[originCount]);
@@ -461,7 +461,7 @@ public class SiteConfigurationForPermanentCenters {
                 for (int j = 0; j < siteCount; ++j) {
                     partitionMinimumCostMap[j] = initialCasesCost;
                 }
-                for (int j : partitionedOrigins.get(finalI)) {
+                for (int j : partitionedOrigins[finalI]) {
                     int minimumCostPosition = 0;
                     double minimumCostUnadjusted;
                     int oldMinimumCostPosition = oldMinimumCostPositionByOrigin[j];

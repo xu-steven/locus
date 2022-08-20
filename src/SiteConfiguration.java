@@ -98,7 +98,7 @@ public class SiteConfiguration {
     //Variation of totalCost to save compute resources. For initial sites.
     //Cost function of configuration with given cancer center positions, graph, expected case count. Technically does not optimize for case where one permits travel to further cancer center to lower cost.
     public static ConfigurationCostAndPositions initialCost(List<Integer> sites, double minimumCases, int originCount, double[] caseCountByOrigin, double[][] graphArray,
-                                           int taskCount, Map<Integer, List<Integer>> partitionedOrigins, ExecutorService executor) {
+                                           int taskCount, int[][] partitionedOrigins, ExecutorService executor) {
         int siteCount = sites.size();
         if (siteCount == 0) {
             return new ConfigurationCostAndPositions(100000000.0, new int[originCount]);
@@ -120,7 +120,7 @@ public class SiteConfiguration {
                 for (int j = 0; j < siteCount; ++j) {
                     partitionMinimumCostMap[j] = initialCasesCost;
                 }
-                for (int j : partitionedOrigins.get(finalI)) {
+                for (int j : partitionedOrigins[finalI]) {
                     int minimumCostPosition = 0;
                     double minimumCostUnadjusted = graphArray[j][sites.get(0)]; //Closest center travel cost, not adjusted for population or cancer center scaling
                     for (int k = 1; k < siteCount; ++k) {
@@ -158,7 +158,7 @@ public class SiteConfiguration {
     //Input movedPosition is index from [0, 1, 2, ..., n-1] for n centers that was shifted to a new site; newSite is actual indexed position of new site; oldMinimumCostPositionByOrigin is list of the lowest travel cost centers for each population center using previous iteration sites prior to shift.
     //Cost function of configuration with given cancer center positions, graph, expected case count. Technically does not optimize for case where one permits travel to further cancer center to lower cost.
     public static ConfigurationCostAndPositions shiftSiteCost(List<Integer> sites, int movedPosition, Integer newSite, int[] oldMinimumCostPositionByOrigin, double minimumCases, int originCount, double[] caseCountByOrigin, double[][] graphArray,
-                                             int taskCount, Map<Integer, List<Integer>> partitionedOrigins, ExecutorService executor) {
+                                             int taskCount, int[][] partitionedOrigins, ExecutorService executor) {
         int siteCount = sites.size();
         if (siteCount == 0) {
             return new ConfigurationCostAndPositions(100000000.0, new int[originCount]);
@@ -178,7 +178,7 @@ public class SiteConfiguration {
                     partitionMinimumCostMap[j] = initialCasesCost;
                     //partitionMinimumCostMap.put(j, initialCasesCost);
                 }
-                for (int j : partitionedOrigins.get(finalI)) {
+                for (int j : partitionedOrigins[finalI]) {
                     int minimumCostPosition = 0;
                     double minimumCostUnadjusted;
                     int oldMinimumCostPosition = oldMinimumCostPositionByOrigin[j];
@@ -230,7 +230,7 @@ public class SiteConfiguration {
     //Input movedPosition is index from [0, 1, 2, ..., n-1] for n centers that was shifted to a new site; newSite is actual indexed position of new site; oldMinimumCostPositionByOrigin is list of the lowest travel cost centers for each population center using previous iteration sites prior to shift.
     //Cost function of configuration with given cancer center positions, graph, expected case count. Technically does not optimize for case where one permits travel to further cancer center to lower cost.
     public static ConfigurationCostAndPositions addSiteCost(List<Integer> sites, int[] oldMinimumCostPositionByOrigin, double minimumCases, int originCount, double[] caseCountByOrigin, double[][] graphArray,
-                                           int taskCount, Map<Integer, List<Integer>> partitionedOrigins, ExecutorService executor) {
+                                           int taskCount, int[][] partitionedOrigins, ExecutorService executor) {
         int siteCount = sites.size();
         int newPosition = siteCount - 1;
         Integer newSite = sites.get(newPosition);
@@ -250,7 +250,7 @@ public class SiteConfiguration {
                 for (int j = 0; j < siteCount; ++j) {
                     partitionMinimumCostMap[j] = initialCasesCost;
                 }
-                for (int j : partitionedOrigins.get(finalI)) {
+                for (int j : partitionedOrigins[finalI]) {
                     int minimumCostPosition;
                     double minimumCostUnadjusted; //Closest center travel cost, not adjusted for population or cancer center scaling
                     int oldMinimumCostPosition = oldMinimumCostPositionByOrigin[j];
@@ -287,7 +287,7 @@ public class SiteConfiguration {
     //Input movedPosition is index from [0, 1, 2, ..., n-1] for n centers that was shifted to a new site; newSite is actual indexed position of new site; oldMinimumCostPositionByOrigin is list of the lowest travel cost centers for each population center using previous iteration sites prior to shift.
     //Cost function of configuration with given cancer center positions, graph, expected case count. Technically does not optimize for case where one permits travel to further cancer center to lower cost.
     public static ConfigurationCostAndPositions removeSiteCost(List<Integer> sites, int removedPosition, int[] oldMinimumCostPositionByOrigin, double minimumCases, int originCount, double[] caseCountByOrigin, double[][] graphArray,
-                                              int taskCount, Map<Integer, List<Integer>> partitionedOrigins, ExecutorService executor) {
+                                              int taskCount, int[][] partitionedOrigins, ExecutorService executor) {
         int siteCount = sites.size();
         if (siteCount == 0) {
             return new ConfigurationCostAndPositions((double) 100000000, new int[originCount]);
@@ -304,7 +304,7 @@ public class SiteConfiguration {
                 for (int j = 0; j < siteCount; ++j) {
                     partitionMinimumCostMap[j] = initialCasesCost;
                 }
-                for (int j : partitionedOrigins.get(finalI)) {
+                for (int j : partitionedOrigins[finalI]) {
                     int minimumCostPosition = 0;
                     double minimumCostUnadjusted;
                     int oldMinimumCostPosition = oldMinimumCostPositionByOrigin[j];
