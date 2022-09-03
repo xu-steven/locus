@@ -5,7 +5,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class PopulationParameters {
-
     //Fertility data; year -> (age -> fertility)
     private final Map<Integer, Map<Integer, Double>> fertility;
     private final int oldestFertilityCohortAge;
@@ -16,7 +15,6 @@ public class PopulationParameters {
     //Mortality data; year -> (age -> mortality)
     private final Map<Integer, Map<Integer, Double>> maleMortality;
     private final Map<Integer, Map<Integer, Double>> femaleMortality;
-    private final int oldestMortalityCohortAge;
 
     //Infant mortality data; year -> (age in months -> cumulative mortality by that age)
     private final Map<Integer, Map<Double, Double>> maleInfantCumulativeMortality;
@@ -26,20 +24,16 @@ public class PopulationParameters {
     private final Map<Integer, Double> maleInfantSeparationFactor;
     private final Map<Integer, Double> femaleInfantSeparationFactor;
 
-    //Fraction of population aged 0-6 months of total age 0 population
-    private final double currentMaleProportionUnderSixMonths = 0.0;
-    private final double currentFemaleProportionUnderSixMonths = 0.0;
-
     //Migration data; year -> (age -> migration)
     private final Map<Integer, Map<Integer, Double>> maleMigration;
     private final Map<Integer, Map<Integer, Double>> femaleMigration;
-    private final int oldestMigrationCohortAge;
     private int migrationFormat; //0 if absolute migration numbers, 1 if rates per capita
 
-    public PopulationParameters(String mortalityLocation, String infantMortalityLocation, String fertilityLocation, String migrationLocation, String migrationFormat) {
+    public PopulationParameters(String mortalityLocation, String infantMortalityLocation, String fertilityLocation, String migrationLocation, String migrationFormat, int oldestPyramidCohortAge) {
         ParsedEventRates fertilityRates = parseAgeSexHeadingCSV(fertilityLocation, 1.0);
         fertility = fertilityRates.getFemaleRate();
         oldestFertilityCohortAge = fertilityRates.getMaxCohortAge();
+
         sexRatioAtBirth = new HashMap<>();
         for (int year = 2000; year < 3000; year++) {
             sexRatioAtBirth.put(year, 1.05);
@@ -48,6 +42,7 @@ public class PopulationParameters {
         maleInfantCumulativeMortality = infantCumulativeMortality.getMaleCumulativeMortality();
         femaleInfantCumulativeMortality = infantCumulativeMortality.getFemaleCumulativeMortality();
         maleInfantSeparationFactor = new HashMap<>();
+
         for (int year = 2000; year < 3000; year++) {
             maleInfantSeparationFactor.put(year, 0.235);
         }
@@ -58,17 +53,28 @@ public class PopulationParameters {
         ParsedEventRates mortalityRates = parseYearHeadingCSV(mortalityLocation, 1.0);
         maleMortality = mortalityRates.getMaleRate();
         femaleMortality = mortalityRates.getFemaleRate();
-        oldestMortalityCohortAge = mortalityRates.getMaxCohortAge();
+        int oldestMortalityCohortAge = mortalityRates.getMaxCohortAge();
+        if (oldestMortalityCohortAge < oldestPyramidCohortAge) {
+            for (int i = oldestMortalityCohortAge + 1; i <= oldestPyramidCohortAge; i++) {
+                maleMortality.put(i, maleMortality.get(oldestMortalityCohortAge));
+                femaleMortality.put(i, femaleMortality.get(oldestMortalityCohortAge));
+            }
+        }
         ParsedEventRates migrationRates = parseAgeSexHeadingCSV(migrationLocation, 1.0);
         maleMigration = migrationRates.getMaleRate();
         femaleMigration = migrationRates.getFemaleRate();
-        oldestMigrationCohortAge = migrationRates.getMaxCohortAge();
+        int oldestMigrationCohortAge = migrationRates.getMaxCohortAge();
+        if (oldestMigrationCohortAge < oldestPyramidCohortAge) {
+            for (int i = oldestMigrationCohortAge + 1; i <= oldestPyramidCohortAge; i++) {
+                maleMigration.put(i, maleMigration.get(oldestMigrationCohortAge));
+                femaleMigration.put(i, femaleMigration.get(oldestMigrationCohortAge));
+            }
+        }
         if (migrationFormat.contains("Rate")) {
             this.migrationFormat = 1;
         } else {
             this.migrationFormat = 0;
         }
-        Set<Integer> a = maleMortality.keySet();
     }
 
     public static ParsedEventRates parseYearHeadingCSV(String fileLocation, double perPopulation) {
@@ -89,7 +95,7 @@ public class PopulationParameters {
             }
             while ((currentLine = reader.readLine()) != null) {
                 String[] values = currentLine.split(",");
-                List<Integer> sexAgeInfo = parseSexAgeGroup(values[0]);
+                List<Integer> sexAgeInfo = parseAgeSexGroup(values[0]);
                 if (sexAgeInfo.get(1) < minAgeCohort) minAgeCohort = sexAgeInfo.get(1);
                 if (sexAgeInfo.get(2) > maxAgeCohort) maxAgeCohort = sexAgeInfo.get(2);
                 if (sexAgeInfo.get(0) == 0) {
@@ -136,7 +142,7 @@ public class PopulationParameters {
             reader = new BufferedReader(new FileReader(fileLocation));
             List<String> headings = new ArrayList<>(Arrays.asList(reader.readLine().split(",")));
             headings.remove(0);
-            List<List<Integer>> sexAgeHeadings = headings.stream().map(x -> parseSexAgeGroup(x)).collect(Collectors.toList());
+            List<List<Integer>> sexAgeHeadings = headings.stream().map(x -> parseAgeSexGroup(x)).collect(Collectors.toList());
             while ((currentLine = reader.readLine()) != null) {
                 String[] values = currentLine.split(",");
                 Map<Integer, Double> currentYearMaleData = new HashMap<>();
@@ -183,7 +189,7 @@ public class PopulationParameters {
             }
             while ((currentLine = reader.readLine()) != null) {
                 String[] values = currentLine.split(",");
-                List<Double> sexAgeInfo = parseInfantSexAge(values[0]);
+                List<Double> sexAgeInfo = parseInfantAgeSex(values[0]);
                 if (sexAgeInfo.get(0) == 0) {
                     for (int i = 0; i < years.length; i++) {
                         Map<Double, Double> currentYearData = maleData.get(years[i]);
@@ -206,14 +212,14 @@ public class PopulationParameters {
     }
 
     //Reads population partition and outputs list of 3 integers: sex (0 male or 1 female), lower age bound, upper age bound
-    public static List<Integer> parseSexAgeGroup(String sexAgeGroup) {
+    public static List<Integer> parseAgeSexGroup(String ageSexGroup) {
         List<Integer> output = new ArrayList<>();
-        if (sexAgeGroup.contains("M")) {
+        if (ageSexGroup.contains("M")) {
             output.add(0);
         } else {
             output.add(1);
         }
-        List<Integer> ageBounds = new ArrayList<>(Arrays.stream(sexAgeGroup.replaceAll("[^0-9]+", " ").trim().split(" ")).mapToInt(Integer::parseInt).boxed().toList());
+        List<Integer> ageBounds = new ArrayList<>(Arrays.stream(ageSexGroup.replaceAll("[^0-9]+", " ").trim().split(" ")).mapToInt(Integer::parseInt).boxed().toList());
         if (ageBounds.size() == 1) {
             ageBounds.add(ageBounds.get(0));
         }
@@ -222,14 +228,14 @@ public class PopulationParameters {
     }
 
     //Reads population partition and outputs list of 3 integers: sex (0 male or 1 female), lower age bound, upper age bound
-    public static List<Double> parseInfantSexAge(String sexAge) {
+    public static List<Double> parseInfantAgeSex(String ageSex) {
         List<Double> output = new ArrayList<>();
-        if (sexAge.contains("M")) {
+        if (ageSex.contains("M")) {
             output.add(0.0);
         } else {
             output.add(1.0);
         }
-        Double age = Double.valueOf(sexAge.replaceAll("[^\\d.]", ""));
+        Double age = Double.valueOf(ageSex.replaceAll("[^\\d.]", ""));
         output.add(age);
         return output;
     }
@@ -322,7 +328,7 @@ public class PopulationParameters {
         return oldestFertilityCohortAge;
     }
 
-    public double getSpecificHumanSexRatio(int year) {
+    public double getHumanSexRatio(int year) {
         return sexRatioAtBirth.get(year);
     }
 
@@ -330,20 +336,8 @@ public class PopulationParameters {
         return maleMortality;
     }
 
-    public double getSpecificMaleMortality(int year, int age) {
-        return maleMortality.get(year).get(Math.min(age, oldestMortalityCohortAge));
-    }
-
     public Map<Integer, Map<Integer, Double>> getFemaleMortality() {
         return femaleMortality;
-    }
-
-    public double getSpecificFemaleMortality(int year, int age) {
-        return femaleMortality.get(year).get(Math.min(age, oldestMortalityCohortAge));
-    }
-
-    public int getOldestMortalityCohortAge() {
-        return oldestMortalityCohortAge;
     }
 
     public Map<Integer, Map<Double, Double>> getMaleInfantCumulativeMortality() {
@@ -366,19 +360,12 @@ public class PopulationParameters {
         return maleMigration;
     }
 
-    public double getSpecificMaleMigration(int year, int age) {
-        return maleMigration.get(year).get(Math.min(age, oldestMigrationCohortAge));
-    }
-
     public Map<Integer, Map<Integer, Double>> getFemaleMigration() {
         return femaleMigration;
-    }
-
-    public double getSpecificFemaleMigration(int year, int age) {
-        return femaleMigration.get(year).get(Math.min(age, oldestMigrationCohortAge));
     }
 
     public int getMigrationFormat() {
         return migrationFormat;
     }
+
 }

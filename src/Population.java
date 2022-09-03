@@ -7,9 +7,14 @@ public class Population {
     //Adjusted map age -> population with 1 year age increments, with final year including all >= that age
     public static Map<Integer, Double> malePyramid;
     public static Map<Integer, Double> femalePyramid;
-
     static int oldestPyramidCohortAge;
 
+    public Population(int year, Map<Integer, Double> malePyramid, Map<Integer, Double> femalePyramid, int oldestPyramidCohortAge) {
+        this.year = year;
+        this.malePyramid = malePyramid;
+        this.femalePyramid = femalePyramid;
+        this.oldestPyramidCohortAge = oldestPyramidCohortAge;
+    }
     public Population(int year, List<String> ageAndSexGroups, double[] populationByAgeAndSexGroup,
                       Map<Integer, Map<Integer, Double>> maleMortality, Map<Integer, Map<Integer, Double>> femaleMortality,
                       Map<Integer, Map<Integer, Double>> maleMigration, Map<Integer, Map<Integer, Double>> femaleMigration, int migrationFormat,
@@ -21,7 +26,7 @@ public class Population {
         Map<List<Integer>, Double> femaleRawPyramid = new HashMap<>();
         oldestPyramidCohortAge = 0;
         for (int i = 0; i < ageAndSexGroups.size(); i++) {
-            List<Integer> sexAgeInfo = PopulationParameters.parseSexAgeGroup(ageAndSexGroups.get(i));
+            List<Integer> sexAgeInfo = PopulationParameters.parseAgeSexGroup(ageAndSexGroups.get(i));
             if (sexAgeInfo.get(2) > oldestPyramidCohortAge) oldestPyramidCohortAge = sexAgeInfo.get(2);
             if (sexAgeInfo.get(0) == 0) {
                 maleRawPyramid.put(Arrays.asList(sexAgeInfo.get(1), sexAgeInfo.get(2)), populationByAgeAndSexGroup[i]);
@@ -174,7 +179,7 @@ public class Population {
         List<String> referenceAgeAndSexGroups = FileUtils.getCSVHeadings(referenceLocation);
         Set<List<Integer>> allReferenceAgeBounds = new HashSet<>();
         for (int i = 0; i < referenceAgeAndSexGroups.size(); i++) {
-            List<Integer> sexAgeInfo = PopulationParameters.parseSexAgeGroup(referenceAgeAndSexGroups.get(i));
+            List<Integer> sexAgeInfo = PopulationParameters.parseAgeSexGroup(referenceAgeAndSexGroups.get(i));
             allReferenceAgeBounds.add(Arrays.asList(sexAgeInfo.get(1), sexAgeInfo.get(2)));
         }
         //Compute new pyramid in same format as reference
@@ -189,6 +194,9 @@ public class Population {
         return remadePyramid;
     }
 
+    public static int getYear() {
+        return year;
+    }
 
     public Map<Integer, Double> getMalePyramid() {
         return malePyramid;
@@ -200,5 +208,26 @@ public class Population {
 
     public static int getOldestPyramidCohortAge() {
         return oldestPyramidCohortAge;
+    }
+
+    public static int determineOldestPyramidCohortAge(List<String> ageSexCohorts) {
+        int oldestCohortAge = 0;
+        for (String ageSexCohort : ageSexCohorts) {
+            if (PopulationParameters.parseAgeSexGroup(ageSexCohort).get(2) > oldestCohortAge) {
+                oldestCohortAge = PopulationParameters.parseAgeSexGroup(ageSexCohort).get(2);
+            }
+        }
+        return oldestCohortAge;
+    }
+
+    public static int getTotalPopulation() {
+        int population = 0;
+        for (int age : malePyramid.keySet()) {
+            population += malePyramid.get(age);
+        }
+        for (int age : femalePyramid.keySet()) {
+            population += femalePyramid.get(age);
+        }
+        return population;
     }
 }
