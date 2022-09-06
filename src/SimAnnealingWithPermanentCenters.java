@@ -27,8 +27,11 @@ public class SimAnnealingWithPermanentCenters extends SimAnnealingSearch{
         //Search space parameters
         double[] minimumCasesByLevel = {(double) 10000, (double) 1000000, (double) 2000000};
         double[] servicedProportionByLevel = {0.7, 0.2, 0.1};
-        searchParameters = new SearchSpace(12, 12, Arrays.asList(new ArrayList<>(), Arrays.asList()),
-                minimumCasesByLevel, servicedProportionByLevel,
+        List<List<Integer>> levelSequences = new ArrayList<>();
+        levelSequences.add(Arrays.asList(0, 1));
+        levelSequences.add(Arrays.asList(0, 2));
+        searchParameters = new SearchSpace(new int[]{12, 12, 12}, new int[]{12, 12, 12}, Arrays.asList(new ArrayList<>(), Arrays.asList()),
+                minimumCasesByLevel, servicedProportionByLevel, levelSequences,
                 censusFileLocation, permanentGraphLocation, potentialGraphLocation, azimuthLocation, haversineLocation, 6, executor);
     }
 
@@ -105,7 +108,7 @@ public class SimAnnealingWithPermanentCenters extends SimAnnealingSearch{
 
             //Try adding, removing, or shifting one of the higher level positions for each level in array
             //Rebuilds all higher level sites from ground up at end.
-            for (int i = 0; i < searchParameters.getHigherCenterLevels(); ++i ) {
+            for (int i = 0; i < searchParameters.getCenterLevels(); ++i ) {
                 //Create artificial level configuration
                 List<Integer> currentThisLevelSites = currentSiteConfiguration.getHigherLevelSitesArray().get(i);
                 int currentThisLevelSiteCount = currentThisLevelSites.size();

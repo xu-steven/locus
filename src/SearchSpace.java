@@ -1,26 +1,30 @@
 import java.util.*;
 import java.util.concurrent.ExecutorService;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class SearchSpace {
     //New center properties
-    private final int minNewCenters; //Usually 1.
-    private final int maxNewCenters; //Maximum number of cancer centers to try
+    private final int minNewCentersByLevel[]; //Usually 1.
+    private final int maxNewCentersByLevel[]; //Maximum number of cancer centers to try
     private final double[] minimumCasesByLevel; //list in ascending order minimum cases for increasingly tertiary cancer center services
     private final double[] servicedProportionByLevel; //list in ascending order
+    private final int[][] sublevelsByLevel;
+    private final int[][] superlevelsByLevel;
 
     //Permanent higher level services to maintain
     private List<List<Integer>> permanentHLCenters; //Sites are represented by Integer
 
     //Non-configurable class variables
     private final double minimumCases;// = 10000;
-    private final int higherCenterLevels;
+    private final int centerLevels;
     private final int originCount;
     private int potentialSitesCount;// = graphArray.get(0).size() - 1;
     private final double[] caseCountByOrigin;
     private final double[][] graphArray;// = parseCSV(graphLocation);
     private final int[][] partitionedOrigins; //Origins are represented by int
     private final List<List<Integer>> sortedNeighbors;// = SimAnnealingNeighbor.sortNeighbors(azimuthArray, haversineArray);
+    //private final int[][] levelRelations;
 
     //Non-configurable permanent center class variables
     private int[] minPermanentPositionByOrigin; //minimum existing centers that must be maintained
@@ -31,17 +35,20 @@ public class SearchSpace {
     private int[] permanentHLCentersCount;
     private int permanentAllHLCentersCount;
 
-    public SearchSpace(int minNewCenters, int maxNewCenters, double[] minimumCasesByLevel, double[] servicedProportionByLevel,
+    public SearchSpace(int[] minNewCentersByLevel, int[] maxNewCentersByLevel, double[] minimumCasesByLevel, double[] servicedProportionByLevel, List<List<Integer>> levelSequences,
                        String censusFileLocation, String graphLocation, String azimuthLocation, String haversineLocation,
                        int taskCount, ExecutorService executor) {
-        this.minNewCenters = minNewCenters;
-        this.maxNewCenters = maxNewCenters;
+        this.minNewCentersByLevel = minNewCentersByLevel;
+        this.maxNewCentersByLevel = maxNewCentersByLevel;
         this.minimumCasesByLevel = minimumCasesByLevel;
         this.servicedProportionByLevel = servicedProportionByLevel;
+        LevelRelations parsedLevelRelations = parseLevelRelations(levelSequences, minimumCasesByLevel.length);
+        this.sublevelsByLevel = parsedLevelRelations.getSublevelsByLevel();
+        this.superlevelsByLevel = parsedLevelRelations.getSuperlevelsByLevel();
 
         //Determining remaining variables
         this.minimumCases = minimumCasesByLevel[0];
-        this.higherCenterLevels = minimumCasesByLevel.length - 1;
+        this.centerLevels = minimumCasesByLevel.length;
         this.potentialSitesCount = FileUtils.getSitesCount(graphLocation);
         this.originCount = FileUtils.getOriginCount(graphLocation);
         this.caseCountByOrigin = FileUtils.getCaseCountsFromCSV(censusFileLocation, "Population", originCount);
@@ -51,18 +58,21 @@ public class SearchSpace {
     }
 
     //When there are permanent centers to put in graphArray
-    public SearchSpace(int minNewCenters, int maxNewCenters, List<List<Integer>> permanentHLCenters, double[] minimumCasesByLevel, double[] servicedProportionByLevel,
+    public SearchSpace(int[] minNewCentersByLevel, int[] maxNewCentersByLevel, List<List<Integer>> permanentHLCenters, double[] minimumCasesByLevel, double[] servicedProportionByLevel, List<List<Integer>> levelSequences,
                                            String censusFileLocation, String permanentGraphLocation, String potentialGraphLocation, String azimuthLocation, String haversineLocation,
                                            int taskCount, ExecutorService executor) {
-        this.minNewCenters = minNewCenters;
-        this.maxNewCenters = maxNewCenters;
+        this.minNewCentersByLevel = minNewCentersByLevel;
+        this.maxNewCentersByLevel = maxNewCentersByLevel;
         this.minimumCasesByLevel = minimumCasesByLevel;
         this.servicedProportionByLevel = servicedProportionByLevel;
         this.permanentHLCenters = permanentHLCenters;
+        LevelRelations parsedLevelRelations = parseLevelRelations(levelSequences, minimumCasesByLevel.length);
+        this.sublevelsByLevel = parsedLevelRelations.getSublevelsByLevel();
+        this.superlevelsByLevel = parsedLevelRelations.getSuperlevelsByLevel();
 
         //Determining remaining variables
         this.minimumCases = minimumCasesByLevel[0];
-        this.higherCenterLevels = minimumCasesByLevel.length - 1;
+        this.centerLevels = minimumCasesByLevel.length;
         this.originCount = FileUtils.getOriginCount(potentialGraphLocation);
         this.potentialSitesCount = FileUtils.getSitesCount(potentialGraphLocation);
         this.caseCountByOrigin = FileUtils.getCaseCountsFromCSV(censusFileLocation, "Population", originCount);
@@ -77,9 +87,9 @@ public class SearchSpace {
         PositionsAndCostsByOrigin minimumPermanentCenterInfo = getMinimumCenterInfo(permanentGraphArray);
         minPermanentPositionByOrigin = minimumPermanentCenterInfo.getPositionsByOrigin();
         minPermanentCostByOrigin = minimumPermanentCenterInfo.getCostsByOrigin();
-        permanentHLCentersCount = new int[this.getHigherCenterLevels()];
+        permanentHLCentersCount = new int[this.getCenterLevels()];
         Set permanentAllHLCenters = new HashSet<>();
-        for (int i = 0; i < this.getHigherCenterLevels(); i++) {
+        for (int i = 0; i < this.getCenterLevels(); i++) {
             permanentHLCentersCount[i] = permanentHLCenters.get(i).size();
             permanentAllHLCenters.addAll(permanentHLCenters.get(i));
         }
@@ -87,6 +97,113 @@ public class SearchSpace {
         HLPositionsAndCostsByOrigin minHLPermanentCenterInfo = getMinimumHLCenterInfo(permanentGraphArray, permanentHLCenters);
         minPermanentHLPositionByOrigin = minHLPermanentCenterInfo.getPositionsByOrigin();
         minPermanentHLCostByOrigin = minHLPermanentCenterInfo.getCostsByOrigin();
+    }
+
+    private static LevelRelations parseLevelRelations(List<List<Integer>> levelSequences, int centerLevels) {
+        List<Set<Integer>> temporarySublevelsByLevel = new ArrayList<>();
+        List<Set<Integer>> temporarySuperlevelsByLevel = new ArrayList<>();
+        for (int i = 0; i < centerLevels; i++) {
+            temporarySublevelsByLevel.add(new HashSet<>());
+            temporarySuperlevelsByLevel.add(new HashSet<>());
+        }
+        for (List<Integer> levelSequence : levelSequences) {
+            if (levelSequence.size() == 1) continue; //trivial sequence
+            List<Integer> sublevels = new ArrayList<>(levelSequence.subList(1, levelSequence.size()));
+            List<Integer> superlevels = new ArrayList<>();
+            temporarySublevelsByLevel.get(levelSequence.get(0)).addAll(sublevels);
+            for (int i = 1; i < levelSequence.size() - 1; i++) {
+                sublevels.remove(0);
+                superlevels.add(levelSequence.get(i - 1));
+                temporarySublevelsByLevel.get(levelSequence.get(i)).addAll(sublevels);
+                temporarySuperlevelsByLevel.get(levelSequence.get(i)).addAll(superlevels);
+            }
+            superlevels.add(levelSequence.get(levelSequence.size() - 2));
+            temporarySuperlevelsByLevel.get(levelSequence.get(levelSequence.size() - 1)).addAll(superlevels);
+        }
+
+        //Update with high order sub and superlevels
+        for (int i = 0; i < centerLevels; i++) {
+            //Update sublevels with higher order sublevels
+            Set<Integer> levelsWithSublevelsToProcess = new HashSet<>(temporarySublevelsByLevel.get(i));
+            Set<Integer> processedLevels = new HashSet<>();
+            processedLevels.add(i);
+            processedLevels.addAll(levelsWithSublevelsToProcess);
+
+            while (!levelsWithSublevelsToProcess.isEmpty()) {
+                Integer levelWithSublevelsToProcess = levelsWithSublevelsToProcess.iterator().next();
+
+                //Sublevels to process in future iteration
+                Set<Integer> sublevelsToProcess = new HashSet<>(temporarySublevelsByLevel.get(levelWithSublevelsToProcess));
+                sublevelsToProcess.removeAll(processedLevels);
+                levelsWithSublevelsToProcess.addAll(sublevelsToProcess);
+
+                //Update sublevels by level
+                temporarySublevelsByLevel.get(i).addAll(sublevelsToProcess);
+                processedLevels.addAll(sublevelsToProcess);
+
+                //Remove processed level
+                levelsWithSublevelsToProcess.remove(levelWithSublevelsToProcess);
+            }
+
+            //Update superlevels with higher order superlevels
+            Set<Integer> levelsWithSuperlevelsToProcess = new HashSet<>(temporarySuperlevelsByLevel.get(i));
+            processedLevels = new HashSet<>();
+            processedLevels.add(i);
+            processedLevels.addAll(levelsWithSuperlevelsToProcess);
+            while (!levelsWithSuperlevelsToProcess.isEmpty()) {
+                Integer levelWithSuperlevelsToProcess = levelsWithSuperlevelsToProcess.iterator().next();
+
+                //Superlevels to process in future iteration
+                Set<Integer> superlevelsToProcess = new HashSet<>(temporarySuperlevelsByLevel.get(levelWithSuperlevelsToProcess));
+                superlevelsToProcess.removeAll(processedLevels);
+                levelsWithSuperlevelsToProcess.addAll(superlevelsToProcess);
+
+                //Update superlevels by level
+                temporarySuperlevelsByLevel.get(i).addAll(superlevelsToProcess);
+                processedLevels.addAll(superlevelsToProcess);
+
+                //Remove processed level
+                levelsWithSuperlevelsToProcess.remove(levelWithSuperlevelsToProcess);
+            }
+        }
+
+        //All sublevels and superlevels by level
+        int[][] sublevelsByLevel = new int[centerLevels][];
+        int[][] superlevelsByLevel = new int[centerLevels][];
+        for (int i = 0; i < centerLevels; i++) {
+            sublevelsByLevel[i] = temporarySublevelsByLevel.get(i).stream().mapToInt(Integer::intValue).toArray();
+            superlevelsByLevel[i] = temporarySuperlevelsByLevel.get(i).stream().mapToInt(Integer::intValue).toArray();
+        }
+
+        //Generate output as an array where int[a][b] = 1 if sublevel, 0 if unrelated, and -1 if superlevel
+        int[][] levelRelations = new int[centerLevels][centerLevels];
+        for (int i = 0; i < centerLevels; i++) {
+            Set<Integer> currentLevelSublevels = temporarySublevelsByLevel.get(i);
+            Set<Integer> currentLevelSuperlevels = temporarySuperlevelsByLevel.get(i);
+            for (int j = 0; j < centerLevels; j++) {
+                if (currentLevelSublevels.contains(j) && currentLevelSuperlevels.contains(j)) {
+                    System.out.println("Circular level from level " + i + " to level " + j + ".");
+                    levelRelations[i][j] = -1;
+                } else if (currentLevelSublevels.contains(j)) {
+                    levelRelations[i][j] = 1;
+                } else if (currentLevelSuperlevels.contains(j)) {
+                    levelRelations[i][j] = -1;
+                } else {
+                    levelRelations[i][j] = 0;
+                }
+            }
+        }
+
+        return new LevelRelations(sublevelsByLevel, superlevelsByLevel);
+    }
+
+    private record LevelRelations(int[][] sublevelsByLevel, int[][] superlevelsByLevel) {
+        public int[][] getSublevelsByLevel() {
+            return sublevelsByLevel;
+        }
+        public int[][] getSuperlevelsByLevel() {
+            return superlevelsByLevel;
+        }
     }
 
     //Output is pair consisting of the closest existing centers by origin and cost to travel to those centers. These sites are adjusted by candidate site count (added sequentially afterward).
@@ -151,12 +268,12 @@ public class SearchSpace {
         }
     }
 
-    public int getMinNewCenters() {
-        return minNewCenters;
+    public int[] getMinNewCentersByLevel() {
+        return minNewCentersByLevel;
     }
 
-    public int getMaxNewCenters() {
-        return maxNewCenters;
+    public int[] getMaxNewCentersByLevel() {
+        return maxNewCentersByLevel;
     }
 
     public double[] getMinimumCasesByLevel() {
@@ -171,8 +288,16 @@ public class SearchSpace {
         return minimumCases;
     }
 
-    public int getHigherCenterLevels() {
-        return higherCenterLevels;
+    public int getCenterLevels() {
+        return centerLevels;
+    }
+
+    public int[][] getSublevelsByLevel() {
+        return sublevelsByLevel;
+    }
+
+    public int[][] getSuperlevelsByLevel() {
+        return superlevelsByLevel;
     }
 
     public int getOriginCount() {

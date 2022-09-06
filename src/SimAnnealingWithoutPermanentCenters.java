@@ -1,5 +1,4 @@
 import java.util.*;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -26,14 +25,21 @@ public class SimAnnealingWithoutPermanentCenters extends SimAnnealingSearch{
         String haversineLocation = censusFileLocation.replace("_origins.csv", "_haversine.csv");
 
         //Search space parameters
-        double[] minimumCasesByLevel = {(double) 10000, (double) 1000000, (double) 2000000};
-        double[] servicedProportionByLevel = {1.0, 0.0, 0.0};
-        searchParameters = new SearchSpace(12, 12, minimumCasesByLevel, servicedProportionByLevel,
+        double[] minimumCasesByLevel = {(double) 10000, (double) 1000000, (double) 2000000, (double) 10000, (double) 10};
+        double[] servicedProportionByLevel = {1.0, 0.0, 0.0, 0.0, 0.0};
+        int[] minimumCenterCountByLevel = {6, 0, 0, 1, 4};
+        int[] maximumCenterCountByLevel = {6, 6, 6, 5, 5};
+        List<List<Integer>> levelSequences = new ArrayList<>();
+        levelSequences.add(Arrays.asList(0, 1));
+        //levelSequences.add(Arrays.asList(0, 2));
+        levelSequences.add(Arrays.asList(1, 4));
+        searchParameters = new SearchSpace(minimumCenterCountByLevel, maximumCenterCountByLevel, minimumCasesByLevel, servicedProportionByLevel, levelSequences,
                 censusFileLocation, graphLocation, azimuthLocation, haversineLocation, 6, executor);
     }
 
     public static void main(String[] args) throws InterruptedException {
         new SimAnnealingWithoutPermanentCenters();
+        System.out.println("Sublevels by level are " + Arrays.deepToString(searchParameters.getSublevelsByLevel()) + " and superlevels by level are " + Arrays.deepToString(searchParameters.getSuperlevelsByLevel()));
         System.out.println("Starting optimization algorithm"); //development only
         //This can be multithreaded with each thread working on a different number n.
         double minimumCost = Double.POSITIVE_INFINITY;
@@ -43,13 +49,13 @@ public class SimAnnealingWithoutPermanentCenters extends SimAnnealingSearch{
         long runtime = 0;
         for (int i = 0; i < 200; i++) {//dev
             long startTime = System.currentTimeMillis();
-            List<Object> solutionWithNCenters = leveledOptimizeCenters(6, 6, 6);
+            List<Object> solutionWithNCenters = leveledOptimizeCenters(searchParameters.getMinNewCentersByLevel(), searchParameters.getMaxNewCentersByLevel(), 6);
             long endTime = System.currentTimeMillis();
             runtime += (endTime - startTime);
         }
         System.out.println("Run time on 20 iterations was " + (runtime / 1000) + "s");
         //development end
-        List<Object> solutionWithNCenters = leveledOptimizeCenters(6, 6, 6);
+        List<Object> solutionWithNCenters = leveledOptimizeCenters(searchParameters.getMinNewCentersByLevel(), searchParameters.getMaxNewCentersByLevel(), 6);
         minimumCost = (double) solutionWithNCenters.get(0);
         minimumSites = (List<Integer>) solutionWithNCenters.get(1);
         try {
@@ -124,184 +130,125 @@ public class SimAnnealingWithoutPermanentCenters extends SimAnnealingSearch{
     }
 
     //Optimize with shrinking
-    //Multithreaded variant of leveledOptimizeNCenters
-    public static List<Object> leveledOptimizeNCenters(int centerCount, int taskCount) throws InterruptedException {
-        long timer = System.currentTimeMillis(); // development only
-
-        //Overriding finalNeighborhoodSize locally for multithreading based on number of centers to optimize if -1 chosen
-        int localFinalNeighborhoodSize;
-        if (finalNeighborhoodSize == -1) {
-            localFinalNeighborhoodSize = (int) Math.min(Math.ceil(1.5 * searchParameters.getPotentialSitesCount() / centerCount), searchParameters.getPotentialSitesCount() - centerCount); //to account for 1 center
-            localFinalNeighborhoodSize = Math.max(localFinalNeighborhoodSize, 1200);
-        } else {
-            localFinalNeighborhoodSize = finalNeighborhoodSize;
-        }
-
-        //Create initial configuration+
-        List<Integer> potentialSites = IntStream.range(0, searchParameters.getPotentialSitesCount()).boxed().collect(Collectors.toList());
-        LeveledSiteConfiguration currentSiteConfiguration = new LeveledSiteConfiguration(centerCount, centerCount, potentialSites, searchParameters, taskCount, executor);
-        double currentCost = currentSiteConfiguration.getCost();
-        int currentCenterCount = currentSiteConfiguration.getSites().size();
-
-        System.out.println("Initial cost " + currentCost + " at sites " + currentSiteConfiguration.getSites() + " and higher level sites " + currentSiteConfiguration.getHigherLevelSitesArray());
-
-        //Main simulated annealing algorithm
-        double temp = initialTemp;
-        int simAnnealingIteration = 0;
-        while (temp > finalTemp) {
-            simAnnealingIteration += 1;
-            int neighborhoodSize;
-            if (simAnnealingIteration >= finalNeighborhoodSizeIteration) {
-                neighborhoodSize = localFinalNeighborhoodSize;
-            } else {
-                neighborhoodSize = SimAnnealingNeighbor.getNeighborhoodSize(centerCount, searchParameters.getPotentialSitesCount(), localFinalNeighborhoodSize, simAnnealingIteration, finalNeighborhoodSizeIteration);
-            }
-            //Try moving each cancer center once for every cycle
-            for (int i = 0; i < currentCenterCount; ++i ) {
-                LeveledSiteConfiguration newSiteConfiguration = currentSiteConfiguration.shiftLowestLevelSite(i, neighborhoodSize, searchParameters, taskCount, executor);
-                double newCost = newSiteConfiguration.getCost();
-                //Decide whether to accept new positions
-                if (acceptanceProbability(currentCost, newCost, temp) > Math.random()) {
-                    currentSiteConfiguration = newSiteConfiguration;
-                    currentCost = newCost;
-                }
-            }
-
-            //Try adding, removing, or shifting one of the higher level positions for each level in array
-            //Rebuilds all higher level sites from ground up at end.
-            for (int i = 0; i < searchParameters.getHigherCenterLevels(); ++i ) {
-                //Create artificial level configuration
-                List<Integer> currentThisLevelSites = currentSiteConfiguration.getHigherLevelSitesArray().get(i);
-                int currentThisLevelSiteCount = currentThisLevelSites.size();
-                double currentThisLevelCost = currentSiteConfiguration.getHigherLevelCosts()[i];
-                int[] currentThisLevelMinimumPositionsByOrigin = currentSiteConfiguration.getHigherLevelMinimumPositionsByOrigin()[i];
-                SiteConfiguration currentThisLevelSiteConfiguration = new SiteConfiguration(currentThisLevelSites, currentThisLevelCost, currentThisLevelMinimumPositionsByOrigin);
-                //Create new site configuration and compute cost
-                SiteConfiguration newThisLevelSiteConfiguration;
-                double adjustmentType = Math.random();
-                if ((adjustmentType < 0.1 || currentThisLevelSiteCount == 0) && currentThisLevelSiteCount != currentCenterCount) { //add higher level site to level
-                    newThisLevelSiteConfiguration = currentThisLevelSiteConfiguration.addSite(currentSiteConfiguration.getSites(), searchParameters.getServicedProportionByLevel()[i + 1], searchParameters.getMinimumCasesByLevel()[i + 1], searchParameters, taskCount, executor);
-                } else if (adjustmentType < 0.2 || currentThisLevelSiteCount == currentCenterCount) { //remove higher level site from level
-                    newThisLevelSiteConfiguration = currentThisLevelSiteConfiguration.removeSite(searchParameters.getServicedProportionByLevel()[i + 1], searchParameters.getMinimumCasesByLevel()[i + 1], searchParameters, taskCount, executor);
-                } else { //shift one of the higher level sites
-                    newThisLevelSiteConfiguration = currentThisLevelSiteConfiguration.shiftSite(currentSiteConfiguration.getSites(), searchParameters.getServicedProportionByLevel()[i + 1], searchParameters.getMinimumCasesByLevel()[i + 1], searchParameters, taskCount, executor);
-                }
-                double newThisLevelCost = newThisLevelSiteConfiguration.getCost();
-                //Decide on accepting
-                if (acceptanceProbability(currentThisLevelCost, newThisLevelCost, temp) > Math.random()) {
-                    currentSiteConfiguration.updateHigherLevelConfiguration(i, newThisLevelSiteConfiguration, currentThisLevelCost, newThisLevelCost);
-                }
-            }
-            if (currentSiteConfiguration.getAllHigherLevelSites() == null) { //if any changes were accepted
-                currentSiteConfiguration.updateAllHigherLevelSites();
-                currentCost = currentSiteConfiguration.getCost();
-            }
-
-            temp *= coolingRate;
-
-            long elapsedTime = System.currentTimeMillis()  - timer; //development only
-            if (elapsedTime > updateFrequency) { //development only
-                System.out.println("Temperature is now " + temp +" on optimization for " + currentCenterCount + " center(s). Neighborhood size was " + neighborhoodSize + " for iteration " + simAnnealingIteration); // development only
-                System.out.println("The current cost is " + currentCost + " at positions " + currentSiteConfiguration.getSites() + " and higher level positions " + currentSiteConfiguration.getHigherLevelSitesArray()); // development only
-                System.out.println("Garbage collection count = " + DevelopmentUtils.getGarbageCollectionCycles() + " taking " + DevelopmentUtils.getGarbageCollectionTime() + "ms"); //garbage time
-                timer = System.currentTimeMillis(); // development only
-            } // development only
-
-            //For multithreading to allow interruption after sufficient search is completed.
-            if (Thread.interrupted()) {
-                throw new InterruptedException();
-            }
-        }
-        return Arrays.asList(currentCost, currentSiteConfiguration.getSites(), currentSiteConfiguration.getHigherLevelSitesArray()); //contains 3 elements: minimum cost, minimum positions, and higher level minimum positions.
-    }
-
-    //Optimize with shrinking
     //Multithreading variant of leveledOptimizeCenters
-    public static List<Object> leveledOptimizeCenters(int minimumCenterCount, int maximumCenterCount, int taskCount) throws InterruptedException {
+    public static List<Object> leveledOptimizeCenters(int[] minimumCenterCountByLevel, int[] maximumCenterCountByLevel, int taskCount) throws InterruptedException {
         long timer = System.currentTimeMillis(); // development only
 
         //Overriding finalNeighborhoodSize locally for multithreading based on number of centers to optimize if -1 chosen
-        List<Integer> potentialSites = IntStream.range(0, searchParameters.getPotentialSitesCount()).boxed().collect(Collectors.toList());
-        int localFinalNeighborhoodSize = SimAnnealingNeighbor.getFinalNeighborhoodSize(searchParameters.getPotentialSitesCount(), minimumCenterCount, finalNeighborhoodSize);
+        List<Integer> allPotentialSites = IntStream.range(0, searchParameters.getPotentialSitesCount()).boxed().collect(Collectors.toList());
+        int localFinalNeighborhoodSize = SimAnnealingNeighbor.getFinalNeighborhoodSize(searchParameters.getPotentialSitesCount(), Arrays.stream(maximumCenterCountByLevel).max().getAsInt(), finalNeighborhoodSize);
 
         //Create initial configuration+
-        LeveledSiteConfiguration currentSiteConfiguration = new LeveledSiteConfiguration(minimumCenterCount, maximumCenterCount, potentialSites, searchParameters, taskCount, executor);
+        LeveledSiteConfiguration currentSiteConfiguration = new LeveledSiteConfiguration(minimumCenterCountByLevel, maximumCenterCountByLevel, allPotentialSites, searchParameters, taskCount, executor);
         double currentCost = currentSiteConfiguration.getCost();
-        int currentCenterCount = currentSiteConfiguration.getSites().size();
 
-        System.out.println("Initial cost " + currentCost + " at sites " + currentSiteConfiguration.getSites() + " and higher level sites " + currentSiteConfiguration.getHigherLevelSitesArray()); //Initial cost from random placement.
+        System.out.println("Initial cost " + currentCost + " at sites " + currentSiteConfiguration.getSitesByLevel()); //Initial cost from random placement.
 
         //Main simulated annealing algorithm
         double temp = initialTemp;
         int simAnnealingIteration = 0;
         while (temp > finalTemp) {
             simAnnealingIteration += 1;
-            int neighborhoodSize = SimAnnealingNeighbor.getNeighborhoodSize(currentCenterCount, searchParameters.getPotentialSitesCount(), localFinalNeighborhoodSize, simAnnealingIteration, finalNeighborhoodSizeIteration);
-            //Try moving each cancer center once for every cycle
-            for (int i = 0; i < currentCenterCount; ++i ) {
-                LeveledSiteConfiguration newSiteConfiguration = currentSiteConfiguration.shiftLowestLevelSite(i, neighborhoodSize, searchParameters, taskCount, executor);
-                double newCost = newSiteConfiguration.getCost();
-                //Decide whether to accept new positions
-                if (acceptanceProbability(currentCost, newCost, temp) > Math.random()) {
-                    currentSiteConfiguration = newSiteConfiguration;
-                    currentCost = newCost;
-                }
-            }
-            //Try adding or removing one of current sites
-            if (Math.random() < 0.5 && currentCenterCount < maximumCenterCount) { //add site
-                LeveledSiteConfiguration newSiteConfiguration = currentSiteConfiguration.addLowestLevelSite(potentialSites, searchParameters, taskCount, executor);
-                double newCost = newSiteConfiguration.getCost();
-                if (acceptanceProbability(currentCost, newCost, temp) > Math.random()) {
-                    currentSiteConfiguration = newSiteConfiguration;
-                    currentCost = newCost;
-                    currentCenterCount += 1;
-                }
-            } else if (currentCenterCount > currentSiteConfiguration.getAllHigherLevelSites().size()) { //remove site
-                LeveledSiteConfiguration newSiteConfiguration = currentSiteConfiguration.removeLowestLevelSite(searchParameters, taskCount, executor);
-                double newCost = newSiteConfiguration.getCost();
-                if (acceptanceProbability(currentCost, newCost, temp) > Math.random()) {
-                    currentSiteConfiguration = newSiteConfiguration;
-                    currentCost = newCost;
-                    currentCenterCount -= 1;
+
+            //For each level, try moving each cancer center once for every cycle
+            for (int level = 0; level < searchParameters.getCenterLevels(); level++) {
+                int currentCenterCount = currentSiteConfiguration.getLevelSitesCount(level);
+                for (int position = 0; position < currentCenterCount; ++position) {
+                    LeveledSiteConfiguration newSiteConfiguration;
+                    if (Math.random() < 0.5 || searchParameters.getSuperlevelsByLevel()[level].length == 0) { //try to shift site random new site
+                        int neighborhoodSize = SimAnnealingNeighbor.getNeighborhoodSize(currentCenterCount, searchParameters.getPotentialSitesCount(), localFinalNeighborhoodSize, simAnnealingIteration, finalNeighborhoodSizeIteration);
+                        newSiteConfiguration = currentSiteConfiguration.leveledShiftSite(level, position, neighborhoodSize, searchParameters, taskCount, executor);
+                    } else { //try shift site to an unused superlevel site
+                        List<Integer> unusedSuperlevelSites = currentSiteConfiguration.getUnusedSuperlevelSites(level, searchParameters.getSuperlevelsByLevel()[level]);
+                        if (unusedSuperlevelSites.size() > 0) {
+                            newSiteConfiguration = currentSiteConfiguration.shiftToPotentialSite(level, position, unusedSuperlevelSites, searchParameters, taskCount, executor);
+                        } else { //no unused superlevel sites
+                            int neighborhoodSize = SimAnnealingNeighbor.getNeighborhoodSize(currentCenterCount, searchParameters.getPotentialSitesCount(), localFinalNeighborhoodSize, simAnnealingIteration, finalNeighborhoodSizeIteration);
+                            newSiteConfiguration = currentSiteConfiguration.leveledShiftSite(level, position, neighborhoodSize, searchParameters, taskCount, executor);
+                        }
+                    }
+                    double newCost = newSiteConfiguration.getCost();
+                    //Decide whether to accept new positions
+                    if (acceptanceProbability(currentCost, newCost, temp) > Math.random()) {
+                        currentSiteConfiguration = newSiteConfiguration;
+                        currentCost = newCost;
+                    }
                 }
             }
 
-            //Try adding, removing, or shifting one of the higher level positions for each level in array
-            //Rebuilds all higher level sites from ground up at end.
-            for (int i = 0; i < searchParameters.getHigherCenterLevels(); ++i ) {
-                //Create artificial level configuration
-                List<Integer> currentThisLevelSites = currentSiteConfiguration.getHigherLevelSitesArray().get(i);
-                int currentThisLevelSiteCount = currentThisLevelSites.size();
-                double currentThisLevelCost = currentSiteConfiguration.getHigherLevelCosts()[i];
-                int[] currentThisLevelMinimumPositionsByOrigin = currentSiteConfiguration.getHigherLevelMinimumPositionsByOrigin()[i];
-                SiteConfiguration currentThisLevelSiteConfiguration = new SiteConfiguration(currentThisLevelSites, currentThisLevelCost, currentThisLevelMinimumPositionsByOrigin);
-                //Create new site configuration and compute cost
-                SiteConfiguration newThisLevelSiteConfiguration;
+            //Try adding or removing one of current sites for each level
+            for (int level = 0; level < searchParameters.getCenterLevels(); level++) {
+                int currentCenterCount = currentSiteConfiguration.getLevelSitesCount(level);
                 double adjustmentType = Math.random();
-                if ((adjustmentType < 0.1 || currentThisLevelSiteCount == 0) && currentThisLevelSiteCount != currentCenterCount) { //add higher level site to level
-                    newThisLevelSiteConfiguration = currentThisLevelSiteConfiguration.addSite(currentSiteConfiguration.getSites(), searchParameters.getServicedProportionByLevel()[i + 1], searchParameters.getMinimumCasesByLevel()[i + 1], searchParameters, taskCount, executor);
-                } else if (adjustmentType < 0.2 || currentThisLevelSiteCount == currentCenterCount) { //remove higher level site from level
-                    newThisLevelSiteConfiguration = currentThisLevelSiteConfiguration.removeSite(searchParameters.getServicedProportionByLevel()[i + 1], searchParameters.getMinimumCasesByLevel()[i + 1], searchParameters, taskCount, executor);
-                } else { //shift one of the higher level sites
-                    newThisLevelSiteConfiguration = currentThisLevelSiteConfiguration.shiftSite(currentSiteConfiguration.getSites(), searchParameters.getServicedProportionByLevel()[i + 1], searchParameters.getMinimumCasesByLevel()[i + 1], searchParameters, taskCount, executor);
+                if (adjustmentType < 0.3 && currentCenterCount < maximumCenterCountByLevel[level]) { //attempt to add unrestricted site unless number of sites is already maximal
+                    boolean maximalSuperlevelSites = false;
+                    for (int superlevel : searchParameters.getSuperlevelsByLevel()[level]) {
+                        if (currentSiteConfiguration.getLevelSitesCount(superlevel) == maximumCenterCountByLevel[superlevel]) {
+                            maximalSuperlevelSites = true;
+                        }
+                    }
+                    if (maximalSuperlevelSites) { //maximal, will attempt to add unused superlevel site
+                        List<Integer> unusedSuperlevelSites = currentSiteConfiguration.getUnusedSuperlevelSites(level, searchParameters.getSuperlevelsByLevel()[level]);
+                        if (unusedSuperlevelSites.size() > 0) {
+                            LeveledSiteConfiguration newSiteConfiguration = currentSiteConfiguration.leveledAddSite(level, unusedSuperlevelSites, searchParameters, taskCount, executor);
+                            double newCost = newSiteConfiguration.getCost();
+                            if (acceptanceProbability(currentCost, newCost, temp) > Math.random()) {
+                                currentSiteConfiguration = newSiteConfiguration;
+                                currentCost = newCost;
+                            }
+                        }
+                    } else { //not maximal, will add unrestricted site
+                        LeveledSiteConfiguration newSiteConfiguration = currentSiteConfiguration.leveledAddSite(level, allPotentialSites, searchParameters, taskCount, executor);
+                        double newCost = newSiteConfiguration.getCost();
+                        if (acceptanceProbability(currentCost, newCost, temp) > Math.random()) {
+                            currentSiteConfiguration = newSiteConfiguration;
+                            currentCost = newCost;
+                        }
+                    }
+                } else if (adjustmentType < 0.5 && currentCenterCount < maximumCenterCountByLevel[level]) { //attempt to add existing superlevel site first
+                    List<Integer> unusedSuperlevelSites = currentSiteConfiguration.getUnusedSuperlevelSites(level, searchParameters.getSuperlevelsByLevel()[level]);
+                    if (unusedSuperlevelSites.size() > 0) {
+                        LeveledSiteConfiguration newSiteConfiguration = currentSiteConfiguration.leveledAddSite(level, unusedSuperlevelSites, searchParameters, taskCount, executor);
+                        double newCost = newSiteConfiguration.getCost();
+                        if (acceptanceProbability(currentCost, newCost, temp) > Math.random()) {
+                            currentSiteConfiguration = newSiteConfiguration;
+                            currentCost = newCost;
+                        }
+                    } else {
+                        boolean maximalSuperlevelSites = false;
+                        for (int superlevel : searchParameters.getSuperlevelsByLevel()[level]) {
+                            if (currentSiteConfiguration.getLevelSitesCount(superlevel) == maximumCenterCountByLevel[superlevel]) {
+                                maximalSuperlevelSites = true;
+                            }
+                        }
+                        if (!maximalSuperlevelSites) {
+                            LeveledSiteConfiguration newSiteConfiguration = currentSiteConfiguration.leveledAddSite(level, allPotentialSites, searchParameters, taskCount, executor);
+                            double newCost = newSiteConfiguration.getCost();
+                            if (acceptanceProbability(currentCost, newCost, temp) > Math.random()) {
+                                currentSiteConfiguration = newSiteConfiguration;
+                                currentCost = newCost;
+                            }
+                        }
+                    }
+                } else if (currentCenterCount > minimumCenterCountByLevel[level]) { //try to remove site
+                    List<Integer> candidateRemovalSites = currentSiteConfiguration.getCandidateRemovalSites(level, searchParameters.getSublevelsByLevel()[level], minimumCenterCountByLevel);
+                    if (candidateRemovalSites.size() > 0) {
+                        LeveledSiteConfiguration newSiteConfiguration = currentSiteConfiguration.removePotentialSite(level, candidateRemovalSites, searchParameters, taskCount, executor);
+                        double newCost = newSiteConfiguration.getCost();
+                        if (acceptanceProbability(currentCost, newCost, temp) > Math.random()) {
+                            currentSiteConfiguration = newSiteConfiguration;
+                            currentCost = newCost;
+                        }
+                    }
                 }
-                double newThisLevelCost = newThisLevelSiteConfiguration.getCost();
-                //Decide on accepting
-                if (acceptanceProbability(currentThisLevelCost, newThisLevelCost, temp) > Math.random()) {
-                    currentSiteConfiguration.updateHigherLevelConfiguration(i, newThisLevelSiteConfiguration, currentThisLevelCost, newThisLevelCost);
-                }
-            }
-            if (currentSiteConfiguration.getAllHigherLevelSites() == null) { //if any changes were accepted
-                currentSiteConfiguration.updateAllHigherLevelSites();
-                currentCost = currentSiteConfiguration.getCost();
             }
 
             temp *= coolingRate;
 
             long elapsedTime = System.currentTimeMillis()  - timer; //development only
             if (elapsedTime > updateFrequency) { //development only
-                System.out.println("Temperature is now " + temp +" on optimization for " + currentCenterCount + " center(s). Neighborhood size was " + neighborhoodSize + " for iteration " + simAnnealingIteration); // development only
-                System.out.println("The current cost is " + currentCost + " at positions " + currentSiteConfiguration.getSites() + " and higher level positions " + currentSiteConfiguration.getHigherLevelSitesArray()); // development only
+                System.out.println("Temperature is now " + temp + " for iteration " + simAnnealingIteration); // development only
+                System.out.println("The current cost is " + currentCost + " with cost by level " + Arrays.toString(currentSiteConfiguration.getCostByLevel()) + " at positions " + currentSiteConfiguration.getSitesByLevel()); // development only
                 System.out.println("Garbage collection count = " + DevelopmentUtils.getGarbageCollectionCycles() + " taking " + DevelopmentUtils.getGarbageCollectionTime() + "ms"); //garbage time
                 timer = System.currentTimeMillis(); // development only
             } // development only
@@ -311,6 +258,8 @@ public class SimAnnealingWithoutPermanentCenters extends SimAnnealingSearch{
                 throw new InterruptedException();
             }
         }
-        return Arrays.asList(currentCost, currentSiteConfiguration.getSites(), currentSiteConfiguration.getHigherLevelSitesArray()); //contains 3 elements: minimum cost, minimum positions, and higher level minimum positions.
+        //development only
+        System.out.println("Final cost " + currentSiteConfiguration.getCost() + " and minimum positions by origin " + Arrays.toString(currentSiteConfiguration.getMinimumPositionsByLevelAndOrigin()[0]));
+        return Arrays.asList(currentCost, currentSiteConfiguration.getSitesByLevel()); //contains 2 elements: minimum cost, minimum positions array.
     }
 }

@@ -106,17 +106,12 @@ public class SiteConfiguration {
 
         CountDownLatch latch = new CountDownLatch(taskCount);
         int[] minimumCostPositionsByOrigin = new int[originCount];
-        //HashMap<Integer, CasesAndCost>[] partitionedMinimumCostMap = new HashMap[taskCount];
         CasesAndCost[][] partitionedMinimumCostMap = new CasesAndCost[taskCount][siteCount];
         for (int i = 0; i < taskCount; i++) {
             int finalI = i;
             executor.execute(() -> {
-                //HashMap<Integer, CasesAndCost> partitionMinimumCostMap = new HashMap<>(10 * siteCount);
                 CasesAndCost[] partitionMinimumCostMap = new CasesAndCost[siteCount];
                 CasesAndCost initialCasesCost = new CasesAndCost(0.0, 0.0);
-                //for (int j = 0; j < siteCount; ++j) {
-                //    partitionMinimumCostMap.put(j, initialCasesCost);
-                //}
                 for (int j = 0; j < siteCount; ++j) {
                     partitionMinimumCostMap[j] = initialCasesCost;
                 }
@@ -132,12 +127,9 @@ public class SiteConfiguration {
                     }
                     minimumCostPositionsByOrigin[j] = minimumCostPosition;
                     double currentCaseCount = caseCountByOrigin[j];
-                    //double centerCaseCount = partitionMinimumCostMap.get(minimumCostPosition).getCases() + currentCaseCount; //Add new case count to total case count at center
-                    //double centerCost = partitionMinimumCostMap.get(minimumCostPosition).getCost() + (minimumCostUnadjusted * currentCaseCount); //Add new travel cost multiplied by case count to total travel cost at center
                     double centerCaseCount = partitionMinimumCostMap[minimumCostPosition].getCases() + currentCaseCount; //Add new case count to total case count at center
                     double centerCost = partitionMinimumCostMap[minimumCostPosition].getCost() + (minimumCostUnadjusted * currentCaseCount); //Add new travel cost multiplied by case count to total travel cost at center
                     CasesAndCost minimumCasesCost = new CasesAndCost(centerCaseCount, centerCost);
-                    //partitionMinimumCostMap.put(minimumCostPosition, minimumCasesCost);
                     partitionMinimumCostMap[minimumCostPosition] = minimumCasesCost;
                 }
                 partitionedMinimumCostMap[finalI] = partitionMinimumCostMap;
@@ -163,20 +155,16 @@ public class SiteConfiguration {
         if (siteCount == 0) {
             return new ConfigurationCostAndPositions(100000000.0, new int[originCount]);
         }
-
         CountDownLatch latch = new CountDownLatch(taskCount);
         int[] minimumCostPositionsByOrigin = new int[originCount];
-        //HashMap<Integer, CasesAndCost>[] partitionedMinimumCostMap = new HashMap[taskCount];
         CasesAndCost[][] partitionedMinimumCostMap = new CasesAndCost[taskCount][siteCount];
         for (int i = 0; i < taskCount; i++) {
             int finalI = i;
             executor.execute(() -> {
-                //HashMap<Integer, CasesAndCost> partitionMinimumCostMap = new HashMap<>(10 * siteCount);
                 CasesAndCost[] partitionMinimumCostMap = new CasesAndCost[siteCount];
                 CasesAndCost initialCasesCost = new CasesAndCost(0.0, 0.0);
                 for (int j=0; j < siteCount; ++j) {
                     partitionMinimumCostMap[j] = initialCasesCost;
-                    //partitionMinimumCostMap.put(j, initialCasesCost);
                 }
                 for (int j : partitionedOrigins[finalI]) {
                     int minimumCostPosition = 0;
@@ -204,12 +192,9 @@ public class SiteConfiguration {
                     }
                     minimumCostPositionsByOrigin[j] = minimumCostPosition;
                     double currentCaseCount = caseCountByOrigin[j];
-                    //double centerCaseCount = partitionMinimumCostMap.get(minimumCostPosition).getCases() + currentCaseCount; //Add new case count to total case count at center
-                    //double centerCost = partitionMinimumCostMap.get(minimumCostPosition).getCost() + (minimumCostUnadjusted * currentCaseCount); //Add new travel cost multiplied by case count to total travel cost at center
                     double centerCaseCount = partitionMinimumCostMap[minimumCostPosition].getCases() + currentCaseCount; //Add new case count to total case count at center
                     double centerCost = partitionMinimumCostMap[minimumCostPosition].getCost() + (minimumCostUnadjusted * currentCaseCount); //Add new travel cost multiplied by case count to total travel cost at center
                     CasesAndCost minimumCasesCost = new CasesAndCost(centerCaseCount, centerCost);
-                    //partitionMinimumCostMap.put(minimumCostPosition, minimumCasesCost);
                     partitionMinimumCostMap[minimumCostPosition] = minimumCasesCost;
                 }
                 partitionedMinimumCostMap[finalI] = partitionMinimumCostMap;
@@ -365,5 +350,4 @@ public class SiteConfiguration {
     public int[] getMinimumPositionsByOrigin() {
         return minimumPositionsByOrigin;
     }
-
 }

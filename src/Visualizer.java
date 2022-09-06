@@ -3,6 +3,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 public class Visualizer {
@@ -12,9 +14,10 @@ public class Visualizer {
 
     //Manually create overlay
     public static void main(String[] args) {
-        List<Integer> sites = Arrays.asList(2640, 3062, 3253, 5294, 201, 1236);
+        List<Integer> sites = Arrays.asList(643, 3173, 2643, 3127, 5318, 3174);
         sites = sites.stream().map(x -> x + 1).collect(Collectors.toList());
-        System.out.println("Cost " + (totalCost(sites, graphArray, censusArray) * 0.7 + totalCost(Arrays.asList(2640, 3062, 3253, 5294, 201, 1236), graphArray, censusArray) * 0.2 + totalCost(Arrays.asList(2640, 3062, 3253, 5294, 201, 1236), graphArray, censusArray) * 0.1));
+        System.out.println("Cost " + totalCost(sites, graphArray, censusArray));
+        //System.out.println("Cost " + (totalCost(sites, graphArray, censusArray) * 0.7 + totalCost(Arrays.asList(2640, 3062, 3253, 5294, 201, 1236), graphArray, censusArray) * 0.2 + totalCost(Arrays.asList(2640, 3062, 3253, 5294, 201, 1236), graphArray, censusArray) * 0.1));
         List<List<String>> candidateSites = FileUtils.parseCSV("M:\\Optimization Project\\alberta2016_origins.csv");
         String outputDirectory = "C:\\Projects\\Optimization Project\\output\\";
         String outputName = "alberta2016_optimized_sites.csv";

@@ -10,6 +10,11 @@ public class LeveledSiteConfigurationForPermanentCenters extends SiteConfigurati
     protected double[] higherLevelCosts; //cost for each higher level
     protected int[][] higherLevelMinimumPositionsByOrigin; //analogue of minimumPositionsByOrigin for each higher level
 
+    //Developmental leveled configuration
+    protected List<List<Integer>> sitesByLevel;
+    protected double[] costByLevel;
+    protected int[][] minimumPositionsByLevelAndOrigin;
+
     public LeveledSiteConfigurationForPermanentCenters(List<Integer> sites, double cost, int[] minimumPositionsByOrigin, List<List<Integer>> higherLevelSitesArray, Set<Integer> allHigherLevelSites, double[] higherLevelCosts, int[][] higherLevelMinimumPositionsByOrigin) {
         super(sites, cost, minimumPositionsByOrigin);
         this.higherLevelSitesArray = higherLevelSitesArray;
@@ -26,7 +31,7 @@ public class LeveledSiteConfigurationForPermanentCenters extends SiteConfigurati
         //Find subset of currentSites for higher level services
         higherLevelSitesArray = new ArrayList<>();
         allHigherLevelSites = new HashSet<>();
-        for (int i = 0; i < searchParameters.getHigherCenterLevels(); i++) {
+        for (int i = 0; i < searchParameters.getCenterLevels(); i++) {
             List<Integer> initialHigherLevelSites = sites.stream().limit(1 + random.nextInt(sites.size())).collect(Collectors.toList());
             higherLevelSitesArray.add(initialHigherLevelSites);
             allHigherLevelSites.addAll(initialHigherLevelSites);
@@ -36,7 +41,7 @@ public class LeveledSiteConfigurationForPermanentCenters extends SiteConfigurati
         //Add permanent sites
         sites = Stream.concat(IntStream.range(searchParameters.getPotentialSitesCount(), searchParameters.getPotentialSitesCount() + searchParameters.getPermanentCentersCount()).boxed(), sites.stream()).toList();
         List<List<Integer>> incrementedPermanentHLCenters = ArrayOperations.incrementArray(searchParameters.getPermanentHLCenters(), searchParameters.getPotentialSitesCount());
-        for (int i = 0; i < searchParameters.getHigherCenterLevels(); i++) {
+        for (int i = 0; i < searchParameters.getCenterLevels(); i++) {
             higherLevelSitesArray.set(i, Stream.concat(incrementedPermanentHLCenters.get(i).stream(), higherLevelSitesArray.get(i).stream()).toList());
             allHigherLevelSites.addAll(incrementedPermanentHLCenters.get(i));
         }
@@ -49,9 +54,9 @@ public class LeveledSiteConfigurationForPermanentCenters extends SiteConfigurati
         minimumPositionsByOrigin = initialCostAndPositions.getPositions();
 
         //Adjust cost for higher level positions
-        higherLevelCosts = new double[searchParameters.getHigherCenterLevels()];
-        higherLevelMinimumPositionsByOrigin = new int[searchParameters.getHigherCenterLevels()][searchParameters.getOriginCount()];
-        for (int i = 0; i < searchParameters.getHigherCenterLevels(); ++i) {
+        higherLevelCosts = new double[searchParameters.getCenterLevels()];
+        higherLevelMinimumPositionsByOrigin = new int[searchParameters.getCenterLevels()][searchParameters.getOriginCount()];
+        for (int i = 0; i < searchParameters.getCenterLevels(); ++i) {
             ConfigurationCostAndPositions initialHigherLevelCostAndPositions = initialCost(i, higherLevelSitesArray.get(i), searchParameters.getPermanentHLCentersCount(), searchParameters.getMinPermanentHLPositionByOrigin(),
                     searchParameters.getMinPermanentHLCostByOrigin(), searchParameters.getMinimumCasesByLevel()[i + 1], searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
             double initialHigherLevelCost = initialHigherLevelCostAndPositions.getCost() * searchParameters.getServicedProportionByLevel()[i + 1];
@@ -87,7 +92,7 @@ public class LeveledSiteConfigurationForPermanentCenters extends SiteConfigurati
             newAllHigherLevelSites.add(newSite);
             boolean[] updateHistory = updatedArrayAndHistory.getUpdateHistory();
             int[] updatedPositions = updatedArrayAndHistory.getUpdatedPositions();
-            for (int j = 0; j < searchParameters.getHigherCenterLevels(); j++) {
+            for (int j = 0; j < searchParameters.getCenterLevels(); j++) {
                 if (updateHistory[j]) {
                     updatedResult = SiteConfigurationForPermanentCenters.shiftSiteCost(j, newHigherLevelSitesArray.get(j), updatedPositions[j], newSite, higherLevelMinimumPositionsByOrigin[j],
                             searchParameters.getPermanentHLCentersCount(), searchParameters.getMinPermanentHLPositionByOrigin(), searchParameters.getMinPermanentHLCostByOrigin(),

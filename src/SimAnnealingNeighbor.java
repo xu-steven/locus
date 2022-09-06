@@ -231,7 +231,7 @@ public class SimAnnealingNeighbor {
     //Get new site
     public static Integer getUnusedNeighbor(List<Integer> currentSites, Integer siteToShift, int neighborhoodSize, List<List<Integer>> sortedNeighbors) {
         //Generate a list of potential next sites given particular site and remove all current sites from consideration.
-        List<Integer> nextSiteCandidates = new ArrayList<>(sortedNeighbors.get(siteToShift));
+        List<Integer> nextSiteCandidates = sortedNeighbors.get(siteToShift); //new ArrayList<>(sortedNeighbors.get(siteToShift));
         //nextSiteCandidates.removeAll(currentSites); //ensures that neighbor is unused
         //Find new positions to test
         Random random = new Random();
@@ -240,6 +240,7 @@ public class SimAnnealingNeighbor {
             Integer neighbor = nextSiteCandidates.get(random.nextInt(neighborhoodSize));
             if (currentSites.contains(neighbor)) {
                 if (currentSites.size() >= neighborhoodSize) {
+                    nextSiteCandidates = new ArrayList<>(nextSiteCandidates);
                     nextSiteCandidates.removeAll(currentSites);
                     return nextSiteCandidates.get(random.nextInt(neighborhoodSize));
                 }
