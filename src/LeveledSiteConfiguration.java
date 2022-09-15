@@ -2,11 +2,6 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 
 public class LeveledSiteConfiguration extends SiteConfiguration {
-    //protected List<List<Integer>> higherLevelSitesArray; //array containing lists of higher level sites
-    //protected Set<Integer> allHigherLevelSites;
-    //protected double[] higherLevelCosts; //cost for each higher level
-    //protected int[][] higherLevelMinimumPositionsByOrigin; //analogue of minimumPositionsByOrigin for each higher level
-
     //Developmental leveled configuration
     protected List<List<Integer>> sitesByLevel;
     protected double[] costByLevel;
@@ -21,63 +16,33 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
 
     //Generates initial configuration
     public LeveledSiteConfiguration(int[] minimumCenterCountByLevel, int[] maximumCenterCountByLevel, List<Integer> potentialSites, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
-        //Create random list of current cancer center positions and list of remaining potential positions.
-        Random random = new Random();
-
         //Generate initial site configuration
-        List<Set<Integer>> temporarySitesByLevel = new ArrayList<>();
-        for (int i = 0; i < searchParameters.getCenterLevels(); i++) {
-            temporarySitesByLevel.add(new HashSet<>());
-        }
-        for (int i = 0; i < searchParameters.getCenterLevels(); i++) {
-            //Initialize level
-            List<Integer> candidateInitialSites = new ArrayList<>(pickNRandomFromList(potentialSites, random.nextInt(maximumCenterCountByLevel[i] - minimumCenterCountByLevel[i] + 1) + minimumCenterCountByLevel[i], random));
-            temporarySitesByLevel.get(i).addAll(candidateInitialSites);
+        Random random = new Random();
+        List<Integer> candidateInitialSites = new ArrayList<>(pickNRandomFromList(potentialSites, Arrays.stream(maximumCenterCountByLevel).max().getAsInt(), random));
 
-            //Update all superlevels
-            int[] currentLevelSuperlevels = searchParameters.getSuperlevelsByLevel()[i];
-            for (int superlevel : currentLevelSuperlevels) {
-                temporarySitesByLevel.get(superlevel).addAll(candidateInitialSites);
-            }
-        }
-
-        //Convert temporary sites by level to List<List<Integer>> sitesByLevel
+        //Create site configuration for each level
         sitesByLevel = new ArrayList<>();
         for (int i = 0; i < searchParameters.getCenterLevels(); i++) {
-            sitesByLevel.add(new ArrayList<>(temporarySitesByLevel.get(i)));
+            //Initialize level
+            int initialSiteCount = random.nextInt(maximumCenterCountByLevel[i] - minimumCenterCountByLevel[i] + 1) + minimumCenterCountByLevel[i];
+            List<Integer> initialSites = new ArrayList<>(candidateInitialSites.subList(0, initialSiteCount));
+            sitesByLevel.add(initialSites);
         }
 
-        //Check for levels and remove sites form levels that exceed maximal permissible site count
-        List<List<Integer>> trialSitesByLevel = new ArrayList<>(sitesByLevel.size());
-        for (int j = 0; j < sitesByLevel.size(); j++) {
-            trialSitesByLevel.add(new ArrayList<>(sitesByLevel.get(j)));
-        }
+        //Update site configurations to respect level relations
         for (int i = 0; i < searchParameters.getCenterLevels(); i++) {
-            //Maximum 1000 attempts
-            int counter = 0;
-            boolean attemptToSatisfyCenterCounts = true;
-            while (sitesByLevel.get(i).size() > maximumCenterCountByLevel[i] && attemptToSatisfyCenterCounts && counter < 1000) {
-                attemptToSatisfyCenterCounts = false;
-                List<Integer> candidateSitesToRemove = pickNRandomFromList(sitesByLevel.get(i), sitesByLevel.get(i).size() - maximumCenterCountByLevel[i], random);
-                trialSitesByLevel.get(i).removeAll(candidateSitesToRemove);
-                for (int sublevel : searchParameters.getSublevelsByLevel()[i]) {
-                    trialSitesByLevel.get(sublevel).removeAll(candidateSitesToRemove);
-                    if (trialSitesByLevel.get(sublevel).size() < minimumCenterCountByLevel[sublevel]) {
-                        attemptToSatisfyCenterCounts = true;
-                        counter += 1;
-                        if (counter < 999) {
-                            trialSitesByLevel = new ArrayList<>(sitesByLevel.size());
-                            for (int j = 0; j < sitesByLevel.size(); j++) {
-                                trialSitesByLevel.add(new ArrayList<>(sitesByLevel.get(j)));
-                            }
-                            continue;
-                        } else {
-                            System.out.println("Accepting soft violation of minimum center criteria on level " + sublevel);
-                        }
+            //Update all superlevels
+            for (int superlevel : searchParameters.getSuperlevelsByLevel()[i]) {
+                for (Integer site : sitesByLevel.get(i)) {
+                    if(!sitesByLevel.get(superlevel).contains(site)) {
+                        sitesByLevel.get(superlevel).add(site);
                     }
                 }
+                //Check to ensure superlevel site count is permissible, i.e. did not overload by adding sublevel
+                if (sitesByLevel.get(superlevel).size() > maximumCenterCountByLevel[superlevel]) {
+                    System.out.println("Overloaded superlevel " + superlevel + " of new level " + i);
+                }
             }
-            sitesByLevel = trialSitesByLevel;
         }
 
         //Compute initial cost
@@ -94,17 +59,19 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
 
     //Get new leveled site configuration by shifting one of the lowest level sites
     //Multithreaded variant
-    public LeveledSiteConfiguration leveledShiftSite(int level, int positionToShift, int neighborhoodSize, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
-        //Shift current level sites
+    public LeveledSiteConfiguration leveledShiftToNeighborSite(int level, int positionToShift, int neighborhoodSize, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
+        //Shift target level sites
         List<Integer> currentTargetLevelSites = sitesByLevel.get(level);
         Integer siteToShift = currentTargetLevelSites.get(positionToShift);
         Integer newSite = SimAnnealingNeighbor.getUnusedNeighbor(currentTargetLevelSites, siteToShift, neighborhoodSize, searchParameters.getSortedNeighbors());
         List<Integer> newTargetLevelSites = new ArrayList<>(currentTargetLevelSites);
         newTargetLevelSites.set(positionToShift, newSite);
+
         //Compute cost of new positions and update list of the closest of current positions for each population center
         ConfigurationCostAndPositions updatedResult = shiftSiteCost(newTargetLevelSites, positionToShift, newSite, minimumPositionsByLevelAndOrigin[level], searchParameters.getMinimumCasesByLevel()[level], searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
         double newTargetLevelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[level];
         int[] newTargetLevelMinimumPositionsByOrigin = updatedResult.getPositions();
+
         //Create new leveled sites array
         List<List<Integer>> newLeveledSitesArray;
         double totalCost;
@@ -126,7 +93,7 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
                     newMinimumPositionsByLevelAndOrigin[i] = updatedResult.getPositions();
                 }
             }
-            totalCost = sumDoubleArray(newCostByLevel);
+            totalCost = ArrayOperations.sumDoubleArray(newCostByLevel);
         } else {
             newLeveledSitesArray = new ArrayList<>(sitesByLevel);
             newLeveledSitesArray.set(level, newTargetLevelSites);
@@ -137,8 +104,8 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
 
     //Get new leveled site configuration by shifting one of the lowest level sites
     //Multithreaded variant
-    public LeveledSiteConfiguration shiftToPotentialSite(int level, int positionToShift, List<Integer> potentialSites, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
-        //Shift current level sites
+    public LeveledSiteConfiguration leveledShiftToPotentialSite(int level, int positionToShift, List<Integer> potentialSites, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
+        //Shift target level sites
         List<Integer> currentTargetLevelSites = sitesByLevel.get(level);
         Integer siteToShift = currentTargetLevelSites.get(positionToShift);
         Random random = new Random();
@@ -172,7 +139,7 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
                     newMinimumPositionsByLevelAndOrigin[i] = updatedResult.getPositions();
                 }
             }
-            totalCost = sumDoubleArray(newCostByLevel);
+            totalCost = ArrayOperations.sumDoubleArray(newCostByLevel);
         } else {
             newLeveledSitesArray = new ArrayList<>(sitesByLevel);
             newLeveledSitesArray.set(level, newTargetLevelSites);
@@ -183,7 +150,7 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
 
     //Add one site to target level and superlevels
     public LeveledSiteConfiguration leveledAddSite(int level, List<Integer> allPotentialSites, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
-        //Add lowest level site
+        //Add target level site
         List<Integer> newTargetLevelSites = new ArrayList<>(sitesByLevel.get(level));
         List<Integer> unusedSites = new ArrayList<>(allPotentialSites);
         unusedSites.removeAll(newTargetLevelSites);
@@ -217,7 +184,7 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
                     newMinimumPositionsByLevelAndOrigin[superlevels[i]] = updatedResult.getPositions();
                 }
             }
-            totalCost = sumDoubleArray(newCostByLevel);
+            totalCost = ArrayOperations.sumDoubleArray(newCostByLevel);
         } else {
             newLeveledSitesArray = new ArrayList<>(sitesByLevel);
             newLeveledSitesArray.set(level, newTargetLevelSites);
@@ -229,11 +196,10 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
 
     //Remove lowest level site that is not used by higher level site
     public LeveledSiteConfiguration leveledRemoveSite(int level, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
-        //Remove one of the lowest level sites
+        //Remove one of the target level sites
         List<Integer> newTargetLevelSites = new ArrayList<>(sitesByLevel.get(level));
-        List<Integer> candidateRemovalSites = new ArrayList<>(newTargetLevelSites);
         Random random = new Random();
-        Integer removalSite = candidateRemovalSites.get(random.nextInt(candidateRemovalSites.size()));
+        Integer removalSite = newTargetLevelSites.get(random.nextInt(newTargetLevelSites.size()));
         int removalPosition = newTargetLevelSites.indexOf(removalSite);
         newTargetLevelSites.remove(removalSite);
 
@@ -264,7 +230,7 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
                     newMinimumPositionsByLevelAndOrigin[sublevels[i]] = updatedResult.getPositions();
                 }
             }
-            totalCost = sumDoubleArray(newCostByLevel);
+            totalCost = ArrayOperations.sumDoubleArray(newCostByLevel);
         } else {
             newLeveledSitesArray = new ArrayList<>(sitesByLevel);
             newLeveledSitesArray.set(level, newTargetLevelSites);
@@ -310,7 +276,7 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
                     newMinimumPositionsByLevelAndOrigin[sublevels[i]] = updatedResult.getPositions();
                 }
             }
-            totalCost = sumDoubleArray(newCostByLevel);
+            totalCost = ArrayOperations.sumDoubleArray(newCostByLevel);
         } else {
             newLeveledSitesArray = new ArrayList<>(sitesByLevel);
             newLeveledSitesArray.set(level, newTargetLevelSites);
@@ -343,13 +309,13 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
         //Update target level sublevels
         for (int sublevel : sublevels) {
             List<Integer> currentSites = updatedSitesArray.get(sublevel);
-            for (int i = 0; i < currentSites.size(); i++) {
-                if (currentSites.get(i).equals(removedSite)) {
+            for (int position = 0; position < currentSites.size(); position++) {
+                if (currentSites.get(position).equals(removedSite)) {
                     List<Integer> updatedSites = new ArrayList<>(currentSites);
-                    updatedSites.set(i, newSite);
+                    updatedSites.set(position, newSite);
                     updatedSitesArray.set(sublevel, updatedSites);
                     updateHistory[sublevel] = true;
-                    updatedPositions[sublevel] = i;
+                    updatedPositions[sublevel] = position;
                     for (int superlevel : superlevelsByLevel[sublevel]) {
                         if (!superlevelProcessedHistory[superlevel]) {
                             higherOrderSuperlevelsToProcess.add(superlevel);
@@ -365,15 +331,15 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
         for (int superlevel : superlevels) {
             List<Integer> updatedSites = new ArrayList<>(updatedSitesArray.get(superlevel));
             int updatedPosition = -1;
-            for (int i = 0; i < updatedSites.size(); i++) {
-                if (updatedSites.get(i).equals(newSite)) { //if already containing site
+            for (int position = 0; position < updatedSites.size(); position++) {
+                if (updatedSites.get(position).equals(newSite)) { //if already containing site
                     break;
                 }
-                if (updatedSites.get(i).equals(removedSite)) { //move removed site to site
-                    updatedSites.set(i, newSite);
-                    updatedPosition = i;
+                if (updatedSites.get(position).equals(removedSite)) { //move removed site to site
+                    updatedSites.set(position, newSite);
+                    updatedPosition = position;
                 }
-                if (i == updatedSites.size() - 1) { //cycle to end before updating in case site is already contained
+                if (position == updatedSites.size() - 1) { //cycle to end before updating in case site is already contained
                     updatedSitesArray.set(superlevel, updatedSites);
                     updateHistory[superlevel] = true;
                     updatedPositions[superlevel] = updatedPosition;
@@ -391,13 +357,13 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
             //Update secondary sublevels
             for (int sublevel : higherOrderSublevelsToProcess) {
                 List<Integer> currentSites = updatedSitesArray.get(sublevel);
-                for (int i = 0; i < currentSites.size(); i++) {
-                    if (currentSites.get(i).equals(removedSite)) {
+                for (int position = 0; position < currentSites.size(); position++) {
+                    if (currentSites.get(position).equals(removedSite)) {
                         List<Integer> updatedSites = new ArrayList<>(currentSites);
-                        updatedSites.set(i, newSite);
+                        updatedSites.set(position, newSite);
                         updatedSitesArray.set(sublevel, updatedSites);
                         updateHistory[sublevel] = true;
-                        updatedPositions[sublevel] = i;
+                        updatedPositions[sublevel] = position;
                         for (int superlevel : superlevelsByLevel[sublevel]) {
                             if (!superlevelProcessedHistory[superlevel]) {
                                 higherOrderSuperlevelsToProcess.add(superlevel);
@@ -413,14 +379,14 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
             for (int superlevel : higherOrderSuperlevelsToProcess) {
                 List<Integer> updatedSites = new ArrayList<>(updatedSitesArray.get(superlevel));
                 int updatedPosition = -1;
-                for (int i = 0; i < updatedSites.size(); i++) {
-                    if (updatedSites.get(i).equals(newSite)) { //if already containing site
+                for (int position = 0; position < updatedSites.size(); position++) {
+                    if (updatedSites.get(position).equals(newSite)) { //if already containing site
                         break;
                     }
-                    if (updatedSites.get(i).equals(removedSite)) { //move removed site to site
-                        updatedSites.set(i, newSite);
+                    if (updatedSites.get(position).equals(removedSite)) { //move removed site to site
+                        updatedSites.set(position, newSite);
                     }
-                    if (i == updatedSites.size() - 1) { //cycle to end before updating in case site is already contained
+                    if (position == updatedSites.size() - 1) { //cycle to end before updating in case site is already contained
                         updatedSitesArray.set(superlevel, updatedSites);
                         updateHistory[superlevel] = true;
                         updatedPositions[superlevel] = updatedPosition;
@@ -439,7 +405,7 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
         return new SitesAndUpdateHistory(updatedSitesArray, updateHistory, updatedPositions);
     }
 
-    //Update sites array by replacing removedSite with newSite for all sites in the array. Output is updated sites array, updated positions, and history of updates, true for each level that was changed and false if not.
+    //Update sites array by adding newSite to all superlevels if not already present.
     public static SitesAndUpdateHistory addToSitesArray(List<List<Integer>> sitesArray, int[] superlevels, Integer newSite) {
         List<List<Integer>> updatedSitesArray = new ArrayList<>(sitesArray);
 
@@ -458,7 +424,7 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
         return new SitesAndUpdateHistory(updatedSitesArray, superlevelUpdateHistory, null);
     }
 
-    //Update sites array by replacing removedSite with newSite for all sites in the array. Output is updated sites array, updated positions, and history of updates, true for each level that was changed and false if not.
+    //Update sites array by removing removedSite from all sublevels if present.
     public static SitesAndUpdateHistory removeFromSitesArray(List<List<Integer>> sitesArray, int[] sublevels, Integer removedSite) {
         List<List<Integer>> updatedSitesArray = new ArrayList<>(sitesArray);
 
@@ -483,27 +449,6 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
         return new SitesAndUpdateHistory(updatedSitesArray, sublevelUpdateHistory,sublevelUpdatedPositions);
     }
 
-    public static double sumDoubleArray(double[] doubleArray) {
-        double sum = doubleArray[0];
-        for (int i = 1; i < doubleArray.length; i++)
-            sum += doubleArray[i];
-        return sum;
-    }
-
-    //Get sites used by some level but not current level
-    public List<Integer> getUnusedOtherLevelSites(int level) {
-        Set<Integer> unusedSites = new HashSet<>();
-        for (int i = 0; i < level; i++) {
-            unusedSites.addAll(sitesByLevel.get(i));
-        }
-        for (int i = level + 1; i < sitesByLevel.size(); i++) {
-            unusedSites.addAll(sitesByLevel.get(i));
-        }
-        unusedSites.removeAll(sitesByLevel.get(level));
-        return new ArrayList<>(unusedSites);
-    }
-
-
     public List<Integer> getUnusedSuperlevelSites(int level, int[] superlevels) {
         Set<Integer> unusedSuperlevelSites = new HashSet<>();
         for (int superlevel : superlevels) {
@@ -513,10 +458,54 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
         return new ArrayList<>(unusedSuperlevelSites);
     }
 
+    //Equal chance to try any level, performance is generally better if high likelihood that there is an available site. Shuffles SearchSpace superlevels by level.
+    public List<Integer> getRandomSuperlevelUnusedSites(int level, int[] superlevels) {
+        List<Integer> unusedSuperlevelSites = null;
+
+        //Process target superlevels
+        ArrayOperations.shuffleIntegerArray(superlevels);
+        for (int superlevel : superlevels) {
+            unusedSuperlevelSites = new ArrayList<>(sitesByLevel.get(superlevel));
+            unusedSuperlevelSites.removeAll(sitesByLevel.get(level));
+            if (unusedSuperlevelSites.size() > 0) {
+                break;
+            }
+        }
+
+        return unusedSuperlevelSites;
+    }
+
+    //Return possible superlevel sites to add and null if there are no restrictions, i.e. any superlevel site can be added
+    public List<Integer> getRestrictedAddableSuperlevelSites(int level, int[] superlevels, int[] maximumCenterCountByLevel) {
+        List<Integer> restrictedAddableSites = null;
+
+        //Process target superlevels
+        for (int superlevel: superlevels) {
+            if (sitesByLevel.get(superlevel).size() == maximumCenterCountByLevel[superlevel]) {
+                if (restrictedAddableSites == null) {
+                    restrictedAddableSites = new ArrayList<>(sitesByLevel.get(superlevel));
+                } else {
+                    restrictedAddableSites.retainAll(sitesByLevel.get(superlevel));
+                }
+            }
+        }
+        if (restrictedAddableSites != null) {
+            if (restrictedAddableSites.size() == sitesByLevel.get(level).size()) {
+                //candidate superlevel sites must be equal to already existing sites
+                restrictedAddableSites = new ArrayList<>();
+            } else {
+                //remove existing sites
+                restrictedAddableSites.removeAll(sitesByLevel.get(level));
+            }
+        }
+        return restrictedAddableSites;
+    }
+
+
     public List<Integer> getCandidateRemovalSites(int level, int[] sublevels, int[] minimumCenterCountByLevel) {
         List<Integer> candidateRemovalSites = new ArrayList<>(sitesByLevel.get(level));
         for (int sublevel : sublevels) {
-            if (sitesByLevel.get(sublevel).size() <= minimumCenterCountByLevel[sublevel]) {
+            if (sitesByLevel.get(sublevel).size() == minimumCenterCountByLevel[sublevel]) {
                 candidateRemovalSites.removeAll(sitesByLevel.get(sublevel));
             }
         }

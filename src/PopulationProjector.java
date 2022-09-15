@@ -46,7 +46,7 @@ public class PopulationProjector {
         double lowerBoundY = 0;
         double upperBoundY = 1;
         double[][] infantMortality = PopulationCalculator.mapToTwoDimensionalArray(projectionParameters.getMaleInfantCumulativeMortality().get(2000), compositeFunction, lowerBoundX, upperBoundX, 1000, lowerBoundY, upperBoundY, 1000);
-        System.out.println(infantMortality[999][999]); //should be 2*1 + 3*(0.5+1) = 6.5 squared
+        System.out.println(infantMortality[999][999]);
         System.out.println(PopulationCalculator.doubleIntegral(infantMortality, lowerBoundX, upperBoundX, 1000, lowerBoundY, upperBoundY, 1000));
         executor.shutdown();
     }

@@ -1,6 +1,5 @@
 import java.util.*;
 import java.util.concurrent.ExecutorService;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class SearchSpace {
@@ -12,9 +11,6 @@ public class SearchSpace {
     private final int[][] sublevelsByLevel;
     private final int[][] superlevelsByLevel;
 
-    //Permanent higher level services to maintain
-    private List<List<Integer>> permanentHLCenters; //Sites are represented by Integer
-
     //Non-configurable class variables
     private final double minimumCases;// = 10000;
     private final int centerLevels;
@@ -24,16 +20,14 @@ public class SearchSpace {
     private final double[][] graphArray;// = parseCSV(graphLocation);
     private final int[][] partitionedOrigins; //Origins are represented by int
     private final List<List<Integer>> sortedNeighbors;// = SimAnnealingNeighbor.sortNeighbors(azimuthArray, haversineArray);
-    //private final int[][] levelRelations;
+
+    //Permanent centers by levels to maintain
+    private List<List<Integer>> permanentCentersByLevel; //Sites are represented by Integer
 
     //Non-configurable permanent center class variables
-    private int[] minPermanentPositionByOrigin; //minimum existing centers that must be maintained
-    private double[] minPermanentCostByOrigin; //minimum cost
-    private int[][] minPermanentHLPositionByOrigin;
-    private double[][] minPermanentHLCostByOrigin;
-    private int permanentCentersCount;
-    private int[] permanentHLCentersCount;
-    private int permanentAllHLCentersCount;
+    private int[][] minPermanentPositionByLevelAndOrigin; //minimum existing centers that must be maintained
+    private double[][] minPermanentCostByLevelAndOrigin; //minimum cost
+    private int[] permanentCentersCountByLevel;
 
     public SearchSpace(int[] minNewCentersByLevel, int[] maxNewCentersByLevel, double[] minimumCasesByLevel, double[] servicedProportionByLevel, List<List<Integer>> levelSequences,
                        String censusFileLocation, String graphLocation, String azimuthLocation, String haversineLocation,
@@ -58,14 +52,13 @@ public class SearchSpace {
     }
 
     //When there are permanent centers to put in graphArray
-    public SearchSpace(int[] minNewCentersByLevel, int[] maxNewCentersByLevel, List<List<Integer>> permanentHLCenters, double[] minimumCasesByLevel, double[] servicedProportionByLevel, List<List<Integer>> levelSequences,
+    public SearchSpace(int[] minNewCentersByLevel, int[] maxNewCentersByLevel, List<List<Integer>> permanentCentersByLevel, double[] minimumCasesByLevel, double[] servicedProportionByLevel, List<List<Integer>> levelSequences,
                                            String censusFileLocation, String permanentGraphLocation, String potentialGraphLocation, String azimuthLocation, String haversineLocation,
                                            int taskCount, ExecutorService executor) {
         this.minNewCentersByLevel = minNewCentersByLevel;
         this.maxNewCentersByLevel = maxNewCentersByLevel;
         this.minimumCasesByLevel = minimumCasesByLevel;
         this.servicedProportionByLevel = servicedProportionByLevel;
-        this.permanentHLCenters = permanentHLCenters;
         LevelRelations parsedLevelRelations = parseLevelRelations(levelSequences, minimumCasesByLevel.length);
         this.sublevelsByLevel = parsedLevelRelations.getSublevelsByLevel();
         this.superlevelsByLevel = parsedLevelRelations.getSuperlevelsByLevel();
@@ -82,21 +75,17 @@ public class SearchSpace {
         partitionedOrigins = MultithreadingUtils.orderedPartitionArray(IntStream.range(0, originCount).toArray(), taskCount);
         this.sortedNeighbors = SimAnnealingNeighbor.sortNeighbors(FileUtils.getInnerAzimuthArrayFromCSV(azimuthLocation, originCount, potentialSitesCount), FileUtils.getInnerDoubleArrayFromCSV(haversineLocation, originCount, potentialSitesCount), taskCount, executor);
 
-        //Determining remaining permanent center variables
-        permanentCentersCount = permanentGraphArray[0].length;
-        PositionsAndCostsByOrigin minimumPermanentCenterInfo = getMinimumCenterInfo(permanentGraphArray);
-        minPermanentPositionByOrigin = minimumPermanentCenterInfo.getPositionsByOrigin();
-        minPermanentCostByOrigin = minimumPermanentCenterInfo.getCostsByOrigin();
-        permanentHLCentersCount = new int[this.getCenterLevels()];
-        Set permanentAllHLCenters = new HashSet<>();
+        //Determine permanent centers by level with sites incremented by potential sites count
+        this.permanentCentersByLevel = ArrayOperations.incrementList(permanentCentersByLevel, potentialSitesCount);
+
+        //Determine remaining permanent center variables
+        permanentCentersCountByLevel = new int[this.getCenterLevels()];
         for (int i = 0; i < this.getCenterLevels(); i++) {
-            permanentHLCentersCount[i] = permanentHLCenters.get(i).size();
-            permanentAllHLCenters.addAll(permanentHLCenters.get(i));
+            permanentCentersCountByLevel[i] = permanentCentersByLevel.get(i).size();
         }
-        permanentAllHLCentersCount = permanentAllHLCenters.size();
-        HLPositionsAndCostsByOrigin minHLPermanentCenterInfo = getMinimumHLCenterInfo(permanentGraphArray, permanentHLCenters);
-        minPermanentHLPositionByOrigin = minHLPermanentCenterInfo.getPositionsByOrigin();
-        minPermanentHLCostByOrigin = minHLPermanentCenterInfo.getCostsByOrigin();
+        PositionsAndCostsByLevelAndOrigin minPermanentCenterInfo = getMinimumCenterInfo(permanentGraphArray, permanentCentersByLevel);
+        minPermanentPositionByLevelAndOrigin = minPermanentCenterInfo.getPositionsByLevelAndOrigin();
+        minPermanentCostByLevelAndOrigin = minPermanentCenterInfo.getCostsByLevelAndOrigin();
     }
 
     private static LevelRelations parseLevelRelations(List<List<Integer>> levelSequences, int centerLevels) {
@@ -107,7 +96,7 @@ public class SearchSpace {
             temporarySuperlevelsByLevel.add(new HashSet<>());
         }
         for (List<Integer> levelSequence : levelSequences) {
-            if (levelSequence.size() == 1) continue; //trivial sequence
+            if (levelSequence.size() < 2) continue; //trivial sequences
             List<Integer> sublevels = new ArrayList<>(levelSequence.subList(1, levelSequence.size()));
             List<Integer> superlevels = new ArrayList<>();
             temporarySublevelsByLevel.get(levelSequence.get(0)).addAll(sublevels);
@@ -206,66 +195,27 @@ public class SearchSpace {
         }
     }
 
-    //Output is pair consisting of the closest existing centers by origin and cost to travel to those centers. These sites are adjusted by candidate site count (added sequentially afterward).
-    private static PositionsAndCostsByOrigin getMinimumCenterInfo(double[][] permanentGraphArray) {
-        int[] minimumCostCenterByOrigin = new int[permanentGraphArray.length];
-        double[] minimumCostByOrigin = new double[permanentGraphArray.length];
-        for (int i = 0; i < permanentGraphArray.length; i++) {
-            int minimumCostCenter = 0;
-            double minimumCost = permanentGraphArray[i][0];
-            for (int j = 1; j < permanentGraphArray[i].length; j++) {
-                double currentCost = permanentGraphArray[i][j];
-                if (currentCost < minimumCost) {
-                    minimumCostCenter = j;
-                    minimumCost = currentCost;
-                }
-            }
-            minimumCostCenterByOrigin[i] = minimumCostCenter;
-            minimumCostByOrigin[i] = minimumCost;
-        }
-        return new PositionsAndCostsByOrigin(minimumCostCenterByOrigin, minimumCostByOrigin);
-    }
-
-    //Arrays of positions and corresponding costs by origin
-    private record PositionsAndCostsByOrigin(int[] positionsByOrigin, double[] costsByOrigin) {
-        public int[] getPositionsByOrigin() {
-            return positionsByOrigin;
-        }
-        public double[] getCostsByOrigin() {
-            return costsByOrigin;
-        }
-    }
-
     //These sites are adjusted by candidate site count (added sequentially afterward)
-    public static HLPositionsAndCostsByOrigin getMinimumHLCenterInfo(double[][] permanentGraphArray, List<List<Integer>> permanentHLCenters) {
-        int[][] minHLCenterPositionByOrigin = new int[permanentHLCenters.size()][permanentGraphArray.length];
-        double[][] minHLCostsByOrigin = new double[permanentHLCenters.size()][permanentGraphArray.length];
-        for (int i = 0; i < permanentHLCenters.size(); i++) {
+    public static PositionsAndCostsByLevelAndOrigin getMinimumCenterInfo(double[][] permanentGraphArray, List<List<Integer>> permanentCenters) {
+        int[][] minCenterPositionByLevelAndOrigin = new int[permanentCenters.size()][permanentGraphArray.length];
+        double[][] minCostsByLevelAndOrigin = new double[permanentCenters.size()][permanentGraphArray.length];
+        for (int level = 0; level < permanentCenters.size(); level++) {
             for (int j = 0; j < permanentGraphArray.length; j++) {
                 int levelMinCenter = -1;
                 double levelMinCost = Double.POSITIVE_INFINITY;
-                for (int k = 0; k < permanentHLCenters.get(i).size(); k++) {
-                    double currentCost = permanentGraphArray[j][permanentHLCenters.get(i).get(k)];
+                for (int position = 0; position < permanentCenters.get(level).size(); position++) {
+                    double currentCost = permanentGraphArray[j][permanentCenters.get(level).get(position)];
                     if (currentCost < levelMinCost) {
-                        levelMinCenter = k;
+                        levelMinCenter = position;
                         levelMinCost = currentCost;
                     }
                 }
-                minHLCenterPositionByOrigin[i][j] = levelMinCenter;
-                minHLCostsByOrigin[i][j] = levelMinCost;
+                minCenterPositionByLevelAndOrigin[level][j] = levelMinCenter;
+                minCostsByLevelAndOrigin[level][j] = levelMinCost;
             }
         }
-        return new HLPositionsAndCostsByOrigin(minHLCenterPositionByOrigin, minHLCostsByOrigin);
-    }
 
-    //Higher level positions and costs by level and origin
-    private record HLPositionsAndCostsByOrigin(int[][] positionsByLevelAndOrigin, double[][] costsByLevelAndOrigin) {
-        public int[][] getPositionsByOrigin() {
-            return positionsByLevelAndOrigin;
-        }
-        public double[][] getCostsByOrigin() {
-            return costsByLevelAndOrigin;
-        }
+        return new PositionsAndCostsByLevelAndOrigin(minCenterPositionByLevelAndOrigin, minCostsByLevelAndOrigin);
     }
 
     public int[] getMinNewCentersByLevel() {
@@ -324,35 +274,29 @@ public class SearchSpace {
         return sortedNeighbors;
     }
 
-    public List<List<Integer>> getPermanentHLCenters() {
-        return permanentHLCenters;
+    public List<List<Integer>> getPermanentCentersByLevel() {
+        return permanentCentersByLevel;
     }
 
-    public int[] getMinPermanentPositionByOrigin() {
-        return minPermanentPositionByOrigin;
+    public int[][] getMinPermanentPositionByLevelAndOrigin() {
+        return minPermanentPositionByLevelAndOrigin;
     }
 
-    public double[] getMinPermanentCostByOrigin() {
-        return minPermanentCostByOrigin;
+    public double[][] getMinPermanentCostByLevelAndOrigin() {
+        return minPermanentCostByLevelAndOrigin;
     }
 
-    public int[][] getMinPermanentHLPositionByOrigin() {
-        return minPermanentHLPositionByOrigin;
+    public int[] getPermanentCentersCountByLevel() {
+        return permanentCentersCountByLevel;
     }
 
-    public double[][] getMinPermanentHLCostByOrigin() {
-        return minPermanentHLCostByOrigin;
-    }
-
-    public int getPermanentCentersCount() {
-        return permanentCentersCount;
-    }
-
-    public int[] getPermanentHLCentersCount() {
-        return permanentHLCentersCount;
-    }
-
-    public int getPermanentAllHLCentersCount() {
-        return permanentAllHLCentersCount;
+    //Arrays of positions and corresponding costs by origin
+    private record PositionsAndCostsByLevelAndOrigin(int[][] positionsByLevelAndOrigin, double[][] costsByLevelAndOrigin) {
+        public int[][] getPositionsByLevelAndOrigin() {
+            return positionsByLevelAndOrigin;
+        }
+        public double[][] getCostsByLevelAndOrigin() {
+            return costsByLevelAndOrigin;
+        }
     }
 }

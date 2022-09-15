@@ -8,8 +8,8 @@ public class SimAnnealingWithoutPermanentCenters extends SimAnnealingSearch{
 
     public SimAnnealingWithoutPermanentCenters() {
         //Simulated annealing configuration
-        this.initialTemp = 10000;
-        this.finalTemp = 10;
+        this.initialTemp = 1000000;
+        this.finalTemp = 1;
         this.coolingRate = 0.9995;
         this.finalNeighborhoodSize = -1; //Determining finalNeighborhoodSize based on number of centers to optimize if -1
         this.finalNeighborhoodSizeIteration = 20000;
@@ -25,14 +25,14 @@ public class SimAnnealingWithoutPermanentCenters extends SimAnnealingSearch{
         String haversineLocation = censusFileLocation.replace("_origins.csv", "_haversine.csv");
 
         //Search space parameters
-        double[] minimumCasesByLevel = {(double) 10000, (double) 1000000, (double) 2000000, (double) 10000, (double) 10};
-        double[] servicedProportionByLevel = {1.0, 0.0, 0.0, 0.0, 0.0};
-        int[] minimumCenterCountByLevel = {6, 0, 0, 1, 4};
-        int[] maximumCenterCountByLevel = {6, 6, 6, 5, 5};
+        double[] minimumCasesByLevel = {(double) 10000, (double) 1000000, (double) 2000000};
+        double[] servicedProportionByLevel = {1.0, 0.0, 0.0};
+        int[] minimumCenterCountByLevel = {2, 0, 1};
+        int[] maximumCenterCountByLevel = {6, 6, 6};
         List<List<Integer>> levelSequences = new ArrayList<>();
-        levelSequences.add(Arrays.asList(0, 1));
+        levelSequences.add(Arrays.asList(0, 1, 2));
         //levelSequences.add(Arrays.asList(0, 2));
-        levelSequences.add(Arrays.asList(1, 4));
+        //levelSequences.add(Arrays.asList());
         searchParameters = new SearchSpace(minimumCenterCountByLevel, maximumCenterCountByLevel, minimumCasesByLevel, servicedProportionByLevel, levelSequences,
                 censusFileLocation, graphLocation, azimuthLocation, haversineLocation, 6, executor);
     }
@@ -43,27 +43,21 @@ public class SimAnnealingWithoutPermanentCenters extends SimAnnealingSearch{
         System.out.println("Starting optimization algorithm"); //development only
         //This can be multithreaded with each thread working on a different number n.
         double minimumCost = Double.POSITIVE_INFINITY;
-        List<Integer> minimumSites = new ArrayList<>();
-        List<List<Integer>> higherLevelMinimumSitesArray = new ArrayList<>();
+        List<List<Integer>> minimumSites = new ArrayList<>();
         //development start
         long runtime = 0;
-        for (int i = 0; i < 200; i++) {//dev
+        for (int i = 0; i < 20; i++) {//dev
             long startTime = System.currentTimeMillis();
-            List<Object> solutionWithNCenters = leveledOptimizeCenters(searchParameters.getMinNewCentersByLevel(), searchParameters.getMaxNewCentersByLevel(), 6);
+            LeveledSiteConfiguration solutionWithNCenters = leveledOptimizeCenters(searchParameters.getMinNewCentersByLevel(), searchParameters.getMaxNewCentersByLevel(), 6);
+            System.out.println("Final cost is " + solutionWithNCenters.getCost() + " on centers " + solutionWithNCenters.getSitesByLevel());
             long endTime = System.currentTimeMillis();
             runtime += (endTime - startTime);
         }
         System.out.println("Run time on 20 iterations was " + (runtime / 1000) + "s");
         //development end
-        List<Object> solutionWithNCenters = leveledOptimizeCenters(searchParameters.getMinNewCentersByLevel(), searchParameters.getMaxNewCentersByLevel(), 6);
-        minimumCost = (double) solutionWithNCenters.get(0);
-        minimumSites = (List<Integer>) solutionWithNCenters.get(1);
-        try {
-            higherLevelMinimumSitesArray = (List<List<Integer>>) solutionWithNCenters.get(2);
-            System.out.println("Minimum cost " + minimumCost + " at sites " + minimumSites + " and higher level sites " + higherLevelMinimumSitesArray + ".");
-        } catch (Exception e) {
-            System.out.println("Minimum cost " + minimumCost + " at sites " + minimumSites);
-        }
+        LeveledSiteConfiguration solutionWithNCenters = leveledOptimizeCenters(searchParameters.getMinNewCentersByLevel(), searchParameters.getMaxNewCentersByLevel(), 6);
+        minimumCost = solutionWithNCenters.getCost();
+        minimumSites = solutionWithNCenters.getSitesByLevel();
         executor.shutdown();
         return;
     }
@@ -131,12 +125,15 @@ public class SimAnnealingWithoutPermanentCenters extends SimAnnealingSearch{
 
     //Optimize with shrinking
     //Multithreading variant of leveledOptimizeCenters
-    public static List<Object> leveledOptimizeCenters(int[] minimumCenterCountByLevel, int[] maximumCenterCountByLevel, int taskCount) throws InterruptedException {
+    public static LeveledSiteConfiguration leveledOptimizeCenters(int[] minimumCenterCountByLevel, int[] maximumCenterCountByLevel, int taskCount) throws InterruptedException {
         long timer = System.currentTimeMillis(); // development only
 
         //Overriding finalNeighborhoodSize locally for multithreading based on number of centers to optimize if -1 chosen
         List<Integer> allPotentialSites = IntStream.range(0, searchParameters.getPotentialSitesCount()).boxed().collect(Collectors.toList());
-        int localFinalNeighborhoodSize = SimAnnealingNeighbor.getFinalNeighborhoodSize(searchParameters.getPotentialSitesCount(), Arrays.stream(maximumCenterCountByLevel).max().getAsInt(), finalNeighborhoodSize);
+        int[] localFinalNeighborhoodSizeByLevel = new int[searchParameters.getCenterLevels()];
+        for (int i = 0; i < searchParameters.getCenterLevels(); i++) {
+            localFinalNeighborhoodSizeByLevel[i] = SimAnnealingNeighbor.getFinalNeighborhoodSize(searchParameters.getPotentialSitesCount(), maximumCenterCountByLevel[i], finalNeighborhoodSize);
+        }
 
         //Create initial configuration+
         LeveledSiteConfiguration currentSiteConfiguration = new LeveledSiteConfiguration(minimumCenterCountByLevel, maximumCenterCountByLevel, allPotentialSites, searchParameters, taskCount, executor);
@@ -156,49 +153,62 @@ public class SimAnnealingWithoutPermanentCenters extends SimAnnealingSearch{
                 for (int position = 0; position < currentCenterCount; ++position) {
                     LeveledSiteConfiguration newSiteConfiguration;
                     if (Math.random() < 0.5 || searchParameters.getSuperlevelsByLevel()[level].length == 0) { //try to shift site random new site
-                        int neighborhoodSize = SimAnnealingNeighbor.getNeighborhoodSize(currentCenterCount, searchParameters.getPotentialSitesCount(), localFinalNeighborhoodSize, simAnnealingIteration, finalNeighborhoodSizeIteration);
-                        newSiteConfiguration = currentSiteConfiguration.leveledShiftSite(level, position, neighborhoodSize, searchParameters, taskCount, executor);
-                    } else { //try shift site to an unused superlevel site
-                        List<Integer> unusedSuperlevelSites = currentSiteConfiguration.getUnusedSuperlevelSites(level, searchParameters.getSuperlevelsByLevel()[level]);
-                        if (unusedSuperlevelSites.size() > 0) {
-                            newSiteConfiguration = currentSiteConfiguration.shiftToPotentialSite(level, position, unusedSuperlevelSites, searchParameters, taskCount, executor);
-                        } else { //no unused superlevel sites
-                            int neighborhoodSize = SimAnnealingNeighbor.getNeighborhoodSize(currentCenterCount, searchParameters.getPotentialSitesCount(), localFinalNeighborhoodSize, simAnnealingIteration, finalNeighborhoodSizeIteration);
-                            newSiteConfiguration = currentSiteConfiguration.leveledShiftSite(level, position, neighborhoodSize, searchParameters, taskCount, executor);
+                        int neighborhoodSize = SimAnnealingNeighbor.getNeighborhoodSize(currentCenterCount, searchParameters.getPotentialSitesCount(), localFinalNeighborhoodSizeByLevel[level], simAnnealingIteration, finalNeighborhoodSizeIteration);
+                        newSiteConfiguration = currentSiteConfiguration.leveledShiftToNeighborSite(level, position, neighborhoodSize, searchParameters, taskCount, executor);
+                        double newCost = newSiteConfiguration.getCost();
+                        //Decide whether to accept new positions
+                        if (acceptanceProbability(currentCost, newCost, temp) > Math.random()) {
+                            currentSiteConfiguration = newSiteConfiguration;
+                            currentCost = newCost;
                         }
-                    }
-                    double newCost = newSiteConfiguration.getCost();
-                    //Decide whether to accept new positions
-                    if (acceptanceProbability(currentCost, newCost, temp) > Math.random()) {
-                        currentSiteConfiguration = newSiteConfiguration;
-                        currentCost = newCost;
+                    } else { //try shift site to an unused superlevel site
+                        List<Integer> unusedSuperlevelSites = currentSiteConfiguration.getRandomSuperlevelUnusedSites(level, searchParameters.getSuperlevelsByLevel()[level]);
+                        if (unusedSuperlevelSites.size() > 0) {
+                            newSiteConfiguration = currentSiteConfiguration.leveledShiftToPotentialSite(level, position, unusedSuperlevelSites, searchParameters, taskCount, executor);
+                            double newCost = newSiteConfiguration.getCost();
+                            //Decide whether to accept new positions
+                            if (acceptanceProbability(currentCost, newCost, temp) > Math.random()) {
+                                currentSiteConfiguration = newSiteConfiguration;
+                                currentCost = newCost;
+                            }
+                        } else { //no unused superlevel sites
+                            boolean allSuperlevelsSubmaximal = true;
+                            for (int superlevel : searchParameters.getSuperlevelsByLevel()[level]) {
+                                if (currentSiteConfiguration.getSitesByLevel().get(superlevel).size() == searchParameters.getMaxNewCentersByLevel()[superlevel]) {
+                                    allSuperlevelsSubmaximal = false;
+                                }
+                            }
+                            if (allSuperlevelsSubmaximal) {
+                                int neighborhoodSize = SimAnnealingNeighbor.getNeighborhoodSize(currentCenterCount, searchParameters.getPotentialSitesCount(), localFinalNeighborhoodSizeByLevel[level], simAnnealingIteration, finalNeighborhoodSizeIteration);
+                                newSiteConfiguration = currentSiteConfiguration.leveledShiftToNeighborSite(level, position, neighborhoodSize, searchParameters, taskCount, executor);
+                                double newCost = newSiteConfiguration.getCost();
+                                //Decide whether to accept new positions
+                                if (acceptanceProbability(currentCost, newCost, temp) > Math.random()) {
+                                    currentSiteConfiguration = newSiteConfiguration;
+                                    currentCost = newCost;
+                                }
+                            }
+                        }
                     }
                 }
             }
+
 
             //Try adding or removing one of current sites for each level
             for (int level = 0; level < searchParameters.getCenterLevels(); level++) {
                 int currentCenterCount = currentSiteConfiguration.getLevelSitesCount(level);
                 double adjustmentType = Math.random();
-                if (adjustmentType < 0.3 && currentCenterCount < maximumCenterCountByLevel[level]) { //attempt to add unrestricted site unless number of sites is already maximal
-                    boolean maximalSuperlevelSites = false;
-                    for (int superlevel : searchParameters.getSuperlevelsByLevel()[level]) {
-                        if (currentSiteConfiguration.getLevelSitesCount(superlevel) == maximumCenterCountByLevel[superlevel]) {
-                            maximalSuperlevelSites = true;
-                        }
-                    }
-                    if (maximalSuperlevelSites) { //maximal, will attempt to add unused superlevel site
-                        List<Integer> unusedSuperlevelSites = currentSiteConfiguration.getUnusedSuperlevelSites(level, searchParameters.getSuperlevelsByLevel()[level]);
-                        if (unusedSuperlevelSites.size() > 0) {
-                            LeveledSiteConfiguration newSiteConfiguration = currentSiteConfiguration.leveledAddSite(level, unusedSuperlevelSites, searchParameters, taskCount, executor);
-                            double newCost = newSiteConfiguration.getCost();
-                            if (acceptanceProbability(currentCost, newCost, temp) > Math.random()) {
-                                currentSiteConfiguration = newSiteConfiguration;
-                                currentCost = newCost;
-                            }
-                        }
-                    } else { //not maximal, will add unrestricted site
+                if ((adjustmentType < 0.3 || (adjustmentType < 0.5 && searchParameters.getSuperlevelsByLevel()[level].length == 0)) && currentCenterCount < maximumCenterCountByLevel[level]) { //attempt to add unrestricted site unless number of sites is already maximal
+                    List<Integer> restrictedAddableSuperlevelSites = currentSiteConfiguration.getRestrictedAddableSuperlevelSites(level, searchParameters.getSuperlevelsByLevel()[level], searchParameters.getMaxNewCentersByLevel());
+                    if (restrictedAddableSuperlevelSites == null) { //not maximal, will add random site
                         LeveledSiteConfiguration newSiteConfiguration = currentSiteConfiguration.leveledAddSite(level, allPotentialSites, searchParameters, taskCount, executor);
+                        double newCost = newSiteConfiguration.getCost();
+                        if (acceptanceProbability(currentCost, newCost, temp) > Math.random()) {
+                            currentSiteConfiguration = newSiteConfiguration;
+                            currentCost = newCost;
+                        }
+                    } else if (restrictedAddableSuperlevelSites.size() > 0) { //there are restrictions on adding sites to some superlevel but an available site exists
+                        LeveledSiteConfiguration newSiteConfiguration = currentSiteConfiguration.leveledAddSite(level, restrictedAddableSuperlevelSites, searchParameters, taskCount, executor);
                         double newCost = newSiteConfiguration.getCost();
                         if (acceptanceProbability(currentCost, newCost, temp) > Math.random()) {
                             currentSiteConfiguration = newSiteConfiguration;
@@ -206,30 +216,30 @@ public class SimAnnealingWithoutPermanentCenters extends SimAnnealingSearch{
                         }
                     }
                 } else if (adjustmentType < 0.5 && currentCenterCount < maximumCenterCountByLevel[level]) { //attempt to add existing superlevel site first
-                    List<Integer> unusedSuperlevelSites = currentSiteConfiguration.getUnusedSuperlevelSites(level, searchParameters.getSuperlevelsByLevel()[level]);
-                    if (unusedSuperlevelSites.size() > 0) {
-                        LeveledSiteConfiguration newSiteConfiguration = currentSiteConfiguration.leveledAddSite(level, unusedSuperlevelSites, searchParameters, taskCount, executor);
+                    List<Integer> restrictedAddableSuperlevelSites = currentSiteConfiguration.getRestrictedAddableSuperlevelSites(level, searchParameters.getSuperlevelsByLevel()[level], searchParameters.getMaxNewCentersByLevel());
+                    if (restrictedAddableSuperlevelSites == null) { //if there are no restrictions on adding sites
+                        List<Integer> unusedSuperlevelSites = currentSiteConfiguration.getRandomSuperlevelUnusedSites(level, searchParameters.getSuperlevelsByLevel()[level]);
+                        LeveledSiteConfiguration newSiteConfiguration;
+                        if (unusedSuperlevelSites.size() > 0) { //there is a superlevel site not in current level
+                            newSiteConfiguration = currentSiteConfiguration.leveledAddSite(level, unusedSuperlevelSites, searchParameters, taskCount, executor);
+                        } else { //all superlevels equal to current level, to add random site
+                            newSiteConfiguration = currentSiteConfiguration.leveledAddSite(level, allPotentialSites, searchParameters, taskCount, executor);
+                        }
+                        double newCost = newSiteConfiguration.getCost();
+                        //Decide whether to accept new positions
+                        if (acceptanceProbability(currentCost, newCost, temp) > Math.random()) {
+                            currentSiteConfiguration = newSiteConfiguration;
+                            currentCost = newCost;
+                        }
+                    }
+                    else if (restrictedAddableSuperlevelSites.size() > 0) { //there are restrictions on adding sites but an available site exists
+                        LeveledSiteConfiguration newSiteConfiguration = currentSiteConfiguration.leveledAddSite(level, restrictedAddableSuperlevelSites, searchParameters, taskCount, executor);
                         double newCost = newSiteConfiguration.getCost();
                         if (acceptanceProbability(currentCost, newCost, temp) > Math.random()) {
                             currentSiteConfiguration = newSiteConfiguration;
                             currentCost = newCost;
                         }
-                    } else {
-                        boolean maximalSuperlevelSites = false;
-                        for (int superlevel : searchParameters.getSuperlevelsByLevel()[level]) {
-                            if (currentSiteConfiguration.getLevelSitesCount(superlevel) == maximumCenterCountByLevel[superlevel]) {
-                                maximalSuperlevelSites = true;
-                            }
-                        }
-                        if (!maximalSuperlevelSites) {
-                            LeveledSiteConfiguration newSiteConfiguration = currentSiteConfiguration.leveledAddSite(level, allPotentialSites, searchParameters, taskCount, executor);
-                            double newCost = newSiteConfiguration.getCost();
-                            if (acceptanceProbability(currentCost, newCost, temp) > Math.random()) {
-                                currentSiteConfiguration = newSiteConfiguration;
-                                currentCost = newCost;
-                            }
-                        }
-                    }
+                    } //size == 0 implies that there are restricting superlevels and that their intersection is equal to the original sites, i.e. adding a site is not permissible
                 } else if (currentCenterCount > minimumCenterCountByLevel[level]) { //try to remove site
                     List<Integer> candidateRemovalSites = currentSiteConfiguration.getCandidateRemovalSites(level, searchParameters.getSublevelsByLevel()[level], minimumCenterCountByLevel);
                     if (candidateRemovalSites.size() > 0) {
@@ -258,8 +268,6 @@ public class SimAnnealingWithoutPermanentCenters extends SimAnnealingSearch{
                 throw new InterruptedException();
             }
         }
-        //development only
-        System.out.println("Final cost " + currentSiteConfiguration.getCost() + " and minimum positions by origin " + Arrays.toString(currentSiteConfiguration.getMinimumPositionsByLevelAndOrigin()[0]));
-        return Arrays.asList(currentCost, currentSiteConfiguration.getSitesByLevel()); //contains 2 elements: minimum cost, minimum positions array.
+        return currentSiteConfiguration;
     }
 }
