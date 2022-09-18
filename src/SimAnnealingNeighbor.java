@@ -242,6 +242,7 @@ public class SimAnnealingNeighbor {
         }
     }
 
+
     //Sketch why 6 directions are sufficient, i.e. wedges of less than 60 degrees
     //Sufficient to show that there exists a path from any point to another for finite points {x} (justify later).
     //In Euclidean space, i.e. R2, let y denote an arbitrary point. It is not isolated because there exists a point x for which d(x, y) is minimal (<= all other points x in {x}).
