@@ -651,17 +651,19 @@ public class LeveledSiteConfigurationForPermanentCenters extends SiteConfigurati
         //Process superlevels
         List<Integer> restrictedShiftSites = null;
         for (int superlevel : superlevelsByLevel[level]) {
-            if (sitesByLevel.get(superlevel).size() == maximumNewCenterCountByLevel[superlevel] + permanentCentersCountByLevel[superlevel] && permanentSitesByLevel.get(superlevel).contains(siteToShift)) {
-                if (restrictedShiftSites == null) {
-                    restrictedShiftSites = new ArrayList<>(sitesByLevel.get(superlevel));
-                } else {
-                    restrictedShiftSites.retainAll(sitesByLevel.get(superlevel));
-                }
-            } else { //superlevel is changed, process sublevels
+            if (!permanentSitesByLevel.get(superlevel).contains(siteToShift)) {
+                //superlevel loses site to shift, process sublevels
                 for (int sublevel : sublevelsByLevel[superlevel]) {
                     if (!sublevelProcessedHistory[sublevel]) {
                         higherOrderSublevelsToProcess.add(sublevel);
                     }
+                }
+            } else if (sitesByLevel.get(superlevel).size() == maximumNewCenterCountByLevel[superlevel] + permanentCentersCountByLevel[superlevel]) {
+                //site to shift is permanent and superlevel is already maximal
+                if (restrictedShiftSites == null) {
+                    restrictedShiftSites = new ArrayList<>(sitesByLevel.get(superlevel));
+                } else {
+                    restrictedShiftSites.retainAll(sitesByLevel.get(superlevel));
                 }
             }
             superlevelProcessedHistory[superlevel] = true;
@@ -685,17 +687,19 @@ public class LeveledSiteConfigurationForPermanentCenters extends SiteConfigurati
 
             //Process higher order superlevels
             for (int superlevel : higherOrderSuperlevelsToProcess) {
-                if (sitesByLevel.get(superlevel).size() == maximumNewCenterCountByLevel[superlevel] + permanentCentersCountByLevel[superlevel] && permanentSitesByLevel.get(superlevel).contains(siteToShift)) {
-                    if (restrictedShiftSites == null) {
-                        restrictedShiftSites = new ArrayList<>(sitesByLevel.get(superlevel));
-                    } else {
-                        restrictedShiftSites.retainAll(sitesByLevel.get(superlevel));
-                    }
-                } else { //superlevel is changed, process sublevels
+                if (!permanentSitesByLevel.get(superlevel).contains(siteToShift)) {
+                    //superlevel loses site to shift, process sublevels
                     for (int sublevel : sublevelsByLevel[superlevel]) {
                         if (!sublevelProcessedHistory[sublevel]) {
                             higherOrderSublevelsToProcess.add(sublevel);
                         }
+                    }
+                } else if (sitesByLevel.get(superlevel).size() == maximumNewCenterCountByLevel[superlevel] + permanentCentersCountByLevel[superlevel]) {
+                    //site to shift is permanent and superlevel is already maximal
+                    if (restrictedShiftSites == null) {
+                        restrictedShiftSites = new ArrayList<>(sitesByLevel.get(superlevel));
+                    } else {
+                        restrictedShiftSites.retainAll(sitesByLevel.get(superlevel));
                     }
                 }
                 superlevelProcessedHistory[superlevel] = true;
