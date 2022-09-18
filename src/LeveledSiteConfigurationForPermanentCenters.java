@@ -62,7 +62,7 @@ public class LeveledSiteConfigurationForPermanentCenters extends SiteConfigurati
     }
 
     //Multithreaded variant
-    public LeveledSiteConfigurationForPermanentCenters leveledShiftToNeighborSite(int level, Integer positionToShift, int neighborhoodSize, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
+    public void tryShiftToNeighbor(int level, int positionToShift, int neighborhoodSize, SearchSpace searchParameters, double temp, int taskCount, ExecutorService executor) {
         //Shift current level sites
         List<Integer> currentTargetLevelSites = sitesByLevel.get(level);
         Integer siteToShift = currentTargetLevelSites.get(positionToShift);
@@ -75,53 +75,61 @@ public class LeveledSiteConfigurationForPermanentCenters extends SiteConfigurati
                 searchParameters.getPermanentCentersCountByLevel(), searchParameters.getMinPermanentPositionByLevelAndOrigin(), searchParameters.getMinPermanentCostByLevelAndOrigin(),
                 searchParameters.getMinimumCasesByLevel(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
         double newTargetLevelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[level];
-        int[] newTargetLevelMinimumPositionsByOrigin = updatedResult.getPositions();
 
-        //Update other level sites
-        List<List<Integer>> newLeveledSitesArray;
-        double totalCost;
-        double[] newCostByLevel = costByLevel.clone();
-        newCostByLevel[level] = newTargetLevelCost;
-        int[][] newMinimumPositionsByLevelAndOrigin = minimumPositionsByLevelAndOrigin.clone();
-        newMinimumPositionsByLevelAndOrigin[level] = newTargetLevelMinimumPositionsByOrigin;
-        if (searchParameters.getSublevelsByLevel()[level].length > 0 || searchParameters.getSuperlevelsByLevel()[level].length > 0) {
-            SitesAndUpdateHistory updatedArrayAndHistory = shiftSitesArray(sitesByLevel, level, searchParameters.getCenterLevels(), searchParameters.getSublevelsByLevel(), searchParameters.getSuperlevelsByLevel(), searchParameters.getPermanentCentersCountByLevel(), siteToShift, newSite);
-            newLeveledSitesArray = updatedArrayAndHistory.getUpdatedSitesArray();
-            newLeveledSitesArray.set(level, newTargetLevelSites);
-            boolean[] updateHistory = updatedArrayAndHistory.getUpdateHistory();
-            int[] updatedPositions = updatedArrayAndHistory.getUpdatedPositions();
-            for (int i = 0; i < searchParameters.getCenterLevels(); i++) {
-                if (updateHistory[i]) {
-                    if (updatedPositions[i] == -1) {
-                        //when update history is true and positions is unchanged at -1, then a site was added
-                        updatedResult = addSiteCost(i, newLeveledSitesArray.get(i), minimumPositionsByLevelAndOrigin,
-                                searchParameters.getMinimumCasesByLevel(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
-                    } else {
-                        updatedResult = shiftSiteCost(i, newLeveledSitesArray.get(i), updatedPositions[i], newSite, minimumPositionsByLevelAndOrigin,
-                                searchParameters.getPermanentCentersCountByLevel(), searchParameters.getMinPermanentPositionByLevelAndOrigin(), searchParameters.getMinPermanentCostByLevelAndOrigin(),
-                                searchParameters.getMinimumCasesByLevel(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
+        //Ensure that new target level cost is not excessive compared to total configuration cost
+        if (SimAnnealingSearch.acceptanceProbability(cost, newTargetLevelCost, temp) > 0) {
+            //Update other level sites
+            List<List<Integer>> newLeveledSitesArray;
+            double newCost;
+            double[] newCostByLevel = costByLevel.clone();
+            newCostByLevel[level] = newTargetLevelCost;
+            int[][] newMinimumPositionsByLevelAndOrigin = minimumPositionsByLevelAndOrigin.clone();
+            newMinimumPositionsByLevelAndOrigin[level] = updatedResult.getPositions();
+            if (searchParameters.getSublevelsByLevel()[level].length > 0 || searchParameters.getSuperlevelsByLevel()[level].length > 0) {
+                SitesAndUpdateHistory updatedArrayAndHistory = shiftSitesArray(sitesByLevel, level, searchParameters.getCenterLevels(), searchParameters.getSublevelsByLevel(), searchParameters.getSuperlevelsByLevel(), searchParameters.getPermanentCentersCountByLevel(), siteToShift, newSite);
+                newLeveledSitesArray = updatedArrayAndHistory.getUpdatedSitesArray();
+                newLeveledSitesArray.set(level, newTargetLevelSites);
+                boolean[] updateHistory = updatedArrayAndHistory.getUpdateHistory();
+                int[] updatedPositions = updatedArrayAndHistory.getUpdatedPositions();
+                for (int i = 0; i < searchParameters.getCenterLevels(); i++) {
+                    if (updateHistory[i]) {
+                        if (updatedPositions[i] == -1) {
+                            //when update history is true and positions is unchanged at -1, then a site was added
+                            updatedResult = addSiteCost(i, newLeveledSitesArray.get(i), minimumPositionsByLevelAndOrigin,
+                                    searchParameters.getMinimumCasesByLevel(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
+                        } else {
+                            updatedResult = shiftSiteCost(i, newLeveledSitesArray.get(i), updatedPositions[i], newSite, minimumPositionsByLevelAndOrigin,
+                                    searchParameters.getPermanentCentersCountByLevel(), searchParameters.getMinPermanentPositionByLevelAndOrigin(), searchParameters.getMinPermanentCostByLevelAndOrigin(),
+                                    searchParameters.getMinimumCasesByLevel(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
+                        }
+                        double levelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[i];
+                        newCostByLevel[i] = levelCost;
+                        newMinimumPositionsByLevelAndOrigin[i] = updatedResult.getPositions();
                     }
-                    double levelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[i];
-                    newCostByLevel[i] = levelCost;
-                    newMinimumPositionsByLevelAndOrigin[i] = updatedResult.getPositions();
                 }
+                newCost = ArrayOperations.sumDoubleArray(newCostByLevel);
+            } else {
+                newLeveledSitesArray = new ArrayList<>(sitesByLevel);
+                newLeveledSitesArray.set(level, newTargetLevelSites);
+                newCost = cost + newTargetLevelCost - costByLevel[level];
             }
-            totalCost = ArrayOperations.sumDoubleArray(newCostByLevel);
-        } else {
-            newLeveledSitesArray = new ArrayList<>(sitesByLevel);
-            newLeveledSitesArray.set(level, newTargetLevelSites);
-            totalCost = cost + newTargetLevelCost - costByLevel[level];
+
+            //Decide if cost change is acceptable
+            if (SimAnnealingSearch.acceptanceProbability(cost, newCost, temp) > Math.random()) {
+                sitesByLevel = newLeveledSitesArray;
+                cost = newCost;
+                costByLevel = newCostByLevel;
+                minimumPositionsByLevelAndOrigin = newMinimumPositionsByLevelAndOrigin;
+            }
         }
-        return new LeveledSiteConfigurationForPermanentCenters(newLeveledSitesArray, totalCost, newCostByLevel, newMinimumPositionsByLevelAndOrigin);
     }
 
     //Multithreaded variant
-    public LeveledSiteConfigurationForPermanentCenters leveledShiftToPotentialSite(int level, Integer positionToShift, List<Integer> potentialSites, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
-        //Shift current level sites
+    public void tryShiftToNeighborWithoutLevelRelations(int level, int positionToShift, int neighborhoodSize, SearchSpace searchParameters, double temp, int taskCount, ExecutorService executor) {
+        //Shift target level sites
         List<Integer> currentTargetLevelSites = sitesByLevel.get(level);
         Integer siteToShift = currentTargetLevelSites.get(positionToShift);
-        Random random = new Random();
-        Integer newSite = potentialSites.get(random.nextInt(potentialSites.size()));
+        Integer newSite = SimAnnealingNeighbor.getUnusedNeighbor(currentTargetLevelSites, siteToShift, neighborhoodSize, searchParameters.getSortedNeighbors());
         List<Integer> newTargetLevelSites = new ArrayList<>(currentTargetLevelSites);
         newTargetLevelSites.set(positionToShift, newSite);
 
@@ -130,150 +138,151 @@ public class LeveledSiteConfigurationForPermanentCenters extends SiteConfigurati
                 searchParameters.getPermanentCentersCountByLevel(), searchParameters.getMinPermanentPositionByLevelAndOrigin(), searchParameters.getMinPermanentCostByLevelAndOrigin(),
                 searchParameters.getMinimumCasesByLevel(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
         double newTargetLevelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[level];
-        int[] newTargetLevelMinimumPositionsByOrigin = updatedResult.getPositions();
 
-        //Update other level sites
-        List<List<Integer>> newLeveledSitesArray;
-        double totalCost;
-        double[] newCostByLevel = costByLevel.clone();
-        newCostByLevel[level] = newTargetLevelCost;
-        int[][] newMinimumPositionsByLevelAndOrigin = minimumPositionsByLevelAndOrigin.clone();
-        newMinimumPositionsByLevelAndOrigin[level] = newTargetLevelMinimumPositionsByOrigin;
-        if (searchParameters.getSublevelsByLevel()[level].length > 0 || searchParameters.getSuperlevelsByLevel()[level].length > 0) {
-            SitesAndUpdateHistory updatedArrayAndHistory = shiftSitesArray(sitesByLevel, level, searchParameters.getCenterLevels(), searchParameters.getSublevelsByLevel(), searchParameters.getSuperlevelsByLevel(), searchParameters.getPermanentCentersCountByLevel(), siteToShift, newSite);
-            newLeveledSitesArray = updatedArrayAndHistory.getUpdatedSitesArray();
-            newLeveledSitesArray.set(level, newTargetLevelSites);
-            boolean[] updateHistory = updatedArrayAndHistory.getUpdateHistory();
-            int[] updatedPositions = updatedArrayAndHistory.getUpdatedPositions();
-            for (int i = 0; i < searchParameters.getCenterLevels(); i++) {
-                if (updateHistory[i]) {
-                    if (updatedPositions[i] == -1) {
-                        //when update history is true and positions is unchanged at -1, then a site was added
-                        updatedResult = addSiteCost(i, newLeveledSitesArray.get(i), minimumPositionsByLevelAndOrigin,
-                                searchParameters.getMinimumCasesByLevel(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
-                    } else {
-                        updatedResult = shiftSiteCost(i, newLeveledSitesArray.get(i), updatedPositions[i], newSite, minimumPositionsByLevelAndOrigin,
-                                searchParameters.getPermanentCentersCountByLevel(), searchParameters.getMinPermanentPositionByLevelAndOrigin(), searchParameters.getMinPermanentCostByLevelAndOrigin(),
-                                searchParameters.getMinimumCasesByLevel(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
-                    }
-                    double levelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[i];
-                    newCostByLevel[i] = levelCost;
-                    newMinimumPositionsByLevelAndOrigin[i] = updatedResult.getPositions();
-                }
-            }
-            totalCost = ArrayOperations.sumDoubleArray(newCostByLevel);
-        } else {
-            newLeveledSitesArray = new ArrayList<>(sitesByLevel);
-            newLeveledSitesArray.set(level, newTargetLevelSites);
-            totalCost = cost + newTargetLevelCost - costByLevel[level];
+        //Decide if cost change is acceptable
+        if (SimAnnealingSearch.acceptanceProbability(costByLevel[level], newTargetLevelCost, temp) > Math.random()) {
+            sitesByLevel.set(level, newTargetLevelSites);
+            cost = cost + newTargetLevelCost - costByLevel[level];
+            costByLevel[level] = newTargetLevelCost;
+            minimumPositionsByLevelAndOrigin[level] = updatedResult.getPositions();
         }
+    }
 
-        return new LeveledSiteConfigurationForPermanentCenters(newLeveledSitesArray, totalCost, newCostByLevel, newMinimumPositionsByLevelAndOrigin);
+    //Multithreaded variant
+    public void tryShiftSite(int level, int positionToShift, Integer newSite, SearchSpace searchParameters, double temp, int taskCount, ExecutorService executor) {
+        //Shift current level sites
+        List<Integer> newTargetLevelSites = new ArrayList<>(sitesByLevel.get(level));
+        Integer siteToShift = newTargetLevelSites.get(positionToShift);
+        newTargetLevelSites.set(positionToShift, newSite);
+
+        //Compute cost of new positions and update list of the closest of current positions for each population center
+        ConfigurationCostAndPositions updatedResult = shiftSiteCost(level, newTargetLevelSites, positionToShift, newSite, minimumPositionsByLevelAndOrigin,
+                searchParameters.getPermanentCentersCountByLevel(), searchParameters.getMinPermanentPositionByLevelAndOrigin(), searchParameters.getMinPermanentCostByLevelAndOrigin(),
+                searchParameters.getMinimumCasesByLevel(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
+        double newTargetLevelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[level];
+
+        //Ensure that new target level cost is not excessive compared to total configuration cost
+        if (SimAnnealingSearch.acceptanceProbability(cost, newTargetLevelCost, temp) > 0) {
+            //Update other level sites
+            List<List<Integer>> newLeveledSitesArray;
+            double newCost;
+            double[] newCostByLevel = costByLevel.clone();
+            newCostByLevel[level] = newTargetLevelCost;
+            int[][] newMinimumPositionsByLevelAndOrigin = minimumPositionsByLevelAndOrigin.clone();
+            newMinimumPositionsByLevelAndOrigin[level] = updatedResult.getPositions();
+            if (searchParameters.getSublevelsByLevel()[level].length > 0 || searchParameters.getSuperlevelsByLevel()[level].length > 0) {
+                SitesAndUpdateHistory updatedArrayAndHistory = shiftSitesArray(sitesByLevel, level, searchParameters.getCenterLevels(), searchParameters.getSublevelsByLevel(), searchParameters.getSuperlevelsByLevel(), searchParameters.getPermanentCentersCountByLevel(), siteToShift, newSite);
+                newLeveledSitesArray = updatedArrayAndHistory.getUpdatedSitesArray();
+                newLeveledSitesArray.set(level, newTargetLevelSites);
+                boolean[] updateHistory = updatedArrayAndHistory.getUpdateHistory();
+                int[] updatedPositions = updatedArrayAndHistory.getUpdatedPositions();
+                for (int i = 0; i < searchParameters.getCenterLevels(); i++) {
+                    if (updateHistory[i]) {
+                        if (updatedPositions[i] == -1) {
+                            //when update history is true and positions is unchanged at -1, then a site was added
+                            updatedResult = addSiteCost(i, newLeveledSitesArray.get(i), minimumPositionsByLevelAndOrigin,
+                                    searchParameters.getMinimumCasesByLevel(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
+                        } else {
+                            updatedResult = shiftSiteCost(i, newLeveledSitesArray.get(i), updatedPositions[i], newSite, minimumPositionsByLevelAndOrigin,
+                                    searchParameters.getPermanentCentersCountByLevel(), searchParameters.getMinPermanentPositionByLevelAndOrigin(), searchParameters.getMinPermanentCostByLevelAndOrigin(),
+                                    searchParameters.getMinimumCasesByLevel(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
+                        }
+                        double levelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[i];
+                        newCostByLevel[i] = levelCost;
+                        newMinimumPositionsByLevelAndOrigin[i] = updatedResult.getPositions();
+                    }
+                }
+                newCost = ArrayOperations.sumDoubleArray(newCostByLevel);
+            } else {
+                newLeveledSitesArray = new ArrayList<>(sitesByLevel);
+                newLeveledSitesArray.set(level, newTargetLevelSites);
+                newCost = cost + newTargetLevelCost - costByLevel[level];
+            }
+
+            //Decide if cost change is acceptable
+            if (SimAnnealingSearch.acceptanceProbability(cost, newCost, temp) > Math.random()) {
+                sitesByLevel = newLeveledSitesArray;
+                cost = newCost;
+                costByLevel = newCostByLevel;
+                minimumPositionsByLevelAndOrigin = newMinimumPositionsByLevelAndOrigin;
+            }
+        }
     }
 
     //Unchanged from without permanent centers (only one of three)
-    public LeveledSiteConfigurationForPermanentCenters leveledAddSite(int level, List<Integer> potentialSites, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
+    public void tryAddSite(int level, Integer newSite, SearchSpace searchParameters, double temp, int taskCount, ExecutorService executor) {
         //Add lowest level site
         List<Integer> newTargetLevelSites = new ArrayList<>(sitesByLevel.get(level));
-        List<Integer> unusedSites = new ArrayList<>(potentialSites);
-        unusedSites.removeAll(newTargetLevelSites);
-        Random random = new Random();
-        Integer newSite = unusedSites.get(random.nextInt(unusedSites.size()));
         newTargetLevelSites.add(newSite);
 
         //Compute new parameters
         ConfigurationCostAndPositions updatedResult = addSiteCost(level, newTargetLevelSites, minimumPositionsByLevelAndOrigin, searchParameters.getMinimumCasesByLevel(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
         double newTargetLevelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[level];
-        int[] newTargetLevelMinimumPositionsByOrigin = updatedResult.getPositions();
 
-        //Update arrays and adjust for superlevel sites
-        List<List<Integer>> newLeveledSitesArray;
-        double totalCost;
-        double[] newCostByLevel = costByLevel.clone();
-        newCostByLevel[level] = newTargetLevelCost;
-        int[][] newMinimumPositionsByLevelAndOrigin = minimumPositionsByLevelAndOrigin.clone();
-        newMinimumPositionsByLevelAndOrigin[level] = newTargetLevelMinimumPositionsByOrigin;
-        if (searchParameters.getSuperlevelsByLevel()[level].length > 0) {
-            int[] superlevels = searchParameters.getSuperlevelsByLevel()[level];
-            SitesAndUpdateHistory updatedArrayAndHistory = addToSitesArray(sitesByLevel, superlevels, newSite);
-            newLeveledSitesArray = updatedArrayAndHistory.getUpdatedSitesArray();
-            newLeveledSitesArray.set(level, newTargetLevelSites);
-            boolean[] superlevelUpdateHistory = updatedArrayAndHistory.getUpdateHistory();
-            for (int i = 0; i < superlevels.length; i++) {
-                if (superlevelUpdateHistory[i]) {
-                    updatedResult = addSiteCost(superlevels[i], newLeveledSitesArray.get(superlevels[i]), minimumPositionsByLevelAndOrigin,
-                            searchParameters.getMinimumCasesByLevel(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
-                    double levelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[superlevels[i]];
-                    newCostByLevel[superlevels[i]] = levelCost;
-                    newMinimumPositionsByLevelAndOrigin[superlevels[i]] = updatedResult.getPositions();
+        //Ensure that new target level cost is not excessive compared to total configuration cost
+        if (SimAnnealingSearch.acceptanceProbability(cost, newTargetLevelCost, temp) > 0) {
+            //Update arrays and adjust for superlevel sites
+            List<List<Integer>> newLeveledSitesArray;
+            double newCost;
+            double[] newCostByLevel = costByLevel.clone();
+            newCostByLevel[level] = newTargetLevelCost;
+            int[][] newMinimumPositionsByLevelAndOrigin = minimumPositionsByLevelAndOrigin.clone();
+            newMinimumPositionsByLevelAndOrigin[level] = updatedResult.getPositions();
+            if (searchParameters.getSuperlevelsByLevel()[level].length > 0) {
+                int[] superlevels = searchParameters.getSuperlevelsByLevel()[level];
+                SitesAndUpdateHistory updatedArrayAndHistory = addToSitesArray(sitesByLevel, superlevels, newSite);
+                newLeveledSitesArray = updatedArrayAndHistory.getUpdatedSitesArray();
+                newLeveledSitesArray.set(level, newTargetLevelSites);
+                boolean[] superlevelUpdateHistory = updatedArrayAndHistory.getUpdateHistory();
+                for (int i = 0; i < superlevels.length; i++) {
+                    if (superlevelUpdateHistory[i]) {
+                        updatedResult = addSiteCost(superlevels[i], newLeveledSitesArray.get(superlevels[i]), minimumPositionsByLevelAndOrigin,
+                                searchParameters.getMinimumCasesByLevel(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
+                        double levelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[superlevels[i]];
+                        newCostByLevel[superlevels[i]] = levelCost;
+                        newMinimumPositionsByLevelAndOrigin[superlevels[i]] = updatedResult.getPositions();
+                    }
                 }
+                newCost = ArrayOperations.sumDoubleArray(newCostByLevel);
+            } else {
+                newLeveledSitesArray = new ArrayList<>(sitesByLevel);
+                newLeveledSitesArray.set(level, newTargetLevelSites);
+                newCost = cost + newTargetLevelCost - costByLevel[level];
             }
-            totalCost = ArrayOperations.sumDoubleArray(newCostByLevel);
-        } else {
-            newLeveledSitesArray = new ArrayList<>(sitesByLevel);
-            newLeveledSitesArray.set(level, newTargetLevelSites);
-            totalCost = cost + newTargetLevelCost - costByLevel[level];
-        }
 
-        return new LeveledSiteConfigurationForPermanentCenters(newLeveledSitesArray, totalCost, newCostByLevel, newMinimumPositionsByLevelAndOrigin);
+            //Decide if cost change is acceptable
+            if (SimAnnealingSearch.acceptanceProbability(cost, newCost, temp) > Math.random()) {
+                sitesByLevel = newLeveledSitesArray;
+                cost = newCost;
+                costByLevel = newCostByLevel;
+                minimumPositionsByLevelAndOrigin = newMinimumPositionsByLevelAndOrigin;
+            }
+        }
     }
 
-    //Variant with multithreading of previous removeLowestLevelSite
-    public LeveledSiteConfigurationForPermanentCenters leveledRemoveSite(int level, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
-        //Remove one of the target level sites
+    //Unchanged from without permanent centers (only one of three)
+    public void tryAddSiteWithoutSuperlevels(int level, Integer newSite, SearchSpace searchParameters, double temp, int taskCount, ExecutorService executor) {
+        //Add lowest level site
         List<Integer> newTargetLevelSites = new ArrayList<>(sitesByLevel.get(level));
-        Random random = new Random();
-        Integer removalSite = newTargetLevelSites.get(newTargetLevelSites.size() + random.nextInt(newTargetLevelSites.size() - searchParameters.getPermanentCentersCountByLevel()[level]));
-        int removalPosition = newTargetLevelSites.indexOf(removalSite);
-        newTargetLevelSites.remove(removalSite);
+        newTargetLevelSites.add(newSite);
 
         //Compute new parameters
-        ConfigurationCostAndPositions updatedResult = removeSiteCost(level, newTargetLevelSites, removalPosition, minimumPositionsByLevelAndOrigin,
-                searchParameters.getPermanentCentersCountByLevel(), searchParameters.getMinPermanentPositionByLevelAndOrigin(), searchParameters.getMinPermanentCostByLevelAndOrigin(),
-                searchParameters.getMinimumCasesByLevel(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
+        ConfigurationCostAndPositions updatedResult = addSiteCost(level, newTargetLevelSites, minimumPositionsByLevelAndOrigin, searchParameters.getMinimumCasesByLevel(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
         double newTargetLevelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[level];
-        int[] newTargetLevelMinimumPositionsByOrigin = updatedResult.getPositions();
 
-        //Update arrays and adjust for sublevel sites
-        List<List<Integer>> newLeveledSitesArray;
-        double totalCost;
-        double[] newCostByLevel = costByLevel.clone();
-        newCostByLevel[level] = newTargetLevelCost;
-        int[][] newMinimumPositionsByLevelAndOrigin = minimumPositionsByLevelAndOrigin.clone();
-        newMinimumPositionsByLevelAndOrigin[level] = newTargetLevelMinimumPositionsByOrigin;
-        if (searchParameters.getSublevelsByLevel()[level].length > 0) {
-            int[] sublevels = searchParameters.getSublevelsByLevel()[level];
-            SitesAndUpdateHistory updatedArrayAndHistory = removeFromSitesArray(sitesByLevel, sublevels, removalSite);
-            newLeveledSitesArray = updatedArrayAndHistory.getUpdatedSitesArray();
-            newLeveledSitesArray.set(level, newTargetLevelSites);
-            boolean[] sublevelUpdateHistory = updatedArrayAndHistory.getUpdateHistory();
-            int[] sublevelUpdatedPositions = updatedArrayAndHistory.getUpdatedPositions();
-            for (int i = 0; i < sublevels.length; i++) {
-                if (sublevelUpdateHistory[i]) {
-                    updatedResult = removeSiteCost(sublevels[i], newLeveledSitesArray.get(sublevels[i]), sublevelUpdatedPositions[i], minimumPositionsByLevelAndOrigin,
-                            searchParameters.getPermanentCentersCountByLevel(), searchParameters.getMinPermanentPositionByLevelAndOrigin(), searchParameters.getMinPermanentCostByLevelAndOrigin(),
-                            searchParameters.getMinimumCasesByLevel(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
-                    double levelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[sublevels[i]];
-                    newCostByLevel[sublevels[i]] = levelCost;
-                    newMinimumPositionsByLevelAndOrigin[sublevels[i]] = updatedResult.getPositions();
-                }
-            }
-            totalCost = ArrayOperations.sumDoubleArray(newCostByLevel);
-        } else {
-            newLeveledSitesArray = new ArrayList<>(sitesByLevel);
-            newLeveledSitesArray.set(level, newTargetLevelSites);
-            totalCost = cost + newTargetLevelCost - costByLevel[level];
+        //Decide if cost change is acceptable
+        if (SimAnnealingSearch.acceptanceProbability(costByLevel[level], newTargetLevelCost, temp) > Math.random()) {
+            sitesByLevel.set(level, newTargetLevelSites);
+            cost = cost + newTargetLevelCost - costByLevel[level];
+            costByLevel[level] = newTargetLevelCost;
+            minimumPositionsByLevelAndOrigin[level] = updatedResult.getPositions();
         }
-
-        return new LeveledSiteConfigurationForPermanentCenters(newLeveledSitesArray, totalCost, newCostByLevel, newMinimumPositionsByLevelAndOrigin);
     }
 
     //Variant with multithreading of previous removeLowestLevelSite
-    public LeveledSiteConfigurationForPermanentCenters leveledRemovePotentialSite(int level, List<Integer> potentialRemovalSites, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
+    public void tryRemoveSite(int level, Integer removalSite, SearchSpace searchParameters, double temp, int taskCount, ExecutorService executor) {
         //Remove one of the lowest level sites
         List<Integer> newTargetLevelSites = new ArrayList<>(sitesByLevel.get(level));
-        Random random = new Random();
-        Integer removalSite = potentialRemovalSites.get(random.nextInt(potentialRemovalSites.size()));
         int removalPosition = newTargetLevelSites.indexOf(removalSite);
         newTargetLevelSites.remove(removalSite);
 
@@ -282,40 +291,69 @@ public class LeveledSiteConfigurationForPermanentCenters extends SiteConfigurati
                 searchParameters.getPermanentCentersCountByLevel(), searchParameters.getMinPermanentPositionByLevelAndOrigin(), searchParameters.getMinPermanentCostByLevelAndOrigin(),
                 searchParameters.getMinimumCasesByLevel(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
         double newTargetLevelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[level];
-        int[] newTargetLevelMinimumPositionsByOrigin = updatedResult.getPositions();
 
-        //Update arrays and adjust for sublevel sites
-        List<List<Integer>> newLeveledSitesArray;
-        double totalCost;
-        double[] newCostByLevel = costByLevel.clone();
-        newCostByLevel[level] = newTargetLevelCost;
-        int[][] newMinimumPositionsByLevelAndOrigin = minimumPositionsByLevelAndOrigin.clone();
-        newMinimumPositionsByLevelAndOrigin[level] = newTargetLevelMinimumPositionsByOrigin;
-        if (searchParameters.getSublevelsByLevel()[level].length > 0) {
-            int[] sublevels = searchParameters.getSublevelsByLevel()[level];
-            SitesAndUpdateHistory updatedArrayAndHistory = removeFromSitesArray(sitesByLevel, sublevels, removalSite);
-            newLeveledSitesArray = updatedArrayAndHistory.getUpdatedSitesArray();
-            newLeveledSitesArray.set(level, newTargetLevelSites);
-            boolean[] sublevelUpdateHistory = updatedArrayAndHistory.getUpdateHistory();
-            int[] sublevelUpdatedPositions = updatedArrayAndHistory.getUpdatedPositions();
-            for (int i = 0; i < sublevels.length; i++) {
-                if (sublevelUpdateHistory[i]) {
-                    updatedResult = removeSiteCost(sublevels[i], newLeveledSitesArray.get(sublevels[i]), sublevelUpdatedPositions[i], minimumPositionsByLevelAndOrigin,
-                            searchParameters.getPermanentCentersCountByLevel(), searchParameters.getMinPermanentPositionByLevelAndOrigin(), searchParameters.getMinPermanentCostByLevelAndOrigin(),
-                            searchParameters.getMinimumCasesByLevel(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
-                    double levelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[sublevels[i]];
-                    newCostByLevel[sublevels[i]] = levelCost;
-                    newMinimumPositionsByLevelAndOrigin[sublevels[i]] = updatedResult.getPositions();
+        //Ensure that new target level cost is not excessive compared to total configuration cost
+        if (SimAnnealingSearch.acceptanceProbability(cost, newTargetLevelCost, temp) > 0) {
+            //Update arrays and adjust for sublevel sites
+            List<List<Integer>> newLeveledSitesArray;
+            double newCost;
+            double[] newCostByLevel = costByLevel.clone();
+            newCostByLevel[level] = newTargetLevelCost;
+            int[][] newMinimumPositionsByLevelAndOrigin = minimumPositionsByLevelAndOrigin.clone();
+            newMinimumPositionsByLevelAndOrigin[level] = updatedResult.getPositions();
+            if (searchParameters.getSublevelsByLevel()[level].length > 0) {
+                int[] sublevels = searchParameters.getSublevelsByLevel()[level];
+                SitesAndUpdateHistory updatedArrayAndHistory = removeFromSitesArray(sitesByLevel, sublevels, removalSite);
+                newLeveledSitesArray = updatedArrayAndHistory.getUpdatedSitesArray();
+                newLeveledSitesArray.set(level, newTargetLevelSites);
+                boolean[] sublevelUpdateHistory = updatedArrayAndHistory.getUpdateHistory();
+                int[] sublevelUpdatedPositions = updatedArrayAndHistory.getUpdatedPositions();
+                for (int i = 0; i < sublevels.length; i++) {
+                    if (sublevelUpdateHistory[i]) {
+                        updatedResult = removeSiteCost(sublevels[i], newLeveledSitesArray.get(sublevels[i]), sublevelUpdatedPositions[i], minimumPositionsByLevelAndOrigin,
+                                searchParameters.getPermanentCentersCountByLevel(), searchParameters.getMinPermanentPositionByLevelAndOrigin(), searchParameters.getMinPermanentCostByLevelAndOrigin(),
+                                searchParameters.getMinimumCasesByLevel(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
+                        double levelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[sublevels[i]];
+                        newCostByLevel[sublevels[i]] = levelCost;
+                        newMinimumPositionsByLevelAndOrigin[sublevels[i]] = updatedResult.getPositions();
+                    }
                 }
+                newCost = ArrayOperations.sumDoubleArray(newCostByLevel);
+            } else {
+                newLeveledSitesArray = new ArrayList<>(sitesByLevel);
+                newLeveledSitesArray.set(level, newTargetLevelSites);
+                newCost = cost + newTargetLevelCost - costByLevel[level];
             }
-            totalCost = ArrayOperations.sumDoubleArray(newCostByLevel);
-        } else {
-            newLeveledSitesArray = new ArrayList<>(sitesByLevel);
-            newLeveledSitesArray.set(level, newTargetLevelSites);
-            totalCost = cost + newTargetLevelCost - costByLevel[level];
-        }
 
-        return new LeveledSiteConfigurationForPermanentCenters(newLeveledSitesArray, totalCost, newCostByLevel, newMinimumPositionsByLevelAndOrigin);
+            //Decide if cost change is acceptable
+            if (SimAnnealingSearch.acceptanceProbability(cost, newCost, temp) > Math.random()) {
+                sitesByLevel = newLeveledSitesArray;
+                cost = newCost;
+                costByLevel = newCostByLevel;
+                minimumPositionsByLevelAndOrigin = newMinimumPositionsByLevelAndOrigin;
+            }
+        }
+    }
+
+    //Variant with multithreading of previous removeLowestLevelSite
+    public void tryRemovePositionWithoutSublevels(int level, int removalPosition, SearchSpace searchParameters, double temp, int taskCount, ExecutorService executor) {
+        //Remove one of the lowest level sites
+        List<Integer> newTargetLevelSites = new ArrayList<>(sitesByLevel.get(level));
+        newTargetLevelSites.remove(removalPosition);
+
+        //Compute new parameters
+        ConfigurationCostAndPositions updatedResult = removeSiteCost(level, newTargetLevelSites, removalPosition, minimumPositionsByLevelAndOrigin,
+                searchParameters.getPermanentCentersCountByLevel(), searchParameters.getMinPermanentPositionByLevelAndOrigin(), searchParameters.getMinPermanentCostByLevelAndOrigin(),
+                searchParameters.getMinimumCasesByLevel(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
+        double newTargetLevelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[level];
+
+        //Decide if cost change is acceptable
+        if (SimAnnealingSearch.acceptanceProbability(costByLevel[level], newTargetLevelCost, temp) > Math.random()) {
+            sitesByLevel.set(level, newTargetLevelSites);
+            cost = cost + newTargetLevelCost - costByLevel[level];
+            costByLevel[level] = newTargetLevelCost;
+            minimumPositionsByLevelAndOrigin[level] = updatedResult.getPositions();
+        }
     }
 
     //Update sites array by replacing removedSite with newSite for all sites in the array. Output is updated sites array, updated positions, and history of updates, true for each level that was changed and false if not. Must account for permanent centers not being movable in superlevels.
@@ -588,33 +626,6 @@ public class LeveledSiteConfigurationForPermanentCenters extends SiteConfigurati
     public List<Integer> getRestrictedShiftableSuperlevelSites(int level, int totalLevels, int positionToShift, List<List<Integer>> permanentSitesByLevel, int[][] superlevelsByLevel, int[][] sublevelsByLevel, int[] maximumNewCenterCountByLevel, int[] permanentCentersCountByLevel) {
         Integer siteToShift = sitesByLevel.get(level).get(positionToShift);
 
-        //Process target superlevels
-        List<Integer> restrictedShiftSites = null;
-        for (int superlevel : getAllShiftedSuperlevels(level, totalLevels, siteToShift, superlevelsByLevel, sublevelsByLevel)) {
-            if (sitesByLevel.get(superlevel).size() == maximumNewCenterCountByLevel[superlevel] + permanentCentersCountByLevel[superlevel] && permanentSitesByLevel.get(superlevel).contains(siteToShift)) {
-                if (restrictedShiftSites == null) {
-                    restrictedShiftSites = new ArrayList<>(sitesByLevel.get(superlevel));
-                } else {
-                    restrictedShiftSites.retainAll(sitesByLevel.get(superlevel));
-                }
-            }
-        }
-        if (restrictedShiftSites != null) {
-            if (restrictedShiftSites.size() == sitesByLevel.get(level).size()) {
-                //candidate superlevel sites must gbe equal to already existing sites
-                restrictedShiftSites = new ArrayList<>();
-            } else {
-                //remove existing to obtain final sites
-                restrictedShiftSites.removeAll(sitesByLevel.get(level));
-            }
-        }
-        return restrictedShiftSites;
-    }
-
-    //Get all superlevels of levels that are shifted.
-    public List<Integer> getAllShiftedSuperlevels(int level, int totalLevels, Integer siteToShift, int[][] superlevelsByLevel, int[][] sublevelsByLevel) {
-        List<Integer> allShiftedSuperlevels = new ArrayList<>(totalLevels);
-
         //Additional sublevels and superlevels to cycle
         boolean[] sublevelProcessedHistory = new boolean[totalLevels];
         sublevelProcessedHistory[level] = true;
@@ -638,17 +649,27 @@ public class LeveledSiteConfigurationForPermanentCenters extends SiteConfigurati
         }
 
         //Process superlevels
+        List<Integer> restrictedShiftSites = null;
         for (int superlevel : superlevelsByLevel[level]) {
-            allShiftedSuperlevels.add(superlevel);
-            for (int sublevel : sublevelsByLevel[superlevel]) {
-                if (!sublevelProcessedHistory[sublevel]) {
-                    higherOrderSublevelsToProcess.add(sublevel);
+            if (sitesByLevel.get(superlevel).size() == maximumNewCenterCountByLevel[superlevel] + permanentCentersCountByLevel[superlevel] && permanentSitesByLevel.get(superlevel).contains(siteToShift)) {
+                if (restrictedShiftSites == null) {
+                    restrictedShiftSites = new ArrayList<>(sitesByLevel.get(superlevel));
+                } else {
+                    restrictedShiftSites.retainAll(sitesByLevel.get(superlevel));
+                }
+            } else { //superlevel is changed, process sublevels
+                for (int sublevel : sublevelsByLevel[superlevel]) {
+                    if (!sublevelProcessedHistory[sublevel]) {
+                        higherOrderSublevelsToProcess.add(sublevel);
+                    }
                 }
             }
             superlevelProcessedHistory[superlevel] = true;
         }
 
+        //Process secondary levels
         while (higherOrderSublevelsToProcess.size() > 0 || higherOrderSuperlevelsToProcess.size() > 0) {
+            //Process higher order sublevels
             for (int sublevel : higherOrderSublevelsToProcess) {
                 if (sitesByLevel.get(sublevel).contains(siteToShift)) {
                     //Site will be shifted in sublevel, therefore process all superlevels
@@ -662,11 +683,19 @@ public class LeveledSiteConfigurationForPermanentCenters extends SiteConfigurati
             }
             higherOrderSublevelsToProcess = new ArrayList<>();
 
+            //Process higher order superlevels
             for (int superlevel : higherOrderSuperlevelsToProcess) {
-                allShiftedSuperlevels.add(superlevel);
-                for (int sublevel : sublevelsByLevel[superlevel]) {
-                    if (!sublevelProcessedHistory[sublevel]) {
-                        higherOrderSublevelsToProcess.add(sublevel);
+                if (sitesByLevel.get(superlevel).size() == maximumNewCenterCountByLevel[superlevel] + permanentCentersCountByLevel[superlevel] && permanentSitesByLevel.get(superlevel).contains(siteToShift)) {
+                    if (restrictedShiftSites == null) {
+                        restrictedShiftSites = new ArrayList<>(sitesByLevel.get(superlevel));
+                    } else {
+                        restrictedShiftSites.retainAll(sitesByLevel.get(superlevel));
+                    }
+                } else { //superlevel is changed, process sublevels
+                    for (int sublevel : sublevelsByLevel[superlevel]) {
+                        if (!sublevelProcessedHistory[sublevel]) {
+                            higherOrderSublevelsToProcess.add(sublevel);
+                        }
                     }
                 }
                 superlevelProcessedHistory[superlevel] = true;
@@ -674,14 +703,29 @@ public class LeveledSiteConfigurationForPermanentCenters extends SiteConfigurati
             higherOrderSuperlevelsToProcess = new ArrayList<>();
         }
 
-        return allShiftedSuperlevels;
+        //Remove existing sites
+        if (restrictedShiftSites != null) {
+            if (restrictedShiftSites.size() == sitesByLevel.get(level).size()) {
+                //candidate superlevel sites must gbe equal to already existing sites
+                restrictedShiftSites = new ArrayList<>();
+            } else {
+                //remove existing to obtain final sites
+                restrictedShiftSites.removeAll(sitesByLevel.get(level));
+            }
+        }
+
+        return restrictedShiftSites;
+    }
+
+    public List<Integer> getSites(int level) {
+        return sitesByLevel.get(level);
     }
 
     public List<List<Integer>> getSitesByLevel() {
         return sitesByLevel;
     }
 
-    public int getLevelSitesCount(int level) {
+    public int getSitesCount(int level) {
         return sitesByLevel.get(level).size();
     }
 

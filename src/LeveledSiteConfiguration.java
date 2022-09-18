@@ -59,7 +59,7 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
 
     //Get new leveled site configuration by shifting one of the lowest level sites
     //Multithreaded variant
-    public LeveledSiteConfiguration leveledShiftToNeighborSite(int level, int positionToShift, int neighborhoodSize, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
+    public void tryShiftToNeighbor(int level, int positionToShift, int neighborhoodSize, SearchSpace searchParameters, double temp, int taskCount, ExecutorService executor) {
         //Shift target level sites
         List<Integer> currentTargetLevelSites = sitesByLevel.get(level);
         Integer siteToShift = currentTargetLevelSites.get(positionToShift);
@@ -70,182 +70,198 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
         //Compute cost of new positions and update list of the closest of current positions for each population center
         ConfigurationCostAndPositions updatedResult = shiftSiteCost(newTargetLevelSites, positionToShift, newSite, minimumPositionsByLevelAndOrigin[level], searchParameters.getMinimumCasesByLevel()[level], searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
         double newTargetLevelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[level];
-        int[] newTargetLevelMinimumPositionsByOrigin = updatedResult.getPositions();
 
-        //Create new leveled sites array
-        List<List<Integer>> newLeveledSitesArray;
-        double totalCost;
-        double[] newCostByLevel = costByLevel.clone();
-        newCostByLevel[level] = newTargetLevelCost;
-        int[][] newMinimumPositionsByLevelAndOrigin = minimumPositionsByLevelAndOrigin.clone();
-        newMinimumPositionsByLevelAndOrigin[level] = newTargetLevelMinimumPositionsByOrigin;
-        if (searchParameters.getSublevelsByLevel()[level].length > 0 || searchParameters.getSuperlevelsByLevel()[level].length > 0) {
-            SitesAndUpdateHistory updatedArrayAndHistory = shiftSitesArray(sitesByLevel, level, searchParameters.getCenterLevels(), searchParameters.getSublevelsByLevel(), searchParameters.getSuperlevelsByLevel(), siteToShift, newSite);
-            newLeveledSitesArray = updatedArrayAndHistory.getUpdatedSitesArray();
-            newLeveledSitesArray.set(level, newTargetLevelSites);
-            boolean[] updateHistory = updatedArrayAndHistory.getUpdateHistory();
-            int[] updatedPositions = updatedArrayAndHistory.getUpdatedPositions();
-            for (int i = 0; i < searchParameters.getCenterLevels(); i++) {
-                if (updateHistory[i]) {
-                    updatedResult = shiftSiteCost(newLeveledSitesArray.get(i), updatedPositions[i], newSite, minimumPositionsByLevelAndOrigin[i], searchParameters.getMinimumCasesByLevel()[i], searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
-                    double levelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[i];
-                    newCostByLevel[i] = levelCost;
-                    newMinimumPositionsByLevelAndOrigin[i] = updatedResult.getPositions();
+        //Ensure that new target level cost is not excessive compared to total configuration cost
+        if (SimAnnealingSearch.acceptanceProbability(cost, newTargetLevelCost, temp) > 0) {
+            //Create new leveled sites array
+            List<List<Integer>> newLeveledSitesArray;
+            double newCost;
+            double[] newCostByLevel = costByLevel.clone();
+            newCostByLevel[level] = newTargetLevelCost;
+            int[][] newMinimumPositionsByLevelAndOrigin = minimumPositionsByLevelAndOrigin.clone();
+            newMinimumPositionsByLevelAndOrigin[level] = updatedResult.getPositions();
+            if (searchParameters.getSublevelsByLevel()[level].length > 0 || searchParameters.getSuperlevelsByLevel()[level].length > 0) {
+                SitesAndUpdateHistory updatedArrayAndHistory = shiftSitesArray(sitesByLevel, level, searchParameters.getCenterLevels(), searchParameters.getSublevelsByLevel(), searchParameters.getSuperlevelsByLevel(), siteToShift, newSite);
+                newLeveledSitesArray = updatedArrayAndHistory.getUpdatedSitesArray();
+                newLeveledSitesArray.set(level, newTargetLevelSites);
+                boolean[] updateHistory = updatedArrayAndHistory.getUpdateHistory();
+                int[] updatedPositions = updatedArrayAndHistory.getUpdatedPositions();
+                for (int i = 0; i < searchParameters.getCenterLevels(); i++) {
+                    if (updateHistory[i]) {
+                        updatedResult = shiftSiteCost(newLeveledSitesArray.get(i), updatedPositions[i], newSite, minimumPositionsByLevelAndOrigin[i], searchParameters.getMinimumCasesByLevel()[i], searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
+                        double levelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[i];
+                        newCostByLevel[i] = levelCost;
+                        newMinimumPositionsByLevelAndOrigin[i] = updatedResult.getPositions();
+                    }
                 }
+                newCost = ArrayOperations.sumDoubleArray(newCostByLevel);
+            } else {
+                newLeveledSitesArray = new ArrayList<>(sitesByLevel);
+                newLeveledSitesArray.set(level, newTargetLevelSites);
+                newCost = cost + newTargetLevelCost - costByLevel[level];
             }
-            totalCost = ArrayOperations.sumDoubleArray(newCostByLevel);
-        } else {
-            newLeveledSitesArray = new ArrayList<>(sitesByLevel);
-            newLeveledSitesArray.set(level, newTargetLevelSites);
-            totalCost = cost + newTargetLevelCost - costByLevel[level];
+
+            //Decide if cost change is acceptable
+            if (SimAnnealingSearch.acceptanceProbability(cost, newCost, temp) > Math.random()) {
+                sitesByLevel = newLeveledSitesArray;
+                cost = newCost;
+                costByLevel = newCostByLevel;
+                minimumPositionsByLevelAndOrigin = newMinimumPositionsByLevelAndOrigin;
+            }
         }
-        return new LeveledSiteConfiguration(newLeveledSitesArray, totalCost, newCostByLevel, newMinimumPositionsByLevelAndOrigin);
     }
 
-    //Get new leveled site configuration by shifting one of the lowest level sites
-    //Multithreaded variant
-    public LeveledSiteConfiguration leveledShiftToPotentialSite(int level, int positionToShift, List<Integer> potentialSites, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
+    //Try shift site on a target level without superlevels or sublevels
+    public void tryShiftToNeighborWithoutLevelRelations(int level, int positionToShift, int neighborhoodSize, SearchSpace searchParameters, double temp, int taskCount, ExecutorService executor) {
         //Shift target level sites
         List<Integer> currentTargetLevelSites = sitesByLevel.get(level);
         Integer siteToShift = currentTargetLevelSites.get(positionToShift);
-        Random random = new Random();
-        Integer newSite = potentialSites.get(random.nextInt(potentialSites.size()));
+        Integer newSite = SimAnnealingNeighbor.getUnusedNeighbor(currentTargetLevelSites, siteToShift, neighborhoodSize, searchParameters.getSortedNeighbors());
         List<Integer> newTargetLevelSites = new ArrayList<>(currentTargetLevelSites);
         newTargetLevelSites.set(positionToShift, newSite);
 
         //Compute cost of new positions and update list of the closest of current positions for each population center
         ConfigurationCostAndPositions updatedResult = shiftSiteCost(newTargetLevelSites, positionToShift, newSite, minimumPositionsByLevelAndOrigin[level], searchParameters.getMinimumCasesByLevel()[level], searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
         double newTargetLevelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[level];
-        int[] newTargetLevelMinimumPositionsByOrigin = updatedResult.getPositions();
 
-        //Create new leveled sites array
-        List<List<Integer>> newLeveledSitesArray;
-        double totalCost;
-        double[] newCostByLevel = costByLevel.clone();
-        newCostByLevel[level] = newTargetLevelCost;
-        int[][] newMinimumPositionsByLevelAndOrigin = minimumPositionsByLevelAndOrigin.clone();
-        newMinimumPositionsByLevelAndOrigin[level] = newTargetLevelMinimumPositionsByOrigin;
-        if (searchParameters.getSublevelsByLevel()[level].length > 0 || searchParameters.getSuperlevelsByLevel()[level].length > 0) {
-            SitesAndUpdateHistory updatedArrayAndHistory = shiftSitesArray(sitesByLevel, level, searchParameters.getCenterLevels(), searchParameters.getSublevelsByLevel(), searchParameters.getSuperlevelsByLevel(), siteToShift, newSite);
-            newLeveledSitesArray = updatedArrayAndHistory.getUpdatedSitesArray();
-            newLeveledSitesArray.set(level, newTargetLevelSites);
-            boolean[] updateHistory = updatedArrayAndHistory.getUpdateHistory();
-            int[] updatedPositions = updatedArrayAndHistory.getUpdatedPositions();
-            for (int i = 0; i < searchParameters.getCenterLevels(); i++) {
-                if (updateHistory[i]) {
-                    updatedResult = shiftSiteCost(newLeveledSitesArray.get(i), updatedPositions[i], newSite, minimumPositionsByLevelAndOrigin[i], searchParameters.getMinimumCasesByLevel()[i], searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
-                    double levelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[i];
-                    newCostByLevel[i] = levelCost;
-                    newMinimumPositionsByLevelAndOrigin[i] = updatedResult.getPositions();
-                }
-            }
-            totalCost = ArrayOperations.sumDoubleArray(newCostByLevel);
-        } else {
-            newLeveledSitesArray = new ArrayList<>(sitesByLevel);
-            newLeveledSitesArray.set(level, newTargetLevelSites);
-            totalCost = cost + newTargetLevelCost - costByLevel[level];
+        //Decide if cost change is acceptable
+        if (SimAnnealingSearch.acceptanceProbability(costByLevel[level], newTargetLevelCost, temp) > Math.random()) {
+            sitesByLevel.set(level, newTargetLevelSites);
+            cost = cost + newTargetLevelCost - costByLevel[level];
+            costByLevel[level] = newTargetLevelCost;
+            minimumPositionsByLevelAndOrigin[level] = updatedResult.getPositions();
         }
-        return new LeveledSiteConfiguration(newLeveledSitesArray, totalCost, newCostByLevel, newMinimumPositionsByLevelAndOrigin);
+    }
+
+    //Get new leveled site configuration by shifting one of the lowest level sites
+    public void tryShiftSite(int level, int positionToShift, Integer newSite, SearchSpace searchParameters, double temp, int taskCount, ExecutorService executor) {
+        //Shift target level sites
+        List<Integer> newTargetLevelSites = new ArrayList<>(sitesByLevel.get(level));
+        Integer siteToShift = newTargetLevelSites.get(positionToShift);
+        newTargetLevelSites.set(positionToShift, newSite);
+
+        //Compute cost of new positions and update list of the closest of current positions for each population center
+        ConfigurationCostAndPositions updatedResult = shiftSiteCost(newTargetLevelSites, positionToShift, newSite, minimumPositionsByLevelAndOrigin[level], searchParameters.getMinimumCasesByLevel()[level], searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
+        double newTargetLevelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[level];
+
+        //Ensure that new target level cost is not excessive compared to total configuration cost
+        if (SimAnnealingSearch.acceptanceProbability(cost, newTargetLevelCost, temp) > 0) {
+            //Create new leveled sites array
+            List<List<Integer>> newLeveledSitesArray;
+            double newCost;
+            double[] newCostByLevel = costByLevel.clone();
+            newCostByLevel[level] = newTargetLevelCost;
+            int[][] newMinimumPositionsByLevelAndOrigin = minimumPositionsByLevelAndOrigin.clone();
+            newMinimumPositionsByLevelAndOrigin[level] = updatedResult.getPositions();
+            if (searchParameters.getSublevelsByLevel()[level].length > 0 || searchParameters.getSuperlevelsByLevel()[level].length > 0) {
+                SitesAndUpdateHistory updatedArrayAndHistory = shiftSitesArray(sitesByLevel, level, searchParameters.getCenterLevels(), searchParameters.getSublevelsByLevel(), searchParameters.getSuperlevelsByLevel(), siteToShift, newSite);
+                newLeveledSitesArray = updatedArrayAndHistory.getUpdatedSitesArray();
+                newLeveledSitesArray.set(level, newTargetLevelSites);
+                boolean[] updateHistory = updatedArrayAndHistory.getUpdateHistory();
+                int[] updatedPositions = updatedArrayAndHistory.getUpdatedPositions();
+                for (int i = 0; i < searchParameters.getCenterLevels(); i++) {
+                    if (updateHistory[i]) {
+                        //dev
+                        if (updatedPositions[i] == -1) {
+                            System.out.println("Update history " + Arrays.toString(updateHistory) + " and " + Arrays.toString(updatedPositions));
+                        }
+                        //end dev
+                        updatedResult = shiftSiteCost(newLeveledSitesArray.get(i), updatedPositions[i], newSite, minimumPositionsByLevelAndOrigin[i], searchParameters.getMinimumCasesByLevel()[i], searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
+                        double levelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[i];
+                        newCostByLevel[i] = levelCost;
+                        newMinimumPositionsByLevelAndOrigin[i] = updatedResult.getPositions();
+                    }
+                }
+                newCost = ArrayOperations.sumDoubleArray(newCostByLevel);
+            } else {
+                newLeveledSitesArray = new ArrayList<>(sitesByLevel);
+                newLeveledSitesArray.set(level, newTargetLevelSites);
+                newCost = cost + newTargetLevelCost - costByLevel[level];
+            }
+
+            //Decide if cost change is acceptable
+            if (SimAnnealingSearch.acceptanceProbability(cost, newCost, temp) > Math.random()) {
+                sitesByLevel = newLeveledSitesArray;
+                cost = newCost;
+                costByLevel = newCostByLevel;
+                minimumPositionsByLevelAndOrigin = newMinimumPositionsByLevelAndOrigin;
+            }
+        }
     }
 
     //Add one site to target level and superlevels
-    public LeveledSiteConfiguration leveledAddSite(int level, List<Integer> allPotentialSites, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
+    public void tryAddSite(int level, Integer newSite, SearchSpace searchParameters, double temp, int taskCount, ExecutorService executor) {
         //Add target level site
         List<Integer> newTargetLevelSites = new ArrayList<>(sitesByLevel.get(level));
-        List<Integer> unusedSites = new ArrayList<>(allPotentialSites);
-        unusedSites.removeAll(newTargetLevelSites);
-        Random random = new Random();
-        Integer newSite = unusedSites.get(random.nextInt(unusedSites.size()));
         newTargetLevelSites.add(newSite);
 
         //Compute new parameters
         ConfigurationCostAndPositions updatedResult = addSiteCost(newTargetLevelSites, minimumPositionsByLevelAndOrigin[level], searchParameters.getMinimumCasesByLevel()[level], searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
         double newTargetLevelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[level];
-        int[] newTargetLevelMinimumPositionsByOrigin = updatedResult.getPositions();
 
-        //Update arrays and adjust for superlevel sites
-        List<List<Integer>> newLeveledSitesArray;
-        double totalCost;
-        double[] newCostByLevel = costByLevel.clone();
-        newCostByLevel[level] = newTargetLevelCost;
-        int[][] newMinimumPositionsByLevelAndOrigin = minimumPositionsByLevelAndOrigin.clone();
-        newMinimumPositionsByLevelAndOrigin[level] = newTargetLevelMinimumPositionsByOrigin;
-        if (searchParameters.getSuperlevelsByLevel()[level].length > 0) {
-            int[] superlevels = searchParameters.getSuperlevelsByLevel()[level];
-            SitesAndUpdateHistory updatedArrayAndHistory = addToSitesArray(sitesByLevel, superlevels, newSite);
-            newLeveledSitesArray = updatedArrayAndHistory.getUpdatedSitesArray();
-            newLeveledSitesArray.set(level, newTargetLevelSites);
-            boolean[] superlevelUpdateHistory = updatedArrayAndHistory.getUpdateHistory();
-            for (int i = 0; i < superlevels.length; i++) {
-                if (superlevelUpdateHistory[i]) {
-                    updatedResult = addSiteCost(newLeveledSitesArray.get(superlevels[i]), minimumPositionsByLevelAndOrigin[superlevels[i]], searchParameters.getMinimumCasesByLevel()[superlevels[i]], searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
-                    double levelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[superlevels[i]];
-                    newCostByLevel[superlevels[i]] = levelCost;
-                    newMinimumPositionsByLevelAndOrigin[superlevels[i]] = updatedResult.getPositions();
+        //Ensure that new target level cost is not excessive compared to total configuration cost
+        if (SimAnnealingSearch.acceptanceProbability(cost, newTargetLevelCost, temp) > 0) {
+            //Update arrays and adjust for superlevel sites
+            List<List<Integer>> newLeveledSitesArray;
+            double newCost;
+            double[] newCostByLevel = costByLevel.clone();
+            newCostByLevel[level] = newTargetLevelCost;
+            int[][] newMinimumPositionsByLevelAndOrigin = minimumPositionsByLevelAndOrigin.clone();
+            newMinimumPositionsByLevelAndOrigin[level] = updatedResult.getPositions();
+            if (searchParameters.getSuperlevelsByLevel()[level].length > 0) {
+                int[] superlevels = searchParameters.getSuperlevelsByLevel()[level];
+                SitesAndUpdateHistory updatedArrayAndHistory = addToSitesArray(sitesByLevel, superlevels, newSite);
+                newLeveledSitesArray = updatedArrayAndHistory.getUpdatedSitesArray();
+                newLeveledSitesArray.set(level, newTargetLevelSites);
+                boolean[] superlevelUpdateHistory = updatedArrayAndHistory.getUpdateHistory();
+                for (int i = 0; i < superlevels.length; i++) {
+                    if (superlevelUpdateHistory[i]) {
+                        updatedResult = addSiteCost(newLeveledSitesArray.get(superlevels[i]), minimumPositionsByLevelAndOrigin[superlevels[i]], searchParameters.getMinimumCasesByLevel()[superlevels[i]], searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
+                        double levelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[superlevels[i]];
+                        newCostByLevel[superlevels[i]] = levelCost;
+                        newMinimumPositionsByLevelAndOrigin[superlevels[i]] = updatedResult.getPositions();
+                    }
                 }
+                newCost = ArrayOperations.sumDoubleArray(newCostByLevel);
+            } else {
+                newLeveledSitesArray = new ArrayList<>(sitesByLevel);
+                newLeveledSitesArray.set(level, newTargetLevelSites);
+                newCost = cost + newTargetLevelCost - costByLevel[level];
             }
-            totalCost = ArrayOperations.sumDoubleArray(newCostByLevel);
-        } else {
-            newLeveledSitesArray = new ArrayList<>(sitesByLevel);
-            newLeveledSitesArray.set(level, newTargetLevelSites);
-            totalCost = cost + newTargetLevelCost - costByLevel[level];
-        }
 
-        return new LeveledSiteConfiguration(newLeveledSitesArray, totalCost, newCostByLevel, newMinimumPositionsByLevelAndOrigin);
+            //Decide if cost change is acceptable
+            if (SimAnnealingSearch.acceptanceProbability(cost, newCost, temp) > Math.random()) {
+                sitesByLevel = newLeveledSitesArray;
+                cost = newCost;
+                costByLevel = newCostByLevel;
+                minimumPositionsByLevelAndOrigin = newMinimumPositionsByLevelAndOrigin;
+            }
+        }
     }
 
-    //Remove lowest level site that is not used by higher level site
-    public LeveledSiteConfiguration leveledRemoveSite(int level, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
-        //Remove one of the target level sites
+    //Try add site to level without superlevels
+    public void tryAddSiteWithoutSuperlevels(int level, Integer newSite, SearchSpace searchParameters, double temp, int taskCount, ExecutorService executor) {
+        //Add target level site
         List<Integer> newTargetLevelSites = new ArrayList<>(sitesByLevel.get(level));
-        Random random = new Random();
-        Integer removalSite = newTargetLevelSites.get(random.nextInt(newTargetLevelSites.size()));
-        int removalPosition = newTargetLevelSites.indexOf(removalSite);
-        newTargetLevelSites.remove(removalSite);
+        newTargetLevelSites.add(newSite);
 
         //Compute new parameters
-        ConfigurationCostAndPositions updatedResult = removeSiteCost(newTargetLevelSites, removalPosition, minimumPositionsByLevelAndOrigin[level], searchParameters.getMinimumCasesByLevel()[level], searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
+        ConfigurationCostAndPositions updatedResult = addSiteCost(newTargetLevelSites, minimumPositionsByLevelAndOrigin[level], searchParameters.getMinimumCasesByLevel()[level], searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
         double newTargetLevelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[level];
-        int[] newTargetLevelMinimumPositionsByOrigin = updatedResult.getPositions();
 
-        //Update arrays and adjust for sublevel sites
-        List<List<Integer>> newLeveledSitesArray;
-        double totalCost;
-        double[] newCostByLevel = costByLevel.clone();
-        newCostByLevel[level] = newTargetLevelCost;
-        int[][] newMinimumPositionsByLevelAndOrigin = minimumPositionsByLevelAndOrigin.clone();
-        newMinimumPositionsByLevelAndOrigin[level] = newTargetLevelMinimumPositionsByOrigin;
-        if (searchParameters.getSublevelsByLevel()[level].length > 0) {
-            int[] sublevels = searchParameters.getSublevelsByLevel()[level];
-            SitesAndUpdateHistory updatedArrayAndHistory = removeFromSitesArray(sitesByLevel, sublevels, removalSite);
-            newLeveledSitesArray = updatedArrayAndHistory.getUpdatedSitesArray();
-            newLeveledSitesArray.set(level, newTargetLevelSites);
-            boolean[] sublevelUpdateHistory = updatedArrayAndHistory.getUpdateHistory();
-            int[] sublevelUpdatedPositions = updatedArrayAndHistory.getUpdatedPositions();
-            for (int i = 0; i < sublevels.length; i++) {
-                if (sublevelUpdateHistory[i]) {
-                    updatedResult = removeSiteCost(newLeveledSitesArray.get(sublevels[i]), sublevelUpdatedPositions[i], minimumPositionsByLevelAndOrigin[sublevels[i]], searchParameters.getMinimumCasesByLevel()[sublevels[i]], searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
-                    double levelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[sublevels[i]];
-                    newCostByLevel[sublevels[i]] = levelCost;
-                    newMinimumPositionsByLevelAndOrigin[sublevels[i]] = updatedResult.getPositions();
-                }
-            }
-            totalCost = ArrayOperations.sumDoubleArray(newCostByLevel);
-        } else {
-            newLeveledSitesArray = new ArrayList<>(sitesByLevel);
-            newLeveledSitesArray.set(level, newTargetLevelSites);
-            totalCost = cost + newTargetLevelCost - costByLevel[level];
+        //Decide if cost change is acceptable
+        if (SimAnnealingSearch.acceptanceProbability(costByLevel[level], newTargetLevelCost, temp) > Math.random()) {
+            sitesByLevel.set(level, newTargetLevelSites);
+            cost = cost + newTargetLevelCost - costByLevel[level];
+            costByLevel[level] = newTargetLevelCost;
+            minimumPositionsByLevelAndOrigin[level] = updatedResult.getPositions();
         }
-
-        return new LeveledSiteConfiguration(newLeveledSitesArray, totalCost, newCostByLevel, newMinimumPositionsByLevelAndOrigin);
     }
 
     //Remove lowest level site that is not used by higher level site
-    public LeveledSiteConfiguration removePotentialSite(int level, List<Integer> potentialRemovalSites, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
+    public void tryRemoveSite(int level, Integer removalSite, SearchSpace searchParameters, double temp, int taskCount, ExecutorService executor) {
         //Remove one of the lowest level sites
         List<Integer> newTargetLevelSites = new ArrayList<>(sitesByLevel.get(level));
-        Random random = new Random();
-        Integer removalSite = potentialRemovalSites.get(random.nextInt(potentialRemovalSites.size()));
         int removalPosition = newTargetLevelSites.indexOf(removalSite);
         newTargetLevelSites.remove(removalSite);
 
@@ -254,36 +270,64 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
         double newTargetLevelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[level];
         int[] newTargetLevelMinimumPositionsByOrigin = updatedResult.getPositions();
 
-        //Update arrays and adjust for sublevel sites
-        List<List<Integer>> newLeveledSitesArray;
-        double totalCost;
-        double[] newCostByLevel = costByLevel.clone();
-        newCostByLevel[level] = newTargetLevelCost;
-        int[][] newMinimumPositionsByLevelAndOrigin = minimumPositionsByLevelAndOrigin.clone();
-        newMinimumPositionsByLevelAndOrigin[level] = newTargetLevelMinimumPositionsByOrigin;
-        if (searchParameters.getSublevelsByLevel()[level].length > 0) {
-            int[] sublevels = searchParameters.getSublevelsByLevel()[level];
-            SitesAndUpdateHistory updatedArrayAndHistory = removeFromSitesArray(sitesByLevel, sublevels, removalSite);
-            newLeveledSitesArray = updatedArrayAndHistory.getUpdatedSitesArray();
-            newLeveledSitesArray.set(level, newTargetLevelSites);
-            boolean[] sublevelUpdateHistory = updatedArrayAndHistory.getUpdateHistory();
-            int[] sublevelUpdatedPositions = updatedArrayAndHistory.getUpdatedPositions();
-            for (int i = 0; i < sublevels.length; i++) {
-                if (sublevelUpdateHistory[i]) {
-                    updatedResult = removeSiteCost(newLeveledSitesArray.get(sublevels[i]), sublevelUpdatedPositions[i], minimumPositionsByLevelAndOrigin[sublevels[i]], searchParameters.getMinimumCasesByLevel()[sublevels[i]], searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
-                    double levelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[sublevels[i]];
-                    newCostByLevel[sublevels[i]] = levelCost;
-                    newMinimumPositionsByLevelAndOrigin[sublevels[i]] = updatedResult.getPositions();
+        //Ensure that new target level cost is not excessive compared to total configuration cost
+        if (SimAnnealingSearch.acceptanceProbability(cost, newTargetLevelCost, temp) > 0) {
+            //Update arrays and adjust for sublevel sites
+            List<List<Integer>> newLeveledSitesArray;
+            double newCost;
+            double[] newCostByLevel = costByLevel.clone();
+            newCostByLevel[level] = newTargetLevelCost;
+            int[][] newMinimumPositionsByLevelAndOrigin = minimumPositionsByLevelAndOrigin.clone();
+            newMinimumPositionsByLevelAndOrigin[level] = newTargetLevelMinimumPositionsByOrigin;
+            if (searchParameters.getSublevelsByLevel()[level].length > 0) {
+                int[] sublevels = searchParameters.getSublevelsByLevel()[level];
+                SitesAndUpdateHistory updatedArrayAndHistory = removeFromSitesArray(sitesByLevel, sublevels, removalSite);
+                newLeveledSitesArray = updatedArrayAndHistory.getUpdatedSitesArray();
+                newLeveledSitesArray.set(level, newTargetLevelSites);
+                boolean[] sublevelUpdateHistory = updatedArrayAndHistory.getUpdateHistory();
+                int[] sublevelUpdatedPositions = updatedArrayAndHistory.getUpdatedPositions();
+                for (int i = 0; i < sublevels.length; i++) {
+                    if (sublevelUpdateHistory[i]) {
+                        updatedResult = removeSiteCost(newLeveledSitesArray.get(sublevels[i]), sublevelUpdatedPositions[i], minimumPositionsByLevelAndOrigin[sublevels[i]], searchParameters.getMinimumCasesByLevel()[sublevels[i]], searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
+                        double levelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[sublevels[i]];
+                        newCostByLevel[sublevels[i]] = levelCost;
+                        newMinimumPositionsByLevelAndOrigin[sublevels[i]] = updatedResult.getPositions();
+                    }
                 }
+                newCost = ArrayOperations.sumDoubleArray(newCostByLevel);
+            } else {
+                newLeveledSitesArray = new ArrayList<>(sitesByLevel);
+                newLeveledSitesArray.set(level, newTargetLevelSites);
+                newCost = cost + newTargetLevelCost - costByLevel[level];
             }
-            totalCost = ArrayOperations.sumDoubleArray(newCostByLevel);
-        } else {
-            newLeveledSitesArray = new ArrayList<>(sitesByLevel);
-            newLeveledSitesArray.set(level, newTargetLevelSites);
-            totalCost = cost + newTargetLevelCost - costByLevel[level];
-        }
 
-        return new LeveledSiteConfiguration(newLeveledSitesArray, totalCost, newCostByLevel, newMinimumPositionsByLevelAndOrigin);
+            //Decide if cost change is acceptable
+            if (SimAnnealingSearch.acceptanceProbability(cost, newCost, temp) > Math.random()) {
+                sitesByLevel = newLeveledSitesArray;
+                cost = newCost;
+                costByLevel = newCostByLevel;
+                minimumPositionsByLevelAndOrigin = newMinimumPositionsByLevelAndOrigin;
+            }
+        }
+    }
+
+    //Remove a position from target level without sublevels
+    public void tryRemovePositionWithoutSublevels(int level, int removalPosition, SearchSpace searchParameters, double temp, int taskCount, ExecutorService executor) {
+        //Remove one of the lowest level sites
+        List<Integer> newTargetLevelSites = new ArrayList<>(sitesByLevel.get(level));
+        newTargetLevelSites.remove(removalPosition);
+
+        //Compute new parameters
+        ConfigurationCostAndPositions updatedResult = removeSiteCost(newTargetLevelSites, removalPosition, minimumPositionsByLevelAndOrigin[level], searchParameters.getMinimumCasesByLevel()[level], searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
+        double newTargetLevelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[level];
+
+        //Decide if cost change is acceptable
+        if (SimAnnealingSearch.acceptanceProbability(costByLevel[level], newTargetLevelCost, temp) > Math.random()) {
+            sitesByLevel.set(level, newTargetLevelSites);
+            cost = cost + newTargetLevelCost - costByLevel[level];
+            costByLevel[level] = newTargetLevelCost;
+            minimumPositionsByLevelAndOrigin[level] = updatedResult.getPositions();
+        }
     }
 
     //Update sites array by replacing removedSite with newSite for all sites in the array. Output is updated sites array, updated positions, and history of updates, true for each level that was changed and false if not.
@@ -512,8 +556,8 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
         return candidateRemovalSites;
     }
 
-    public List<Integer> getSites() {
-        return sites;
+    public List<Integer> getSites(int level) {
+        return sitesByLevel.get(level);
     }
 
     public double getCost() {
@@ -536,7 +580,7 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
         return minimumPositionsByLevelAndOrigin;
     }
 
-    public int getLevelSitesCount(int level) {
+    public int getSitesCount(int level) {
         return sitesByLevel.get(level).size();
     }
 
