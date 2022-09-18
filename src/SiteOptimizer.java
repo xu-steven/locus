@@ -150,9 +150,9 @@ public class SiteOptimizer {
                 try {
                     //Optimize for i centers. Add optimal i positions and its cost to minimumMap.
                     System.out.println("Starting optimization with " + finalI + " center(s).");
-                    List<Object> solutionWithNCenters = SimAnnealingWithoutPermanentCenters.optimizeNCenters(finalI, 6);
-                    double minimumCost = (double) solutionWithNCenters.get(0);
-                    List<Integer> minimumPositions = (List<Integer>) solutionWithNCenters.get(1);
+                    SiteConfiguration solutionWithNCenters = SimAnnealingWithoutPermanentCenters.optimizeNCenters(finalI, 6);
+                    double minimumCost = solutionWithNCenters.getCost();
+                    List<Integer> minimumPositions = solutionWithNCenters.getSites();
                     minimumMap.put(minimumPositions, minimumCost);
                     System.out.println("Done optimizing with " + finalI + " center(s). Minimum cost " + minimumCost + " at " + minimumPositions + ".");
 
@@ -213,9 +213,9 @@ public class SiteOptimizer {
                 try {
                     //Optimize for i centers. Add optimal i positions and its cost to minimumMap.
                     System.out.println("Starting optimization with " + finalI + " center(s).");
-                    List<Object> solutionWithNCenters = SimAnnealingWithoutPermanentCenters.optimizeNCenters(finalI, 6);
-                    double minimumCost = (double) solutionWithNCenters.get(0);
-                    List<Integer> minimumPositions = (List<Integer>) solutionWithNCenters.get(1);
+                    SiteConfiguration solutionWithNCenters = SimAnnealingWithoutPermanentCenters.optimizeNCenters(finalI, 6);
+                    double minimumCost = solutionWithNCenters.getCost();
+                    List<Integer> minimumPositions = solutionWithNCenters.getSites();
                     System.out.println("Done optimizing with " + finalI + " center(s). Minimum cost " + minimumCost + " at " + minimumPositions + ".");
                     allMap.put(minimumPositions, minimumCost); //development only
 
@@ -275,9 +275,9 @@ public class SiteOptimizer {
                 try {
                     //Optimize for i centers. Add optimal i positions and its cost to minimumMap.
                     System.out.println("Starting optimization with " + finalI + " center(s).");
-                    List<Object> solutionWithNCenters = SimAnnealingWithoutPermanentCenters.optimizeNCenters(finalI, 6);
-                    double minimumCost = (double) solutionWithNCenters.get(0);
-                    List<Integer> minimumPositions = (List<Integer>) solutionWithNCenters.get(1);
+                    SiteConfiguration solutionWithNCenters = SimAnnealingWithoutPermanentCenters.optimizeNCenters(finalI, 6);
+                    double minimumCost = solutionWithNCenters.getCost();
+                    List<Integer> minimumPositions = solutionWithNCenters.getSites();
                     minimumMap.put(minimumPositions, minimumCost);
                     System.out.println("Done optimizing with " + finalI + " center(s). Minimum cost " + minimumCost + " at " + minimumPositions + ".");
 

@@ -28,7 +28,7 @@ public class SiteConfiguration {
     }
 
     //Get new leveled site configuration by shifting one of the lowest level sites. Only used for optimization without levels.
-    public SiteConfiguration shiftSiteWithoutLevels(int positionToShift, int neighborhoodSize, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
+    public void tryShiftToNeighbor(int positionToShift, int neighborhoodSize, SearchSpace searchParameters, double temp, int taskCount, ExecutorService executor) {
         //Get shifted sites
         Integer siteToShift = sites.get(positionToShift);
         Integer newSite = SimAnnealingNeighbor.getUnusedNeighbor(sites, siteToShift, neighborhoodSize, searchParameters.getSortedNeighbors());
@@ -38,62 +38,68 @@ public class SiteConfiguration {
         //Compute cost of new positions and update list of the closest of current positions for each population center
         ConfigurationCostAndPositions updatedResult = shiftSiteCost(newSites, positionToShift, newSite, minimumPositionsByOrigin, searchParameters.getMinimumCases(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
         double newCost = updatedResult.getCost();
-        int[] newMinimumPositionsByOrigin = updatedResult.getPositions();
 
-        return new SiteConfiguration(newSites, newCost, newMinimumPositionsByOrigin);
+        //Decide whether to accept new positions
+        if (SimAnnealingSearch.acceptanceProbability(cost, newCost, temp) > Math.random()) {
+            sites = newSites;
+            cost = newCost;
+            minimumPositionsByOrigin = updatedResult.getPositions();
+        }
     }
 
     //Shift site according to a potential site
-    public SiteConfiguration shiftSite(List<Integer> potentialSites, double servicedProportion, double minimumCases, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
+    public void tryShiftSite(int positionToShift, Integer newSite, double servicedProportion, double minimumCases, SearchSpace searchParameters, double temp, int taskCount, ExecutorService executor) {
         //Randomly shift a site to one of potential sites
         List<Integer> newSites = new ArrayList<>(sites);
-        List<Integer> unusedSites = new ArrayList<>(potentialSites);
-        unusedSites.removeAll(sites);
-        Random random = new Random();
-        int adjustedPosition = random.nextInt(newSites.size());
-        newSites.set(adjustedPosition, unusedSites.get(random.nextInt(unusedSites.size())));
+        newSites.set(positionToShift, newSite);
 
         //Compute new parameters
-        ConfigurationCostAndPositions updatedResult = shiftSiteCost(newSites, adjustedPosition, newSites.get(adjustedPosition), minimumPositionsByOrigin, minimumCases, searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
+        ConfigurationCostAndPositions updatedResult = shiftSiteCost(newSites, positionToShift, newSite, minimumPositionsByOrigin, minimumCases, searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
         double newCost = updatedResult.getCost() * servicedProportion;
-        int[] newMinimumPositionsByOrigin = updatedResult.getPositions();
 
-        return new SiteConfiguration(newSites, newCost, newMinimumPositionsByOrigin);
+        //Decide whether to accept new positions
+        if (SimAnnealingSearch.acceptanceProbability(cost, newCost, temp) > Math.random()) {
+            sites = newSites;
+            cost = newCost;
+            minimumPositionsByOrigin = updatedResult.getPositions();
+        }
     }
 
     //Add a site to current configuration without regard for different levels
-    public SiteConfiguration addSite(List<Integer> potentialSites, double servicedProportion, double minimumCases, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
+    public void tryAddSite(Integer newSite, double servicedProportion, double minimumCases, SearchSpace searchParameters, double temp, int taskCount, ExecutorService executor) {
         //Add site
         List<Integer> newSites = new ArrayList<>(sites);
-        List<Integer> unusedSites = new ArrayList<>(potentialSites);
-        unusedSites.removeAll(sites);
-        Random random = new Random();
-        newSites.add(unusedSites.get(random.nextInt(unusedSites.size())));
+        newSites.add(newSite);
 
         //Compute parameters
         ConfigurationCostAndPositions updatedResult = addSiteCost(newSites, minimumPositionsByOrigin, minimumCases, searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
         double newCost = updatedResult.getCost() * servicedProportion;
-        int[] newMinimumPositionsByOrigin = updatedResult.getPositions();
 
-        return new SiteConfiguration(newSites, newCost, newMinimumPositionsByOrigin);
+        //Decide whether to accept new positions
+        if (SimAnnealingSearch.acceptanceProbability(cost, newCost, temp) > Math.random()) {
+            sites = newSites;
+            cost = newCost;
+            minimumPositionsByOrigin = updatedResult.getPositions();
+        }
     }
 
     //Remove a site without regard for other levels
-    public SiteConfiguration removeSite(double servicedProportion, double minimumCases, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
+    public void tryRemovePosition(int removalPosition, double servicedProportion, double minimumCases, SearchSpace searchParameters, double temp, int taskCount, ExecutorService executor) {
         //Remove site
         List<Integer> newSites = new ArrayList<>(sites);
-        Random random = new Random();
-        int removalPosition = random.nextInt(newSites.size());
         newSites.remove(removalPosition);
 
         //Compute new parameters
         ConfigurationCostAndPositions updatedResult = removeSiteCost(newSites, removalPosition, minimumPositionsByOrigin, minimumCases, searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
         double newCost = updatedResult.getCost() * servicedProportion;
-        int[] newMinimumPositionsByOrigin = updatedResult.getPositions();
 
-        return new SiteConfiguration(newSites, newCost, newMinimumPositionsByOrigin);
+        //Decide whether to accept new positions
+        if (SimAnnealingSearch.acceptanceProbability(cost, newCost, temp) > Math.random()) {
+            sites = newSites;
+            cost = newCost;
+            minimumPositionsByOrigin = updatedResult.getPositions();
+        }
     }
-
 
     //Variation of totalCost to save compute resources. For initial sites.
     //Cost function of configuration with given cancer center positions, graph, expected case count. Technically does not optimize for case where one permits travel to further cancer center to lower cost.

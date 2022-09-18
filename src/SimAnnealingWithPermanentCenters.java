@@ -37,7 +37,7 @@ public class SimAnnealingWithPermanentCenters extends SimAnnealingSearch{
         levelSequences.add(Arrays.asList(0, 1));
         levelSequences.add(Arrays.asList(0, 2));
         searchParameters = new SearchSpace(minimumNewCenterCountByLevel, maximumNewCenterCountByLevel, permanentCentersByLevel,
-                minimumCasesByLevel, servicedProportionByLevel, levelSequences,
+                minimumCasesByLevel, servicedProportionByLevel, levelSequences, 6,
                 censusFileLocation, permanentGraphLocation, potentialGraphLocation, azimuthLocation, haversineLocation, 6, executor);
     }
 

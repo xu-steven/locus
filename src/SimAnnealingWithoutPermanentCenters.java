@@ -30,10 +30,10 @@ public class SimAnnealingWithoutPermanentCenters extends SimAnnealingSearch{
         int[] minimumCenterCountByLevel = {2, 0, 1};
         int[] maximumCenterCountByLevel = {6, 6, 6};
         List<List<Integer>> levelSequences = new ArrayList<>();
-        levelSequences.add(Arrays.asList(0, 1, 2));
-        //levelSequences.add(Arrays.asList(0, 2));
+        levelSequences.add(Arrays.asList(0, 1));
+        levelSequences.add(Arrays.asList(0, 2));
         //levelSequences.add(Arrays.asList());
-        searchParameters = new SearchSpace(minimumCenterCountByLevel, maximumCenterCountByLevel, minimumCasesByLevel, servicedProportionByLevel, levelSequences,
+        searchParameters = new SearchSpace(minimumCenterCountByLevel, maximumCenterCountByLevel, minimumCasesByLevel, servicedProportionByLevel, levelSequences, 6,
                 censusFileLocation, graphLocation, azimuthLocation, haversineLocation, 6, executor);
     }
 
@@ -44,6 +44,7 @@ public class SimAnnealingWithoutPermanentCenters extends SimAnnealingSearch{
         //This can be multithreaded with each thread working on a different number n.
         double minimumCost = Double.POSITIVE_INFINITY;
         List<List<Integer>> minimumSites = new ArrayList<>();
+        SiteConfiguration solutionWithOneLevel = optimizeNCenters(6, 6);
         //development start
         long runtime = 0;
         for (int i = 0; i < 20; i++) {//dev
@@ -64,7 +65,7 @@ public class SimAnnealingWithoutPermanentCenters extends SimAnnealingSearch{
 
     //Optimize with shrinking
     //Multithreading variant of OptimizeNCenters
-    public static List<Object> optimizeNCenters(int centerCount, int taskCount) throws InterruptedException {
+    public static SiteConfiguration optimizeNCenters(int centerCount, int taskCount) throws InterruptedException {
         long timer = System.currentTimeMillis(); // development only
 
         //Overriding finalNeighborhoodSize locally for multithreading based on number of centers to optimize if -1 chosen
@@ -79,10 +80,9 @@ public class SimAnnealingWithoutPermanentCenters extends SimAnnealingSearch{
         //Create initial configuration+
         List<Integer> potentialSites = IntStream.range(0, searchParameters.getPotentialSitesCount()).boxed().collect(Collectors.toList());
         SiteConfiguration currentSiteConfiguration = new SiteConfiguration(centerCount, centerCount, potentialSites, searchParameters, taskCount, executor);
-        double currentCost = currentSiteConfiguration.getCost();
         int currentCenterCount = currentSiteConfiguration.getSites().size();
 
-        System.out.println("Initial cost " + currentCost + " at " + currentSiteConfiguration.getSites()); //Initial cost from random placement.
+        System.out.println("Initial cost " + currentSiteConfiguration.getCost() + " at " + currentSiteConfiguration.getSites()); //Initial cost from random placement.
 
         //Main simulated annealing algorithm
         double temp = initialTemp;
@@ -97,13 +97,7 @@ public class SimAnnealingWithoutPermanentCenters extends SimAnnealingSearch{
             }
             //Try moving each cancer center once for every cycle
             for (int i = 0; i < currentCenterCount; ++i ) {
-                SiteConfiguration newSiteConfiguration = currentSiteConfiguration.shiftSiteWithoutLevels(i, neighborhoodSize, searchParameters, taskCount, executor);
-                double newCost = newSiteConfiguration.getCost();
-                //Decide whether to accept new positions
-                if (acceptanceProbability(currentCost, newCost, temp) > Math.random()) {
-                    currentSiteConfiguration = newSiteConfiguration;
-                    currentCost = newCost;
-                }
+                currentSiteConfiguration.tryShiftToNeighbor(i, neighborhoodSize, searchParameters, temp, taskCount, executor);
             }
 
             temp *= coolingRate;
@@ -111,7 +105,7 @@ public class SimAnnealingWithoutPermanentCenters extends SimAnnealingSearch{
             long elapsedTime = System.currentTimeMillis()  - timer; //development only
             if (elapsedTime > updateFrequency) { //development only
                 System.out.println("Temperature is now " + temp +" on optimization for " + centerCount + " center(s). Neighborhood size was " + neighborhoodSize + " for iteration " + simAnnealingIteration); // development only
-                System.out.println("The current cost is " + currentCost + " at positions " + currentSiteConfiguration.getSites()); // development only
+                System.out.println("The current cost is " + currentSiteConfiguration.getCost() + " at positions " + currentSiteConfiguration.getSites()); // development only
                 timer = System.currentTimeMillis(); // development only
             } // development only
 
@@ -120,7 +114,7 @@ public class SimAnnealingWithoutPermanentCenters extends SimAnnealingSearch{
                 throw new InterruptedException();
             }
         }
-        return Arrays.asList(currentCost, currentSiteConfiguration.getSites()); //contains two elements: double minimum cost and List<Integer> minimum positions.
+        return currentSiteConfiguration; //contains two elements: double minimum cost and List<Integer> minimum positions.
     }
 
     //Optimize with shrinking

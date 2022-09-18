@@ -29,7 +29,7 @@ public class SearchSpace {
     private double[][] minPermanentCostByLevelAndOrigin; //minimum cost
     private int[] permanentCentersCountByLevel;
 
-    public SearchSpace(int[] minNewCentersByLevel, int[] maxNewCentersByLevel, double[] minimumCasesByLevel, double[] servicedProportionByLevel, List<List<Integer>> levelSequences,
+    public SearchSpace(int[] minNewCentersByLevel, int[] maxNewCentersByLevel, double[] minimumCasesByLevel, double[] servicedProportionByLevel, List<List<Integer>> levelSequences, int azimuthClassCount,
                        String censusFileLocation, String graphLocation, String azimuthLocation, String haversineLocation,
                        int taskCount, ExecutorService executor) {
         this.minNewCentersByLevel = minNewCentersByLevel;
@@ -48,11 +48,11 @@ public class SearchSpace {
         this.caseCountByOrigin = FileUtils.getCaseCountsFromCSV(censusFileLocation, "Population", originCount);
         this.graphArray = FileUtils.getInnerDoubleArrayFromCSV(graphLocation, originCount, potentialSitesCount);
         this.partitionedOrigins = MultithreadingUtils.orderedPartitionArray(IntStream.range(0, originCount).toArray(), taskCount);
-        this.sortedNeighbors = SimAnnealingNeighbor.sortNeighbors(FileUtils.getInnerAzimuthArrayFromCSV(azimuthLocation, originCount, potentialSitesCount), FileUtils.getInnerDoubleArrayFromCSV(haversineLocation, originCount, potentialSitesCount), taskCount, executor);
+        this.sortedNeighbors = SimAnnealingNeighbor.sortNeighbors(FileUtils.getInnerAzimuthArrayFromCSV(azimuthLocation, originCount, potentialSitesCount), FileUtils.getInnerDoubleArrayFromCSV(haversineLocation, originCount, potentialSitesCount), azimuthClassCount, taskCount, executor);
     }
 
     //When there are permanent centers to put in graphArray
-    public SearchSpace(int[] minNewCentersByLevel, int[] maxNewCentersByLevel, List<List<Integer>> permanentCentersByLevel, double[] minimumCasesByLevel, double[] servicedProportionByLevel, List<List<Integer>> levelSequences,
+    public SearchSpace(int[] minNewCentersByLevel, int[] maxNewCentersByLevel, List<List<Integer>> permanentCentersByLevel, double[] minimumCasesByLevel, double[] servicedProportionByLevel, List<List<Integer>> levelSequences, int azimuthClassCount,
                                            String censusFileLocation, String permanentGraphLocation, String potentialGraphLocation, String azimuthLocation, String haversineLocation,
                                            int taskCount, ExecutorService executor) {
         this.minNewCentersByLevel = minNewCentersByLevel;
@@ -73,7 +73,7 @@ public class SearchSpace {
         double[][] potentialGraphArray = FileUtils.getInnerDoubleArrayFromCSV(potentialGraphLocation, originCount, potentialSitesCount);
         this.graphArray = ArrayOperations.mergeDoubleArrays(potentialGraphArray, permanentGraphArray);
         partitionedOrigins = MultithreadingUtils.orderedPartitionArray(IntStream.range(0, originCount).toArray(), taskCount);
-        this.sortedNeighbors = SimAnnealingNeighbor.sortNeighbors(FileUtils.getInnerAzimuthArrayFromCSV(azimuthLocation, originCount, potentialSitesCount), FileUtils.getInnerDoubleArrayFromCSV(haversineLocation, originCount, potentialSitesCount), taskCount, executor);
+        this.sortedNeighbors = SimAnnealingNeighbor.sortNeighbors(FileUtils.getInnerAzimuthArrayFromCSV(azimuthLocation, originCount, potentialSitesCount), FileUtils.getInnerDoubleArrayFromCSV(haversineLocation, originCount, potentialSitesCount), azimuthClassCount, taskCount, executor);
 
         //Determine permanent centers by level with sites incremented by potential sites count
         this.permanentCentersByLevel = ArrayOperations.incrementList(permanentCentersByLevel, potentialSitesCount);
