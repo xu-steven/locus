@@ -8,7 +8,7 @@ import java.util.stream.IntStream;
 public class SimAnnealingNeighbor {
 
     //Sort neighbors by ID -> insert in random alternating order by azimuth classification from shortest to longest haversine distance
-    public static List<List<Integer>> sortNeighbors(double[][] azimuthArray, double[][] haversineArray, int taskCount, ExecutorService executor) {
+    public static List<List<Integer>> sortNeighbors(double[][] azimuthArray, double[][] haversineArray, int azimuthClassCount, int taskCount, ExecutorService executor) {
         System.out.println("Generating sorted neighbors.");
         Map<Integer, List<Integer>> partitionedOrigins = MultithreadingUtils.orderedPartitionList(IntStream.range(0, azimuthArray.length).boxed().collect(Collectors.toList()), taskCount);
         CountDownLatch latch = new CountDownLatch(taskCount);
@@ -20,62 +20,31 @@ public class SimAnnealingNeighbor {
                 List<List<Integer>> currentOutput = new ArrayList<>();
                 for (int j : partitionToOptimize) {
                     //Create a local hashmap from siteID -> haversineDist for each azimuth class
-                    Map<Integer, Double> azimuthClassZeroMap = new HashMap<>();
-                    Map<Integer, Double> azimuthClassOneMap = new HashMap<>();
-                    Map<Integer, Double> azimuthClassTwoMap = new HashMap<>();
-                    Map<Integer, Double> azimuthClassThreeMap = new HashMap<>();
-                    Map<Integer, Double> azimuthClassFourMap = new HashMap<>();
-                    Map<Integer, Double> azimuthClassFiveMap = new HashMap<>();
+                    List<Map<Integer, Double>> azimuthClassMaps = new ArrayList<>(azimuthClassCount);
+                    for (int azimuthClass = 0; azimuthClass < azimuthClassCount; azimuthClass++) {
+                        azimuthClassMaps.add(new HashMap<>());
+                    }
 
                     //For every alternate site location, put it in a corresponding hashmap
                     for (int k = 0; k < haversineArray[0].length; k++) {
                         if (azimuthArray[j][k] == -1.0) continue; //use -1.0 to identify same position, see FileUtils.getInnerAzimuthArrayFromCSV
-                        int azimuthClass = classifyAzimuth(azimuthArray[j][k]);
+                        int azimuthClass = classifyAzimuth(azimuthArray[j][k], azimuthClassCount);
                         double haversineDistance = haversineArray[j][k];
-                        if (azimuthClass == 0) {
-                            azimuthClassZeroMap.put(k, haversineDistance);
-                        } else if (azimuthClass == 1) {
-                            azimuthClassOneMap.put(k, haversineDistance);
-                        } else if (azimuthClass == 2) {
-                            azimuthClassTwoMap.put(k, haversineDistance);
-                        } else if (azimuthClass == 3) {
-                            azimuthClassThreeMap.put(k, haversineDistance);
-                        } else if (azimuthClass == 4) {
-                            azimuthClassFourMap.put(k, haversineDistance);
-                        } else if (azimuthClass == 5) {
-                            azimuthClassFiveMap.put(k, haversineDistance);
-                        }
+                        azimuthClassMaps.get(azimuthClass).put(k, haversineDistance);
                     }
 
                     //Sort by cost and convert to list by eliminating cost to reduce memory needed to store and improve access
-                    List<Integer> azimuthClassZeroList = azimuthClassZeroMap.entrySet().stream()
-                            .sorted(Map.Entry.comparingByValue())
-                            .map(Map.Entry::getKey)
-                            .collect(Collectors.toList());
-                    List<Integer> azimuthClassOneList = azimuthClassOneMap.entrySet().stream()
-                            .sorted(Map.Entry.comparingByValue())
-                            .map(Map.Entry::getKey)
-                            .collect(Collectors.toList());
-                    List<Integer> azimuthClassTwoList = azimuthClassTwoMap.entrySet().stream()
-                            .sorted(Map.Entry.comparingByValue())
-                            .map(Map.Entry::getKey)
-                            .collect(Collectors.toList());
-                    List<Integer> azimuthClassThreeList = azimuthClassThreeMap.entrySet().stream()
-                            .sorted(Map.Entry.comparingByValue())
-                            .map(Map.Entry::getKey)
-                            .collect(Collectors.toList());
-                    List<Integer> azimuthClassFourList = azimuthClassFourMap.entrySet().stream()
-                            .sorted(Map.Entry.comparingByValue())
-                            .map(Map.Entry::getKey)
-                            .collect(Collectors.toList());
-                    List<Integer> azimuthClassFiveList = azimuthClassFiveMap.entrySet().stream()
-                            .sorted(Map.Entry.comparingByValue())
-                            .map(Map.Entry::getKey)
-                            .collect(Collectors.toList());
+                    List<List<Integer>> sortedAzimuthClassLists = new ArrayList<>(azimuthClassCount);
+                    for (int azimuthClass = 0; azimuthClass < azimuthClassCount; azimuthClass++) {
+                        List<Integer> sortedAzimuthClassList = azimuthClassMaps.get(azimuthClass).entrySet().stream()
+                                .sorted(Map.Entry.comparingByValue())
+                                .map(Map.Entry::getKey)
+                                .collect(Collectors.toList());
+                        sortedAzimuthClassLists.add(sortedAzimuthClassList);
+                    }
 
                     //Merge wedges by index
-                    List<List<Integer>> unmergedWedges = Arrays.asList(azimuthClassZeroList, azimuthClassOneList, azimuthClassTwoList, azimuthClassThreeList, azimuthClassFourList, azimuthClassFiveList);
-                    List<Integer> mergedWedges = mergeSortedWedges(unmergedWedges);
+                    List<Integer> mergedWedges = mergeSortedWedges(sortedAzimuthClassLists);
 
                     //Add sortedAlternativeSites to final output
                     currentOutput.add(mergedWedges);
@@ -95,12 +64,14 @@ public class SimAnnealingNeighbor {
         for (int i = 0; i < taskCount; i++) {
             output.addAll(partitionedOutput.get(i));
         }
+
+        //Return sorted neighbors
         System.out.println("Done sorting neighbors.");
         return output;
     }
 
     //Only use if number of origins is equal to number of potential sites.
-    public static List<List<Integer>> sortNeighbors(double[][] azimuthArray, double[][] haversineArray, int taskCount, ExecutorService executor, Map<Integer, List<Integer>> partitionedOrigins) {
+    public static List<List<Integer>> sortNeighbors(double[][] azimuthArray, double[][] haversineArray, int azimuthClassCount, int taskCount, ExecutorService executor, Map<Integer, List<Integer>> partitionedOrigins) {
         System.out.println("Generating sorted neighbors.");
         CountDownLatch latch = new CountDownLatch(taskCount);
         ConcurrentHashMap<Integer, List<List<Integer>>> partitionedOutput = new ConcurrentHashMap<>();
@@ -121,7 +92,7 @@ public class SimAnnealingNeighbor {
                     //For every alternate site location, put it in a corresponding hashmap
                     for (int k = 0; k < haversineArray[0].length; k++) {
                         if (azimuthArray[j][k] == -1.0) continue; //use -1.0 to identify same position, see FileUtils.getInnerAzimuthArrayFromCSV
-                        int azimuthClass = classifyAzimuth(azimuthArray[j][k]);
+                        int azimuthClass = classifyAzimuth(azimuthArray[j][k], azimuthClassCount);
                         double haversineDistance = haversineArray[j][k];
                         if (azimuthClass == 0) {
                             azimuthClassZeroMap.put(k, haversineDistance);
@@ -191,10 +162,10 @@ public class SimAnnealingNeighbor {
     }
 
     //Classifies into 6 directional wedges from 0 to 5
-    public static int classifyAzimuth (double forwardAzimuth) {
+    public static int classifyAzimuth (double forwardAzimuth, int azimuthClassCount) {
         int wedge = -1;
         for (int i = 0; i <= 5; i++ ) {
-            if((forwardAzimuth >= i * 60) && (forwardAzimuth < (i + 1) * 60)) {
+            if((forwardAzimuth >= i * 360 / azimuthClassCount) && (forwardAzimuth < (i + 1) * 360 / azimuthClassCount)) {
                 wedge = i;
                 break;
             }
