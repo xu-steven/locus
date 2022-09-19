@@ -29,4 +29,14 @@ public abstract class SimAnnealingSearch {
         //Acceptance probability of an accepting inferior solution
         return Math.exp((currentEnergy - newEnergy) / temperature);
     }
+
+    //Minimum acceptance probability of 1/iterations for target level compared to previous cost
+    public static double targetLevelThresholdProbability() {
+        return 1 / (double) countIterations();
+    }
+
+    //Get number of simulated annealing iterations that will be run
+    public static int countIterations() {
+        return (int) Math.ceil(Math.log(finalTemp / initialTemp)/Math.log(coolingRate));
+    }
 }

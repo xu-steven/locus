@@ -59,7 +59,7 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
 
     //Get new leveled site configuration by shifting one of the lowest level sites
     //Multithreaded variant
-    public void tryShiftToNeighbor(int level, int positionToShift, int neighborhoodSize, SearchSpace searchParameters, double temp, int taskCount, ExecutorService executor) {
+    public void tryShiftToNeighbor(int level, int positionToShift, int neighborhoodSize, SearchSpace searchParameters, double temp, double targetLevelThresholdProbability, int taskCount, ExecutorService executor) {
         //Shift target level sites
         List<Integer> currentTargetLevelSites = sitesByLevel.get(level);
         Integer siteToShift = currentTargetLevelSites.get(positionToShift);
@@ -72,7 +72,7 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
         double newTargetLevelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[level];
 
         //Ensure that new target level cost is not excessive compared to total configuration cost
-        if (SimAnnealingSearch.acceptanceProbability(cost, newTargetLevelCost, temp) > 0) {
+        if (SimAnnealingSearch.acceptanceProbability(cost, newTargetLevelCost, temp) > targetLevelThresholdProbability) {
             //Create new leveled sites array
             List<List<Integer>> newLeveledSitesArray;
             double newCost;
@@ -134,7 +134,7 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
     }
 
     //Get new leveled site configuration by shifting one of the lowest level sites
-    public void tryShiftSite(int level, int positionToShift, Integer newSite, SearchSpace searchParameters, double temp, int taskCount, ExecutorService executor) {
+    public void tryShiftSite(int level, int positionToShift, Integer newSite, SearchSpace searchParameters, double temp, double targetLevelThresholdProbability, int taskCount, ExecutorService executor) {
         //Shift target level sites
         List<Integer> newTargetLevelSites = new ArrayList<>(sitesByLevel.get(level));
         Integer siteToShift = newTargetLevelSites.get(positionToShift);
@@ -145,7 +145,7 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
         double newTargetLevelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[level];
 
         //Ensure that new target level cost is not excessive compared to total configuration cost
-        if (SimAnnealingSearch.acceptanceProbability(cost, newTargetLevelCost, temp) > 0) {
+        if (SimAnnealingSearch.acceptanceProbability(cost, newTargetLevelCost, temp) > targetLevelThresholdProbability) {
             //Create new leveled sites array
             List<List<Integer>> newLeveledSitesArray;
             double newCost;
@@ -190,7 +190,7 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
     }
 
     //Add one site to target level and superlevels
-    public void tryAddSite(int level, Integer newSite, SearchSpace searchParameters, double temp, int taskCount, ExecutorService executor) {
+    public void tryAddSite(int level, Integer newSite, SearchSpace searchParameters, double temp, double targetLevelThresholdProbability, int taskCount, ExecutorService executor) {
         //Add target level site
         List<Integer> newTargetLevelSites = new ArrayList<>(sitesByLevel.get(level));
         newTargetLevelSites.add(newSite);
@@ -200,7 +200,7 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
         double newTargetLevelCost = updatedResult.getCost() * searchParameters.getServicedProportionByLevel()[level];
 
         //Ensure that new target level cost is not excessive compared to total configuration cost
-        if (SimAnnealingSearch.acceptanceProbability(cost, newTargetLevelCost, temp) > 0) {
+        if (SimAnnealingSearch.acceptanceProbability(cost, newTargetLevelCost, temp) > targetLevelThresholdProbability) {
             //Update arrays and adjust for superlevel sites
             List<List<Integer>> newLeveledSitesArray;
             double newCost;
@@ -259,7 +259,7 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
     }
 
     //Remove lowest level site that is not used by higher level site
-    public void tryRemoveSite(int level, Integer removalSite, SearchSpace searchParameters, double temp, int taskCount, ExecutorService executor) {
+    public void tryRemoveSite(int level, Integer removalSite, SearchSpace searchParameters, double temp, double targetLevelThresholdProbability, int taskCount, ExecutorService executor) {
         //Remove one of the lowest level sites
         List<Integer> newTargetLevelSites = new ArrayList<>(sitesByLevel.get(level));
         int removalPosition = newTargetLevelSites.indexOf(removalSite);
@@ -271,7 +271,7 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
         int[] newTargetLevelMinimumPositionsByOrigin = updatedResult.getPositions();
 
         //Ensure that new target level cost is not excessive compared to total configuration cost
-        if (SimAnnealingSearch.acceptanceProbability(cost, newTargetLevelCost, temp) > 0) {
+        if (SimAnnealingSearch.acceptanceProbability(cost, newTargetLevelCost, temp) > targetLevelThresholdProbability) {
             //Update arrays and adjust for sublevel sites
             List<List<Integer>> newLeveledSitesArray;
             double newCost;
