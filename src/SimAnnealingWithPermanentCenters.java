@@ -80,6 +80,9 @@ public class SimAnnealingWithPermanentCenters extends SimAnnealingSearch{
             localFinalNeighborhoodSizeByLevel[i] = SimAnnealingNeighbor.getFinalNeighborhoodSize(searchParameters.getPotentialSitesCount(), maximumNewCenterCountByLevel[i] + searchParameters.getPermanentCentersCountByLevel()[i], finalNeighborhoodSize);
         }
 
+        //Acceptance probability when comparing new target level cost to total cost to compute other level costs for new total to total cost comparison
+        double targetLevelThresholdProbability = targetLevelThresholdProbability();
+
         //Create initial configuration
         LeveledSiteConfigurationForPermanentCenters currentSiteConfiguration = new LeveledSiteConfigurationForPermanentCenters(minimumNewCenterCountByLevel, maximumNewCenterCountByLevel, allPotentialSites, searchParameters, taskCount, executor);
         double currentCost = currentSiteConfiguration.getCost();
@@ -106,14 +109,14 @@ public class SimAnnealingWithPermanentCenters extends SimAnnealingSearch{
                         if (searchParameters.getSuperlevelsByLevel()[level].length == 0 && searchParameters.getSublevelsByLevel()[level].length == 0) {
                             currentSiteConfiguration.tryShiftToNeighborWithoutLevelRelations(level, position, neighborhoodSize, searchParameters, temp, taskCount, executor);
                         } else {
-                            currentSiteConfiguration.tryShiftToNeighbor(level, position, neighborhoodSize, searchParameters, temp, taskCount, executor);
+                            currentSiteConfiguration.tryShiftToNeighbor(level, position, neighborhoodSize, searchParameters, temp, targetLevelThresholdProbability, taskCount, executor);
                         }
                     } else if (restrictedShiftSites != null && restrictedShiftSites.size() > 0) { //try shift site to an unused superlevel site, some superlevel site configuration is restricting shift (shifting from permanent site)
-                        currentSiteConfiguration.tryShiftSite(level, position, pickRandomSite(restrictedShiftSites, random), searchParameters, temp, taskCount, executor);
+                        currentSiteConfiguration.tryShiftSite(level, position, pickRandomSite(restrictedShiftSites, random), searchParameters, temp, targetLevelThresholdProbability, taskCount, executor);
                     } else if (restrictedShiftSites == null) { //no restrictions in shifting to superlevel site
                         List<Integer> unusedSuperlevelSites = currentSiteConfiguration.getRandomSuperlevelUnusedSites(level, searchParameters.getSuperlevelsByLevel()[level]);
                         if (unusedSuperlevelSites.size() > 0) { //available superlevel sites to which to shift
-                            currentSiteConfiguration.tryShiftSite(level, position, pickRandomSite(unusedSuperlevelSites, random), searchParameters, temp, taskCount, executor);
+                            currentSiteConfiguration.tryShiftSite(level, position, pickRandomSite(unusedSuperlevelSites, random), searchParameters, temp, targetLevelThresholdProbability, taskCount, executor);
                         } else { //no available superlevel sites to which to shift
                             boolean allSuperlevelsSubmaximal = true;
                             for (int superlevel : searchParameters.getSuperlevelsByLevel()[level]) {
@@ -125,7 +128,7 @@ public class SimAnnealingWithPermanentCenters extends SimAnnealingSearch{
                                 if (neighborhoodSize == 0) {
                                     neighborhoodSize = SimAnnealingNeighbor.getNeighborhoodSize(currentCenterCount, searchParameters.getPotentialSitesCount(), localFinalNeighborhoodSizeByLevel[level], simAnnealingIteration, finalNeighborhoodSizeIteration);
                                 }
-                                currentSiteConfiguration.tryShiftToNeighbor(level, position, neighborhoodSize, searchParameters, temp, taskCount, executor);
+                                currentSiteConfiguration.tryShiftToNeighbor(level, position, neighborhoodSize, searchParameters, temp, targetLevelThresholdProbability, taskCount, executor);
                             }
                         }
                     }
@@ -142,9 +145,9 @@ public class SimAnnealingWithPermanentCenters extends SimAnnealingSearch{
                     } else if (adjustmentType < 0.3) {
                         List<Integer> restrictedAddableSuperlevelSites = currentSiteConfiguration.getRestrictedAddableSuperlevelSites(level, searchParameters.getSuperlevelsByLevel()[level], searchParameters.getMaxNewCentersByLevel(), searchParameters.getPermanentCentersCountByLevel());
                         if (restrictedAddableSuperlevelSites == null) { //not maximal, will add random site
-                            currentSiteConfiguration.tryAddSite(level, pickRandomSite(allPotentialSites, random), searchParameters, temp, taskCount, executor);
+                            currentSiteConfiguration.tryAddSite(level, pickRandomSite(allPotentialSites, random), searchParameters, temp, targetLevelThresholdProbability, taskCount, executor);
                         } else if (restrictedAddableSuperlevelSites.size() > 0) { //there are restrictions on adding sites to some superlevel but an available site exists
-                            currentSiteConfiguration.tryAddSite(level, pickRandomSite(restrictedAddableSuperlevelSites, random), searchParameters, temp, taskCount, executor);
+                            currentSiteConfiguration.tryAddSite(level, pickRandomSite(restrictedAddableSuperlevelSites, random), searchParameters, temp, targetLevelThresholdProbability, taskCount, executor);
                         }
                     } else {
                         List<Integer> restrictedAddableSuperlevelSites = currentSiteConfiguration.getRestrictedAddableSuperlevelSites(level, searchParameters.getSuperlevelsByLevel()[level], searchParameters.getMaxNewCentersByLevel(), searchParameters.getPermanentCentersCountByLevel());
@@ -152,13 +155,13 @@ public class SimAnnealingWithPermanentCenters extends SimAnnealingSearch{
                             List<Integer> unusedSuperlevelSites = currentSiteConfiguration.getRandomSuperlevelUnusedSites(level, searchParameters.getSuperlevelsByLevel()[level]);
                             LeveledSiteConfigurationForPermanentCenters newSiteConfiguration;
                             if (unusedSuperlevelSites.size() > 0) { //there is a superlevel site not in current level
-                                currentSiteConfiguration.tryAddSite(level, pickRandomSite(unusedSuperlevelSites, random), searchParameters, temp, taskCount, executor);
+                                currentSiteConfiguration.tryAddSite(level, pickRandomSite(unusedSuperlevelSites, random), searchParameters, temp, targetLevelThresholdProbability, taskCount, executor);
                             } else { //all superlevels equal to current level, to add random site
-                                currentSiteConfiguration.tryAddSite(level, pickRandomSite(allPotentialSites, random), searchParameters, temp, taskCount, executor);
+                                currentSiteConfiguration.tryAddSite(level, pickRandomSite(allPotentialSites, random), searchParameters, temp, targetLevelThresholdProbability, taskCount, executor);
                             }
                         }
                         else if (restrictedAddableSuperlevelSites.size() > 0) { //there are restrictions on adding sites but an available site exists
-                            currentSiteConfiguration.tryAddSite(level, pickRandomSite(restrictedAddableSuperlevelSites, random), searchParameters, temp, taskCount, executor);
+                            currentSiteConfiguration.tryAddSite(level, pickRandomSite(restrictedAddableSuperlevelSites, random), searchParameters, temp, targetLevelThresholdProbability, taskCount, executor);
                         } //size == 0 implies that there are restricting superlevels and that their intersection is equal to the original sites, i.e. adding a site is not permissible
                     }
                 } else if (currentCenterCount > minimumNewCenterCountByLevel[level] + searchParameters.getPermanentCentersCountByLevel()[level]) { //try to remove site
@@ -167,7 +170,7 @@ public class SimAnnealingWithPermanentCenters extends SimAnnealingSearch{
                     } else {
                         List<Integer> candidateRemovalSites = currentSiteConfiguration.getCandidateRemovalSites(level, searchParameters.getSublevelsByLevel()[level], minimumNewCenterCountByLevel, searchParameters.getPermanentCentersCountByLevel());
                         if (candidateRemovalSites.size() > 0) {
-                            currentSiteConfiguration.tryRemoveSite(level, pickRandomSite(candidateRemovalSites, random), searchParameters, temp, taskCount, executor);
+                            currentSiteConfiguration.tryRemoveSite(level, pickRandomSite(candidateRemovalSites, random), searchParameters, temp, targetLevelThresholdProbability, taskCount, executor);
                         }
                     }
                 }
