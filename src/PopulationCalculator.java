@@ -103,8 +103,8 @@ public class PopulationCalculator {
     //Computes integral using a function represented by map: (age in months -> cumulative mortality by that age)
     public static double simpsonIntegral(double[] function, double lowerBound, double upperBound, int xCount) {
         double numericalIntegral = 0;
-        for (int i = 0; i < PopulationProjector.singleXCount; i++) {
-            if (i == 0 || i == PopulationProjector.yCount - 1) {
+        for (int i = 0; i < xCount; i++) {
+            if (i == 0 || i == xCount - 1) {
                 numericalIntegral += function[i];
             } else if (i % 2 == 1) {
                 numericalIntegral += 4 * function[i];
@@ -112,7 +112,7 @@ public class PopulationCalculator {
                 numericalIntegral += 2 * function[i];
             }
         }
-        return numericalIntegral * (upperBound - lowerBound) / (PopulationProjector.yCount - 1) / 3;
+        return numericalIntegral * (upperBound - lowerBound) / (xCount - 1) / 3;
     }
 
     //Computes integral using a function represented by map: (age in months -> cumulative mortality by that age)

@@ -47,6 +47,8 @@ public class PopulationProjector {
         double upperBoundY = 1;
         double[][] infantMortality = PopulationCalculator.mapToTwoDimensionalArray(projectionParameters.getMaleInfantCumulativeMortality().get(2000), compositeFunction, lowerBoundX, upperBoundX, 10000, lowerBoundY, upperBoundY, 10000);
         //System.out.println(infantMortality[999][999]);
+        double[] singleMortalityArray = PopulationCalculator.mapToArray(projectionParameters.getMaleInfantCumulativeMortality().get(2000), "3 - 2x", 0, 1, 10000);
+        System.out.println(PopulationCalculator.simpsonIntegral(singleMortalityArray, 0, 1, 10000));
         System.out.println(PopulationCalculator.doubleSimpsonIntegral(infantMortality, lowerBoundX, upperBoundX, 10000, lowerBoundY, upperBoundY, 10000));
         executor.shutdown();
     }
