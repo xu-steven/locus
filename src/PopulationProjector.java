@@ -40,14 +40,14 @@ public class PopulationProjector {
         System.out.println("Male pyramid " + initialPopulation.getMalePyramid());
         System.out.println("Female pyramid " + initialPopulation.getFemalePyramid());
 
-        String compositeFunction = "2y + 3x";
+        String compositeFunction = "2y - 3x";
         String lowerBoundX = "0.2y";
-        String upperBoundX = "0.5y + 1";
+        String upperBoundX = "0.5y";
         double lowerBoundY = 0;
         double upperBoundY = 1;
-        double[][] infantMortality = PopulationCalculator.mapToTwoDimensionalArray(projectionParameters.getMaleInfantCumulativeMortality().get(2000), compositeFunction, lowerBoundX, upperBoundX, 1000, lowerBoundY, upperBoundY, 1000);
-        System.out.println(infantMortality[999][999]);
-        System.out.println(PopulationCalculator.doubleIntegral(infantMortality, lowerBoundX, upperBoundX, 1000, lowerBoundY, upperBoundY, 1000));
+        double[][] infantMortality = PopulationCalculator.mapToTwoDimensionalArray(projectionParameters.getMaleInfantCumulativeMortality().get(2000), compositeFunction, lowerBoundX, upperBoundX, 10000, lowerBoundY, upperBoundY, 10000);
+        //System.out.println(infantMortality[999][999]);
+        System.out.println(PopulationCalculator.doubleSimpsonIntegral(infantMortality, lowerBoundX, upperBoundX, 10000, lowerBoundY, upperBoundY, 10000));
         executor.shutdown();
     }
 
@@ -327,14 +327,14 @@ public class PopulationProjector {
     //Project next year age + 1 population using migration counts for cohorts excluding ages 0, 1, and maximal age
     public static double projectOtherCohortPopulation(int age, int year, double currentYearPopulation, Map<Integer, Map<Integer, Double>> sexSpecificMortality, Map<Integer, Map<Integer, Double>> sexSpecificMigration) {
         //Surviving age + 0 to 0.5
-        double survivingPopulation = PopulationCalculator.integral(
+        double survivingPopulation = PopulationCalculator.simpsonIntegral(
                 PopulationCalculator.multiplyArrays(PopulationCalculator.estimatePopulationAgeWeights(year, age, sexSpecificMortality, 0, 0.5, singleXCount),
                         PopulationCalculator.createConstantArray(Math.pow(1 - sexSpecificMortality.get(year).get(age), 0.5), singleXCount), //can be taken out of integral for performance
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(age), "0.5 - x", 0, 0.5, singleXCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(age + 1), "x", 0, 0.5, singleXCount)),
                 0, 0.5, singleXCount);
         //Surviving age + 0.5 to 1
-        survivingPopulation += PopulationCalculator.integral(
+        survivingPopulation += PopulationCalculator.simpsonIntegral(
                 PopulationCalculator.multiplyArrays(PopulationCalculator.estimatePopulationAgeWeights(year, age, sexSpecificMortality, 0.5, 1, singleXCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(age), "1 - x", 0.5, 1, singleXCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(age + 1), "x - 0.5", 0.5, 1, singleXCount),
@@ -342,7 +342,7 @@ public class PopulationProjector {
                 0.5, 1, singleXCount);
         //Adjust for weight
         survivingPopulation *= currentYearPopulation;
-        survivingPopulation /= PopulationCalculator.integral(PopulationCalculator.estimatePopulationAgeWeights(year, age, sexSpecificMortality, 0, 1, singleXCount), 0, 1, xCount);
+        survivingPopulation /= PopulationCalculator.simpsonIntegral(PopulationCalculator.estimatePopulationAgeWeights(year, age, sexSpecificMortality, 0, 1, singleXCount), 0, 1, xCount);
 
         //Age migrants who arrive between current year months 6 and 12 and will be age + 1 by next census
         //Those who will be age + 1 next year
@@ -351,7 +351,7 @@ public class PopulationProjector {
         double lowerBoundY = 0.5;
         double upperBoundY = 1;
         double[][] migrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year, age, sexSpecificMortality, lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
-        double averageCurrentSecondHalfYearAgeMigrantSurvival = PopulationCalculator.doubleIntegral(
+        double averageCurrentSecondHalfYearAgeMigrantSurvival = PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(migrantAgeWeights,
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(age), "1 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(age), "-x + y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount),
@@ -363,7 +363,7 @@ public class PopulationProjector {
         lowerBoundY = 0.5;
         upperBoundY = 1;
         migrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year, age, sexSpecificMortality, lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
-        averageCurrentSecondHalfYearAgeMigrantSurvival += PopulationCalculator.doubleIntegral(
+        averageCurrentSecondHalfYearAgeMigrantSurvival += PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(migrantAgeWeights,
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(age), "1 - x", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(age + 1), "x - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount),
@@ -371,7 +371,7 @@ public class PopulationProjector {
                 lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
         //Adjust for weight
         migrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year, age, sexSpecificMortality, "0", "1", xCount, 0, 1, yCount);
-        averageCurrentSecondHalfYearAgeMigrantSurvival /= PopulationCalculator.doubleIntegral(migrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
+        averageCurrentSecondHalfYearAgeMigrantSurvival /= PopulationCalculator.doubleSimpsonIntegral(migrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
 
         //Age migrants who arrive next year between months 0 and 6 and will be age + 1 by census
         lowerBoundX = "y + 0.5";
@@ -379,14 +379,14 @@ public class PopulationProjector {
         lowerBoundY = 0;
         upperBoundY = 0.5;
         migrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year + 1, age, sexSpecificMortality, lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
-        double averageNextFirstHalfYearAgeMigrantSurvival = PopulationCalculator.doubleIntegral(
+        double averageNextFirstHalfYearAgeMigrantSurvival = PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(migrantAgeWeights,
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(age), "1 - x", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(age + 1), "x - 0.5 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
                 lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
         //Adjust for weight
         migrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year + 1, age, sexSpecificMortality, "0", "1", xCount, 0, 1, yCount);
-        averageNextFirstHalfYearAgeMigrantSurvival /= PopulationCalculator.doubleIntegral(migrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
+        averageNextFirstHalfYearAgeMigrantSurvival /= PopulationCalculator.doubleSimpsonIntegral(migrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
 
         //Age + 1 migrants who arrive in the current year between months 6 and 12 and will be age + 1 by census
         lowerBoundX = "0";
@@ -394,14 +394,14 @@ public class PopulationProjector {
         lowerBoundY = 0.5;
         upperBoundY = 1;
         migrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year, age + 1, sexSpecificMortality, lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
-        double averageCurrentSecondHalfYearAgePlusOneMigrantSurvival = PopulationCalculator.doubleIntegral(
+        double averageCurrentSecondHalfYearAgePlusOneMigrantSurvival = PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(migrantAgeWeights,
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(age + 1), "1 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(age + 1), "0.5", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
                 lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
         //Adjust for weight
         migrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year, age + 1, sexSpecificMortality, "0", "1", xCount, 0, 1, yCount);
-        averageCurrentSecondHalfYearAgePlusOneMigrantSurvival /= PopulationCalculator.doubleIntegral(migrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
+        averageCurrentSecondHalfYearAgePlusOneMigrantSurvival /= PopulationCalculator.doubleSimpsonIntegral(migrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
 
         //Age + 1 migrants who arrive in the next year between months 0 and 6 and will be age + 1 by census
         lowerBoundX = "0";
@@ -409,13 +409,13 @@ public class PopulationProjector {
         lowerBoundY = 0;
         upperBoundY = 0.5;
         migrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year + 1, age + 1, sexSpecificMortality, lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
-        double averageNextFirstHalfYearAgePlusOneMigrantSurvival = PopulationCalculator.doubleIntegral(
+        double averageNextFirstHalfYearAgePlusOneMigrantSurvival = PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(migrantAgeWeights,
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(age + 1), "0.5 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
                 lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
         //Adjust for weight
         migrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year + 1, age + 1, sexSpecificMortality, "0", "1", xCount, 0, 1, yCount);
-        averageNextFirstHalfYearAgePlusOneMigrantSurvival /= PopulationCalculator.doubleIntegral(migrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
+        averageNextFirstHalfYearAgePlusOneMigrantSurvival /= PopulationCalculator.doubleSimpsonIntegral(migrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
 
         //Compute next year population
         double currentYearAgeMigrants = sexSpecificMigration.get(year).get(age);
@@ -433,14 +433,14 @@ public class PopulationProjector {
     //Project next year age + 1 population using migration rates for cohorts excluding 0, 1, and maximal age.
     public static double[] projectOtherCohortPopulation(int age, int year, double[] nextYearAgePopulation, double currentYearPopulation, Map<Integer, Map<Integer, Double>> sexSpecificMortality, Map<Integer, Map<Integer, Double>> sexSpecificMigration) {
         //Surviving age + 0 to 0.5
-        double survivingPopulation = PopulationCalculator.integral(
+        double survivingPopulation = PopulationCalculator.simpsonIntegral(
                 PopulationCalculator.multiplyArrays(PopulationCalculator.estimatePopulationAgeWeights(year, age, sexSpecificMortality, 0, 0.5, singleXCount),
                         PopulationCalculator.createConstantArray(Math.pow(1 - sexSpecificMortality.get(year).get(age), 0.5), singleXCount), //can be taken out of integral for performance
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(age), "0.5 - x", 0, 0.5, singleXCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(age + 1), "x", 0, 0.5, singleXCount)),
                 0, 0.5, singleXCount);
         //Surviving age + 0.5 to 1
-        survivingPopulation += PopulationCalculator.integral(
+        survivingPopulation += PopulationCalculator.simpsonIntegral(
                 PopulationCalculator.multiplyArrays(PopulationCalculator.estimatePopulationAgeWeights(year, age, sexSpecificMortality, 0.5, 1, singleXCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(age), "1 - x", 0.5, 1, singleXCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(age + 1), "x - 0.5", 0.5, 1, singleXCount),
@@ -448,7 +448,7 @@ public class PopulationProjector {
                 0.5, 1, singleXCount);
         //Adjust for weight
         survivingPopulation *= currentYearPopulation;
-        survivingPopulation /= PopulationCalculator.integral(PopulationCalculator.estimatePopulationAgeWeights(year, age, sexSpecificMortality, 0, 1, singleXCount), 0, 1, xCount);
+        survivingPopulation /= PopulationCalculator.simpsonIntegral(PopulationCalculator.estimatePopulationAgeWeights(year, age, sexSpecificMortality, 0, 1, singleXCount), 0, 1, xCount);
 
         //Age migrants who arrive between current year months 6 and 12 and will be age + 1 by next census
         //Those who will be age + 1 next year
@@ -457,7 +457,7 @@ public class PopulationProjector {
         double lowerBoundY = 0.5;
         double upperBoundY = 1;
         double[][] migrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year, age, sexSpecificMortality, lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
-        double averageCurrentSecondHalfYearAgeMigrantSurvival = PopulationCalculator.doubleIntegral(
+        double averageCurrentSecondHalfYearAgeMigrantSurvival = PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(migrantAgeWeights,
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(age), "1 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(age), "-x + y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount),
@@ -469,7 +469,7 @@ public class PopulationProjector {
         lowerBoundY = 0.5;
         upperBoundY = 1;
         migrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year, age, sexSpecificMortality, lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
-        averageCurrentSecondHalfYearAgeMigrantSurvival += PopulationCalculator.doubleIntegral(
+        averageCurrentSecondHalfYearAgeMigrantSurvival += PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(migrantAgeWeights,
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(age), "1 - x", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(age + 1), "x - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount),
@@ -477,7 +477,7 @@ public class PopulationProjector {
                 lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
         //Adjust for weight
         migrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year, age, sexSpecificMortality, "0", "1", xCount, 0, 1, yCount);
-        averageCurrentSecondHalfYearAgeMigrantSurvival /= PopulationCalculator.doubleIntegral(migrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
+        averageCurrentSecondHalfYearAgeMigrantSurvival /= PopulationCalculator.doubleSimpsonIntegral(migrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
 
         //Age migrants who arrive next year between months 0 and 6 and will be age + 1 by census
         lowerBoundX = "y + 0.5";
@@ -485,14 +485,14 @@ public class PopulationProjector {
         lowerBoundY = 0;
         upperBoundY = 0.5;
         migrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year + 1, age, sexSpecificMortality, lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
-        double averageNextFirstHalfYearAgeMigrantSurvival = PopulationCalculator.doubleIntegral(
+        double averageNextFirstHalfYearAgeMigrantSurvival = PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(migrantAgeWeights,
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(age), "1 - x", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(age + 1), "x - 0.5 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
                 lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
         //Adjust for weight
         migrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year + 1, age, sexSpecificMortality, "0", "1", xCount, 0, 1, yCount);
-        averageNextFirstHalfYearAgeMigrantSurvival /= PopulationCalculator.doubleIntegral(migrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
+        averageNextFirstHalfYearAgeMigrantSurvival /= PopulationCalculator.doubleSimpsonIntegral(migrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
 
         //Age + 1 migrants who arrive in the current year between months 6 and 12 and will be age + 1 by census
         lowerBoundX = "0";
@@ -500,14 +500,14 @@ public class PopulationProjector {
         lowerBoundY = 0.5;
         upperBoundY = 1;
         migrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year, age + 1, sexSpecificMortality, lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
-        double averageCurrentSecondHalfYearAgePlusOneMigrantSurvival = PopulationCalculator.doubleIntegral(
+        double averageCurrentSecondHalfYearAgePlusOneMigrantSurvival = PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(migrantAgeWeights,
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(age + 1), "1 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(age + 1), "0.5", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
                 lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
         //Adjust for weight
         migrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year, age + 1, sexSpecificMortality, "0", "1", xCount, 0, 1, yCount);
-        averageCurrentSecondHalfYearAgePlusOneMigrantSurvival /= PopulationCalculator.doubleIntegral(migrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
+        averageCurrentSecondHalfYearAgePlusOneMigrantSurvival /= PopulationCalculator.doubleSimpsonIntegral(migrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
 
         //Age + 1 migrants who arrive in the next year between months 0 and 6 and will be age + 1 by census
         lowerBoundX = "0";
@@ -515,13 +515,13 @@ public class PopulationProjector {
         lowerBoundY = 0;
         upperBoundY = 0.5;
         migrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year + 1, age + 1, sexSpecificMortality, lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
-        double averageNextFirstHalfYearAgePlusOneMigrantSurvival = PopulationCalculator.doubleIntegral(
+        double averageNextFirstHalfYearAgePlusOneMigrantSurvival = PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(migrantAgeWeights,
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(age + 1), "0.5 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
                 lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
         //Adjust for weight
         migrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year + 1, age + 1, sexSpecificMortality, "0", "1", xCount, 0, 1, yCount);
-        averageNextFirstHalfYearAgePlusOneMigrantSurvival /= PopulationCalculator.doubleIntegral(migrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
+        averageNextFirstHalfYearAgePlusOneMigrantSurvival /= PopulationCalculator.doubleSimpsonIntegral(migrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
 
         //Compute next year population
         //Compute total migrant population by age and year
@@ -547,14 +547,14 @@ public class PopulationProjector {
     //Project next year's oldest cohort population using migration counts
     public static double projectOldestCohortPopulation(int oldestCohortAge, int year, double currentYearSecondOldestCohortPopulation, double currentYearOldestCohortPopulation, Map<Integer, Map<Integer, Double>> sexSpecificMortality, Map<Integer, Map<Integer, Double>> sexSpecificMigration) {
         //Surviving (oldestCohortAge - 1) + 0 to 0.5
-        double survivingPopulation = PopulationCalculator.integral(
+        double survivingPopulation = PopulationCalculator.simpsonIntegral(
                 PopulationCalculator.multiplyArrays(PopulationCalculator.estimatePopulationAgeWeights(year, oldestCohortAge - 1, sexSpecificMortality, 0, 0.5, singleXCount),
                         PopulationCalculator.createConstantArray(Math.pow(1 - sexSpecificMortality.get(year).get(oldestCohortAge - 1), 0.5), singleXCount), //can be taken out of integral for performance
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(oldestCohortAge - 1), "0.5 - x", 0, 0.5, singleXCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(oldestCohortAge), "x", 0, 0.5, singleXCount)),
                 0, 0.5, singleXCount);
         //Surviving (oldestCohortAge - 1) + 0.5 to 1
-        survivingPopulation += PopulationCalculator.integral(
+        survivingPopulation += PopulationCalculator.simpsonIntegral(
                 PopulationCalculator.multiplyArrays(PopulationCalculator.estimatePopulationAgeWeights(year, oldestCohortAge - 1, sexSpecificMortality, 0.5, 1, singleXCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(oldestCohortAge), "1 - x", 0.5, 1, singleXCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(oldestCohortAge), "x - 0.5", 0.5, 1, singleXCount),
@@ -562,7 +562,7 @@ public class PopulationProjector {
                 0.5, 1, singleXCount);
         //Adjust for weight
         survivingPopulation *= currentYearSecondOldestCohortPopulation;
-        survivingPopulation /= PopulationCalculator.integral(PopulationCalculator.estimatePopulationAgeWeights(year, oldestCohortAge - 1, sexSpecificMortality, 0, 1, singleXCount), 0, 1, xCount);
+        survivingPopulation /= PopulationCalculator.simpsonIntegral(PopulationCalculator.estimatePopulationAgeWeights(year, oldestCohortAge - 1, sexSpecificMortality, 0, 1, singleXCount), 0, 1, xCount);
 
         //Surviving oldestCohortAge population
         survivingPopulation += currentYearOldestCohortPopulation * Math.pow(1 - sexSpecificMortality.get(year).get(oldestCohortAge), 0.5) * Math.pow(1 - sexSpecificMortality.get(year + 1).get(oldestCohortAge), 0.5);
@@ -574,7 +574,7 @@ public class PopulationProjector {
         double lowerBoundY = 0.5;
         double upperBoundY = 1;
         double[][] migrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year, oldestCohortAge - 1, sexSpecificMortality, lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
-        double averageCurrentSecondHalfYearSecondOldestMigrantSurvival = PopulationCalculator.doubleIntegral(
+        double averageCurrentSecondHalfYearSecondOldestMigrantSurvival = PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(migrantAgeWeights,
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(oldestCohortAge - 1), "1 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(oldestCohortAge - 1), "-x + y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount),
@@ -586,7 +586,7 @@ public class PopulationProjector {
         lowerBoundY = 0.5;
         upperBoundY = 1;
         migrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year, oldestCohortAge - 1, sexSpecificMortality, lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
-        averageCurrentSecondHalfYearSecondOldestMigrantSurvival += PopulationCalculator.doubleIntegral(
+        averageCurrentSecondHalfYearSecondOldestMigrantSurvival += PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(migrantAgeWeights,
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(oldestCohortAge - 1), "1 - x", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(oldestCohortAge), "x - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount),
@@ -594,7 +594,7 @@ public class PopulationProjector {
                 lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
         //Adjust for weight
         migrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year, oldestCohortAge - 1, sexSpecificMortality, "0", "1", xCount, 0, 1, yCount);
-        averageCurrentSecondHalfYearSecondOldestMigrantSurvival /= PopulationCalculator.doubleIntegral(migrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
+        averageCurrentSecondHalfYearSecondOldestMigrantSurvival /= PopulationCalculator.doubleSimpsonIntegral(migrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
 
         //Age migrants who arrive next year between months 0 and 6 and will be age + 1 by census
         lowerBoundX = "y + 0.5";
@@ -602,14 +602,14 @@ public class PopulationProjector {
         lowerBoundY = 0;
         upperBoundY = 0.5;
         migrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year + 1, oldestCohortAge - 1, sexSpecificMortality, lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
-        double averageNextFirstHalfYearSecondOldestMigrantSurvival = PopulationCalculator.doubleIntegral(
+        double averageNextFirstHalfYearSecondOldestMigrantSurvival = PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(migrantAgeWeights,
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(oldestCohortAge - 1), "1 - x", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(oldestCohortAge), "x - 0.5 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
                 lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
         //Adjust for weight
         migrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year + 1, oldestCohortAge - 1, sexSpecificMortality, "0", "1", xCount, 0, 1, yCount);
-        averageNextFirstHalfYearSecondOldestMigrantSurvival /= PopulationCalculator.doubleIntegral(migrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
+        averageNextFirstHalfYearSecondOldestMigrantSurvival /= PopulationCalculator.doubleSimpsonIntegral(migrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
 
         //Age + 1 migrants who arrive in the current year between months 6 and 12 and will be age + 1 by census
         lowerBoundX = "0";
@@ -617,14 +617,14 @@ public class PopulationProjector {
         lowerBoundY = 0.5;
         upperBoundY = 1;
         migrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year, oldestCohortAge, sexSpecificMortality, lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
-        double averageCurrentSecondHalfYearOldestMigrantSurvival = PopulationCalculator.doubleIntegral(
+        double averageCurrentSecondHalfYearOldestMigrantSurvival = PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(migrantAgeWeights,
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(oldestCohortAge), "1 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(oldestCohortAge), "0.5", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
                 lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
         //Adjust for weight
         migrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year, oldestCohortAge, sexSpecificMortality, "0", "1", xCount, 0, 1, yCount);
-        averageCurrentSecondHalfYearOldestMigrantSurvival /= PopulationCalculator.doubleIntegral(migrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
+        averageCurrentSecondHalfYearOldestMigrantSurvival /= PopulationCalculator.doubleSimpsonIntegral(migrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
 
         //Age + 1 migrants who arrive in the next year between months 0 and 6 and will be age + 1 by census
         lowerBoundX = "0";
@@ -632,13 +632,13 @@ public class PopulationProjector {
         lowerBoundY = 0;
         upperBoundY = 0.5;
         migrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year + 1, oldestCohortAge, sexSpecificMortality, lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
-        double averageNextFirstHalfYearOldestMigrantSurvival = PopulationCalculator.doubleIntegral(
+        double averageNextFirstHalfYearOldestMigrantSurvival = PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(migrantAgeWeights,
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(oldestCohortAge), "0.5 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
                 lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
         //Adjust for weight
         migrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year + 1, oldestCohortAge, sexSpecificMortality, "0", "1", xCount, 0, 1, yCount);
-        averageNextFirstHalfYearOldestMigrantSurvival /= PopulationCalculator.doubleIntegral(migrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
+        averageNextFirstHalfYearOldestMigrantSurvival /= PopulationCalculator.doubleSimpsonIntegral(migrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
 
         //Compute next year population
         double currentYearSecondOldestMigrants = sexSpecificMigration.get(year).get(oldestCohortAge - 1);
@@ -656,14 +656,14 @@ public class PopulationProjector {
     //Project next year's oldest cohort population using migration rates
     public static double[] projectOldestCohortPopulation(int oldestCohortAge, int year, double[] nextYearSecondOldestCohortPopulation, double currentYearSecondOldestCohortPopulation, double currentYearOldestCohortPopulation, Map<Integer, Map<Integer, Double>> sexSpecificMortality, Map<Integer, Map<Integer, Double>> sexSpecificMigration) {
         //Surviving (oldestCohortAge - 1) + 0 to 0.5
-        double survivingPopulation = PopulationCalculator.integral(
+        double survivingPopulation = PopulationCalculator.simpsonIntegral(
                 PopulationCalculator.multiplyArrays(PopulationCalculator.estimatePopulationAgeWeights(year, oldestCohortAge - 1, sexSpecificMortality, 0, 0.5, singleXCount),
                         PopulationCalculator.createConstantArray(Math.pow(1 - sexSpecificMortality.get(year).get(oldestCohortAge - 1), 0.5), singleXCount), //can be taken out of integral for performance
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(oldestCohortAge - 1), "0.5 - x", 0, 0.5, singleXCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(oldestCohortAge), "x", 0, 0.5, singleXCount)),
                 0, 0.5, singleXCount);
         //Surviving (oldestCohortAge - 1) + 0.5 to 1
-        survivingPopulation += PopulationCalculator.integral(
+        survivingPopulation += PopulationCalculator.simpsonIntegral(
                 PopulationCalculator.multiplyArrays(PopulationCalculator.estimatePopulationAgeWeights(year, oldestCohortAge - 1, sexSpecificMortality, 0.5, 1, singleXCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(oldestCohortAge), "1 - x", 0.5, 1, singleXCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(oldestCohortAge), "x - 0.5", 0.5, 1, singleXCount),
@@ -671,7 +671,7 @@ public class PopulationProjector {
                 0.5, 1, singleXCount);
         //Adjust for weight
         survivingPopulation *= currentYearSecondOldestCohortPopulation;
-        survivingPopulation /= PopulationCalculator.integral(PopulationCalculator.estimatePopulationAgeWeights(year, oldestCohortAge - 1, sexSpecificMortality, 0, 1, singleXCount), 0, 1, xCount);
+        survivingPopulation /= PopulationCalculator.simpsonIntegral(PopulationCalculator.estimatePopulationAgeWeights(year, oldestCohortAge - 1, sexSpecificMortality, 0, 1, singleXCount), 0, 1, xCount);
 
         //Surviving oldestCohortAge population
         survivingPopulation += currentYearOldestCohortPopulation * Math.pow(1 - sexSpecificMortality.get(year).get(oldestCohortAge), 0.5) * Math.pow(1 - sexSpecificMortality.get(year + 1).get(oldestCohortAge), 0.5);
@@ -683,7 +683,7 @@ public class PopulationProjector {
         double lowerBoundY = 0.5;
         double upperBoundY = 1;
         double[][] migrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year, oldestCohortAge - 1, sexSpecificMortality, lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
-        double averageCurrentSecondHalfYearSecondOldestMigrantSurvival = PopulationCalculator.doubleIntegral(
+        double averageCurrentSecondHalfYearSecondOldestMigrantSurvival = PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(migrantAgeWeights,
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(oldestCohortAge - 1), "1 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(oldestCohortAge - 1), "-x + y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount),
@@ -695,7 +695,7 @@ public class PopulationProjector {
         lowerBoundY = 0.5;
         upperBoundY = 1;
         migrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year, oldestCohortAge - 1, sexSpecificMortality, lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
-        averageCurrentSecondHalfYearSecondOldestMigrantSurvival += PopulationCalculator.doubleIntegral(
+        averageCurrentSecondHalfYearSecondOldestMigrantSurvival += PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(migrantAgeWeights,
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(oldestCohortAge - 1), "1 - x", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(oldestCohortAge), "x - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount),
@@ -703,7 +703,7 @@ public class PopulationProjector {
                 lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
         //Adjust for weight
         migrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year, oldestCohortAge - 1, sexSpecificMortality, "0", "1", xCount, 0, 1, yCount);
-        averageCurrentSecondHalfYearSecondOldestMigrantSurvival /= PopulationCalculator.doubleIntegral(migrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
+        averageCurrentSecondHalfYearSecondOldestMigrantSurvival /= PopulationCalculator.doubleSimpsonIntegral(migrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
 
         //Age migrants who arrive next year between months 0 and 6 and will be age + 1 by census
         lowerBoundX = "y + 0.5";
@@ -711,14 +711,14 @@ public class PopulationProjector {
         lowerBoundY = 0;
         upperBoundY = 0.5;
         migrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year + 1, oldestCohortAge - 1, sexSpecificMortality, lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
-        double averageNextFirstHalfYearSecondOldestMigrantSurvival = PopulationCalculator.doubleIntegral(
+        double averageNextFirstHalfYearSecondOldestMigrantSurvival = PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(migrantAgeWeights,
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(oldestCohortAge - 1), "1 - x", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(oldestCohortAge), "x - 0.5 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
                 lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
         //Adjust for weight
         migrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year + 1, oldestCohortAge - 1, sexSpecificMortality, "0", "1", xCount, 0, 1, yCount);
-        averageNextFirstHalfYearSecondOldestMigrantSurvival /= PopulationCalculator.doubleIntegral(migrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
+        averageNextFirstHalfYearSecondOldestMigrantSurvival /= PopulationCalculator.doubleSimpsonIntegral(migrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
 
         //Age + 1 migrants who arrive in the current year between months 6 and 12 and will be age + 1 by census
         lowerBoundX = "0";
@@ -726,14 +726,14 @@ public class PopulationProjector {
         lowerBoundY = 0.5;
         upperBoundY = 1;
         migrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year, oldestCohortAge, sexSpecificMortality, lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
-        double averageCurrentSecondHalfYearOldestMigrantSurvival = PopulationCalculator.doubleIntegral(
+        double averageCurrentSecondHalfYearOldestMigrantSurvival = PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(migrantAgeWeights,
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(oldestCohortAge), "1 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(oldestCohortAge), "0.5", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
                 lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
         //Adjust for weight
         migrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year, oldestCohortAge, sexSpecificMortality, "0", "1", xCount, 0, 1, yCount);
-        averageCurrentSecondHalfYearOldestMigrantSurvival /= PopulationCalculator.doubleIntegral(migrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
+        averageCurrentSecondHalfYearOldestMigrantSurvival /= PopulationCalculator.doubleSimpsonIntegral(migrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
 
         //Age + 1 migrants who arrive in the next year between months 0 and 6 and will be age + 1 by census
         lowerBoundX = "0";
@@ -741,13 +741,13 @@ public class PopulationProjector {
         lowerBoundY = 0;
         upperBoundY = 0.5;
         migrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year + 1, oldestCohortAge, sexSpecificMortality, lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
-        double averageNextFirstHalfYearOldestMigrantSurvival = PopulationCalculator.doubleIntegral(
+        double averageNextFirstHalfYearOldestMigrantSurvival = PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(migrantAgeWeights,
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(oldestCohortAge), "0.5 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
                 lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
         //Adjust for weight
         migrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year + 1, oldestCohortAge, sexSpecificMortality, "0", "1", xCount, 0, 1, yCount);
-        averageNextFirstHalfYearOldestMigrantSurvival /= PopulationCalculator.doubleIntegral(migrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
+        averageNextFirstHalfYearOldestMigrantSurvival /= PopulationCalculator.doubleSimpsonIntegral(migrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
 
         //Compute next year population
         //Compute total migrant population by age and year
@@ -784,10 +784,10 @@ public class PopulationProjector {
         double lowerBoundY = 7;
         double upperBoundY = 12;
         double areaOfDomain = 12.5;
-        double averageCurrentYearMigrantSurvival = PopulationCalculator.doubleIntegral(PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "x + 12 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount), lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)
-                - PopulationCalculator.doubleIntegral(PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "x", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount), lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)
-                + PopulationCalculator.doubleIntegral(PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year + 1), "x + 18 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount), lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)
-                - PopulationCalculator.doubleIntegral(PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year + 1), "x + 12 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount), lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
+        double averageCurrentYearMigrantSurvival = PopulationCalculator.doubleSimpsonIntegral(PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "x + 12 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount), lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)
+                - PopulationCalculator.doubleSimpsonIntegral(PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "x", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount), lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)
+                + PopulationCalculator.doubleSimpsonIntegral(PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year + 1), "x + 18 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount), lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)
+                - PopulationCalculator.doubleSimpsonIntegral(PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year + 1), "x + 12 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount), lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
         averageCurrentYearMigrantSurvival = 1 - (averageCurrentYearMigrantSurvival / areaOfDomain);
         //Next year
         lowerBoundX = "1";
@@ -795,8 +795,8 @@ public class PopulationProjector {
         lowerBoundY = 0;
         upperBoundY = 6;
         areaOfDomain = 48;
-        double averageNextYearMigrantSurvival = PopulationCalculator.doubleIntegral(PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year + 1), "x + 6 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount), lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)
-                - PopulationCalculator.doubleIntegral(PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year + 1), "x", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount), lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
+        double averageNextYearMigrantSurvival = PopulationCalculator.doubleSimpsonIntegral(PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year + 1), "x + 6 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount), lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)
+                - PopulationCalculator.doubleSimpsonIntegral(PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year + 1), "x", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount), lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
         averageNextYearMigrantSurvival = 1 - (averageNextYearMigrantSurvival / areaOfDomain);
 
         //Compute next year population
@@ -823,10 +823,10 @@ public class PopulationProjector {
         double lowerBoundY = 7;
         double upperBoundY = 12;
         double areaOfDomain = 12.5;
-        double averageCurrentYearMigrantSurvival = PopulationCalculator.doubleIntegral(PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "x + 12 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount), lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)
-                - PopulationCalculator.doubleIntegral(PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "x", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount), lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)
-                + PopulationCalculator.doubleIntegral(PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year + 1), "x + 18 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount), lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)
-                - PopulationCalculator.doubleIntegral(PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year + 1), "x + 12 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount), lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
+        double averageCurrentYearMigrantSurvival = PopulationCalculator.doubleSimpsonIntegral(PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "x + 12 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount), lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)
+                - PopulationCalculator.doubleSimpsonIntegral(PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "x", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount), lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)
+                + PopulationCalculator.doubleSimpsonIntegral(PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year + 1), "x + 18 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount), lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)
+                - PopulationCalculator.doubleSimpsonIntegral(PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year + 1), "x + 12 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount), lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
         averageCurrentYearMigrantSurvival = 1 - (averageCurrentYearMigrantSurvival / areaOfDomain);
         //Next year
         lowerBoundX = "1";
@@ -834,8 +834,8 @@ public class PopulationProjector {
         lowerBoundY = 0;
         upperBoundY = 6;
         areaOfDomain = 48;
-        double averageNextYearMigrantSurvival = PopulationCalculator.doubleIntegral(PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year + 1), "x + 6 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount), lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)
-                - PopulationCalculator.doubleIntegral(PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year + 1), "x", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount), lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
+        double averageNextYearMigrantSurvival = PopulationCalculator.doubleSimpsonIntegral(PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year + 1), "x + 6 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount), lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)
+                - PopulationCalculator.doubleSimpsonIntegral(PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year + 1), "x", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount), lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
         averageNextYearMigrantSurvival = 1 - (averageNextYearMigrantSurvival / areaOfDomain);
 
         //Compute next year population
@@ -854,14 +854,14 @@ public class PopulationProjector {
     //Project age one population using migration counts, infant CM.
     public static double projectAgeOnePopulation(int year, double lastYearPopulation, double currentYearPopulation, double lastYearBirths, double currentYearBirths,
                                                  Map<Integer, Map<Double, Double>> sexSpecificInfantCumulativeMortality, Map<Integer, Map<Integer, Double>> sexSpecificMortality, Map<Integer, Map<Integer, Double>> sexSpecificMigration) {
-        double survivingLastYearBirths = lastYearBirths * PopulationCalculator.integral(
+        double survivingLastYearBirths = lastYearBirths * PopulationCalculator.simpsonIntegral(
                 PopulationCalculator.multiplyArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year - 1), "x", 0, 6, singleXCount)),
                         PopulationCalculator.divideArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year), "12", 0, 6, singleXCount)),
                                 PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year), "x", 0, 6, singleXCount))),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(1), "0.0833333333333x", 0, 6, singleXCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(1), "0.5", 0, 6, singleXCount)),
                 0, 6, singleXCount) / 6;
-        double survivingCurrentYearBirths = currentYearBirths * PopulationCalculator.integral(
+        double survivingCurrentYearBirths = currentYearBirths * PopulationCalculator.simpsonIntegral(
                 PopulationCalculator.multiplyArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year), "x", 6, 12, singleXCount)),
                         PopulationCalculator.divideArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year + 1), "12", 6, 12, singleXCount)),
                                 PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year + 1), "x", 6, 12, singleXCount))),
@@ -875,7 +875,7 @@ public class PopulationProjector {
         double lowerBoundY = 7;
         double upperBoundY = 12;
         double areaOfDomain = 12.5;
-        double averageLastYearAgeZeroMigrantSurvival = PopulationCalculator.doubleIntegral(
+        double averageLastYearAgeZeroMigrantSurvival = PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(PopulationCalculator.divideArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year - 1), "x + 12 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
                                 PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year - 1), "x", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount))),
                         PopulationCalculator.divideArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "12", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
@@ -893,7 +893,7 @@ public class PopulationProjector {
         lowerBoundY = 0;
         upperBoundY = 1;
         areaOfDomain = 48;
-        double averageCurrentFirstHalfYearAgeZeroMigrantSurvival = PopulationCalculator.doubleIntegral(
+        double averageCurrentFirstHalfYearAgeZeroMigrantSurvival = PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(PopulationCalculator.divideArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "12", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
                                 PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "x", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount))),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(1), "0.0833333333333x - 0.833333333333y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount),
@@ -905,7 +905,7 @@ public class PopulationProjector {
         lowerBoundY = 1;
         upperBoundY = 6;
         areaOfDomain = 48;
-        averageCurrentFirstHalfYearAgeZeroMigrantSurvival += PopulationCalculator.doubleIntegral(
+        averageCurrentFirstHalfYearAgeZeroMigrantSurvival += PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(PopulationCalculator.divideArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "12", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
                                 PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "x", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount))),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(1), "0.0833333333333x - 0.833333333333y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount),
@@ -917,7 +917,7 @@ public class PopulationProjector {
         lowerBoundY = 1;
         upperBoundY = 6;
         areaOfDomain = 48;
-        averageCurrentFirstHalfYearAgeZeroMigrantSurvival += PopulationCalculator.doubleIntegral(
+        averageCurrentFirstHalfYearAgeZeroMigrantSurvival += PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(PopulationCalculator.divideArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "x + 12 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
                                 PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "x", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount))),
                         PopulationCalculator.divideArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year + 1), "12", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
@@ -934,7 +934,7 @@ public class PopulationProjector {
         lowerBoundY = 6;
         upperBoundY = 7;
         areaOfDomain = 11;
-        double averageCurrentMonthSixSevenAgeZeroMigrantSurvival = PopulationCalculator.doubleIntegral(
+        double averageCurrentMonthSixSevenAgeZeroMigrantSurvival = PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(PopulationCalculator.divideArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "x + 12 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
                                 PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "x", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount))),
                         PopulationCalculator.divideArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year + 1), "12", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
@@ -947,7 +947,7 @@ public class PopulationProjector {
         lowerBoundY = 6;
         upperBoundY = 7;
         areaOfDomain = 11;
-        averageCurrentMonthSixSevenAgeZeroMigrantSurvival += PopulationCalculator.doubleIntegral(
+        averageCurrentMonthSixSevenAgeZeroMigrantSurvival += PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(PopulationCalculator.divideArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "12", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
                                 PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "x", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount))),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(1), "0.0833333333333x - 0.833333333333y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount),
@@ -963,7 +963,7 @@ public class PopulationProjector {
         lowerBoundY = 7;
         upperBoundY = 12;
         areaOfDomain = 42.5;
-        double averageCurrentMonthSevenTwelveAgeZeroMigrantSurvival = PopulationCalculator.doubleIntegral(
+        double averageCurrentMonthSevenTwelveAgeZeroMigrantSurvival = PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(PopulationCalculator.divideArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "x + 12 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
                                 PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "x", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount))),
                         PopulationCalculator.divideArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year + 1), "12", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
@@ -976,7 +976,7 @@ public class PopulationProjector {
         lowerBoundY = 7;
         upperBoundY = 12;
         areaOfDomain = 42.5;
-        averageCurrentMonthSevenTwelveAgeZeroMigrantSurvival += PopulationCalculator.doubleIntegral(
+        averageCurrentMonthSevenTwelveAgeZeroMigrantSurvival += PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(PopulationCalculator.divideArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "12", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
                                 PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "x", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount))),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(1), "0.0833333333333x - 0.833333333333y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount),
@@ -991,7 +991,7 @@ public class PopulationProjector {
         lowerBoundY = 0;
         upperBoundY = 6;
         areaOfDomain = 18;
-        double averageNextYearAgeZeroMigrantSurvival = PopulationCalculator.doubleIntegral(
+        double averageNextYearAgeZeroMigrantSurvival = PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(PopulationCalculator.divideArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year + 1), "12", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
                                 PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year + 1), "x", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount))),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(1), "0.0833333333333x - 0.833333333333y - 0.5", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
@@ -1005,14 +1005,14 @@ public class PopulationProjector {
         lowerBoundY = 0.5;
         upperBoundY = 1;
         double[][] sexSpecificMigrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year, 1, sexSpecificMortality, lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
-        double averageCurrentSecondHalfYearAgeOneMigrantSurvival = PopulationCalculator.doubleIntegral(
+        double averageCurrentSecondHalfYearAgeOneMigrantSurvival = PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(sexSpecificMigrantAgeWeights,
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(1), "-y + 1", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(1), "0.5", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
                 lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
         //Adjust for weight
         sexSpecificMigrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year, 1, sexSpecificMortality, "0", "1", xCount, 0, 1, yCount);
-        averageCurrentSecondHalfYearAgeOneMigrantSurvival /= PopulationCalculator.doubleIntegral(sexSpecificMigrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
+        averageCurrentSecondHalfYearAgeOneMigrantSurvival /= PopulationCalculator.doubleSimpsonIntegral(sexSpecificMigrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
 
         //Age 1 migrants who arrive between next year months 0 and 6
         lowerBoundX = "0";
@@ -1020,13 +1020,13 @@ public class PopulationProjector {
         lowerBoundY = 0;
         upperBoundY = 0.5;
         sexSpecificMigrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year + 1, 1, sexSpecificMortality, lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
-        double averageNextFirstHalfYearAgeOneMigrantSurvival = PopulationCalculator.doubleIntegral(
+        double averageNextFirstHalfYearAgeOneMigrantSurvival = PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(sexSpecificMigrantAgeWeights,
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(1), "-y + 0.5", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
                 lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
         //Adjust for weight
         sexSpecificMigrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year + 1, 1, sexSpecificMortality, "0", "1", xCount, 0, 1, yCount);
-        averageNextFirstHalfYearAgeOneMigrantSurvival /= PopulationCalculator.doubleIntegral(sexSpecificMigrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
+        averageNextFirstHalfYearAgeOneMigrantSurvival /= PopulationCalculator.doubleSimpsonIntegral(sexSpecificMigrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
 
         //Compute next year population
         double lastYearAgeZeroMigrants = sexSpecificMigration.get(year - 1).get(0); //proportion of current year age 0 migrants that are age 0 on the next census
@@ -1048,14 +1048,14 @@ public class PopulationProjector {
     //Project age one population using migration counts, infant CM.
     public static double[] projectAgeOnePopulation(int year, double[] nextYearAgeZeroPopulation, double lastYearAgeZeroPopulation, double currentYearPopulation, double lastYearBirths, double currentYearBirths,
                                                  Map<Integer, Map<Double, Double>> sexSpecificInfantCumulativeMortality, Map<Integer, Map<Integer, Double>> sexSpecificMortality, Map<Integer, Map<Integer, Double>> sexSpecificMigration) {
-        double survivingLastYearBirths = lastYearBirths * PopulationCalculator.integral(
+        double survivingLastYearBirths = lastYearBirths * PopulationCalculator.simpsonIntegral(
                 PopulationCalculator.multiplyArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year - 1), "x", 0, 6, singleXCount)),
                         PopulationCalculator.divideArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year), "12", 0, 6, singleXCount)),
                                 PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year), "x", 0, 6, singleXCount))),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(1), "0.0833333333333x", 0, 6, singleXCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(1), "0.5", 0, 6, singleXCount)),
                 0, 6, singleXCount) / 6;
-        double survivingCurrentYearBirths = currentYearBirths * PopulationCalculator.integral(
+        double survivingCurrentYearBirths = currentYearBirths * PopulationCalculator.simpsonIntegral(
                 PopulationCalculator.multiplyArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year), "x", 6, 12, singleXCount)),
                         PopulationCalculator.divideArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year + 1), "12", 6, 12, singleXCount)),
                                 PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year + 1), "x", 6, 12, singleXCount))),
@@ -1069,7 +1069,7 @@ public class PopulationProjector {
         double lowerBoundY = 7;
         double upperBoundY = 12;
         double areaOfDomain = 12.5;
-        double averageLastYearAgeZeroMigrantSurvival = PopulationCalculator.doubleIntegral(
+        double averageLastYearAgeZeroMigrantSurvival = PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(PopulationCalculator.divideArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year - 1), "x + 12 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
                                 PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year - 1), "x", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount))),
                         PopulationCalculator.divideArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "12", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
@@ -1087,7 +1087,7 @@ public class PopulationProjector {
         lowerBoundY = 0;
         upperBoundY = 1;
         areaOfDomain = 48;
-        double averageCurrentFirstHalfYearAgeZeroMigrantSurvival = PopulationCalculator.doubleIntegral(
+        double averageCurrentFirstHalfYearAgeZeroMigrantSurvival = PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(PopulationCalculator.divideArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "12", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
                                 PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "x", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount))),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(1), "0.0833333333333x - 0.833333333333y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount),
@@ -1099,7 +1099,7 @@ public class PopulationProjector {
         lowerBoundY = 1;
         upperBoundY = 6;
         areaOfDomain = 48;
-        averageCurrentFirstHalfYearAgeZeroMigrantSurvival += PopulationCalculator.doubleIntegral(
+        averageCurrentFirstHalfYearAgeZeroMigrantSurvival += PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(PopulationCalculator.divideArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "12", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
                                 PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "x", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount))),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(1), "0.0833333333333x - 0.833333333333y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount),
@@ -1111,7 +1111,7 @@ public class PopulationProjector {
         lowerBoundY = 1;
         upperBoundY = 6;
         areaOfDomain = 48;
-        averageCurrentFirstHalfYearAgeZeroMigrantSurvival += PopulationCalculator.doubleIntegral(
+        averageCurrentFirstHalfYearAgeZeroMigrantSurvival += PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(PopulationCalculator.divideArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "x + 12 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
                                 PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "x", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount))),
                         PopulationCalculator.divideArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year + 1), "12", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
@@ -1128,7 +1128,7 @@ public class PopulationProjector {
         lowerBoundY = 6;
         upperBoundY = 7;
         areaOfDomain = 11;
-        double averageCurrentMonthSixSevenAgeZeroMigrantSurvival = PopulationCalculator.doubleIntegral(
+        double averageCurrentMonthSixSevenAgeZeroMigrantSurvival = PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(PopulationCalculator.divideArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "x + 12 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
                                 PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "x", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount))),
                         PopulationCalculator.divideArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year + 1), "12", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
@@ -1141,7 +1141,7 @@ public class PopulationProjector {
         lowerBoundY = 6;
         upperBoundY = 7;
         areaOfDomain = 11;
-        averageCurrentMonthSixSevenAgeZeroMigrantSurvival += PopulationCalculator.doubleIntegral(
+        averageCurrentMonthSixSevenAgeZeroMigrantSurvival += PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(PopulationCalculator.divideArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "12", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
                                 PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "x", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount))),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(1), "0.0833333333333x - 0.833333333333y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount),
@@ -1157,7 +1157,7 @@ public class PopulationProjector {
         lowerBoundY = 7;
         upperBoundY = 12;
         areaOfDomain = 42.5;
-        double averageCurrentMonthSevenTwelveAgeZeroMigrantSurvival = PopulationCalculator.doubleIntegral(
+        double averageCurrentMonthSevenTwelveAgeZeroMigrantSurvival = PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(PopulationCalculator.divideArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "x + 12 - y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
                                 PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "x", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount))),
                         PopulationCalculator.divideArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year + 1), "12", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
@@ -1170,7 +1170,7 @@ public class PopulationProjector {
         lowerBoundY = 7;
         upperBoundY = 12;
         areaOfDomain = 42.5;
-        averageCurrentMonthSevenTwelveAgeZeroMigrantSurvival += PopulationCalculator.doubleIntegral(
+        averageCurrentMonthSevenTwelveAgeZeroMigrantSurvival += PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(PopulationCalculator.divideArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "12", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
                                 PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year), "x", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount))),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(1), "0.0833333333333x - 0.833333333333y", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount),
@@ -1185,7 +1185,7 @@ public class PopulationProjector {
         lowerBoundY = 0;
         upperBoundY = 6;
         areaOfDomain = 18;
-        double averageNextYearAgeZeroMigrantSurvival = PopulationCalculator.doubleIntegral(
+        double averageNextYearAgeZeroMigrantSurvival = PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(PopulationCalculator.divideArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year + 1), "12", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
                                 PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, xCount, yCount), PopulationCalculator.mapToTwoDimensionalArray(sexSpecificInfantCumulativeMortality.get(year + 1), "x", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount))),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(1), "0.0833333333333x - 0.833333333333y - 0.5", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
@@ -1199,14 +1199,14 @@ public class PopulationProjector {
         lowerBoundY = 0.5;
         upperBoundY = 1;
         double[][] sexSpecificMigrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year, 1, sexSpecificMortality, lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
-        double averageCurrentSecondHalfYearAgeOneMigrantSurvival = PopulationCalculator.doubleIntegral(
+        double averageCurrentSecondHalfYearAgeOneMigrantSurvival = PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(sexSpecificMigrantAgeWeights,
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(1), "-y + 1", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(1), "0.5", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
                 lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
         //Adjust for weight
         sexSpecificMigrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year, 1, sexSpecificMortality, "0", "1", xCount, 0, 1, yCount);
-        averageCurrentSecondHalfYearAgeOneMigrantSurvival /= PopulationCalculator.doubleIntegral(sexSpecificMigrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
+        averageCurrentSecondHalfYearAgeOneMigrantSurvival /= PopulationCalculator.doubleSimpsonIntegral(sexSpecificMigrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
 
         //Age 1 migrants who arrive between next year months 0 and 6
         lowerBoundX = "0";
@@ -1214,13 +1214,13 @@ public class PopulationProjector {
         lowerBoundY = 0;
         upperBoundY = 0.5;
         sexSpecificMigrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year + 1, 1, sexSpecificMortality, lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
-        double averageNextFirstHalfYearAgeOneMigrantSurvival = PopulationCalculator.doubleIntegral(
+        double averageNextFirstHalfYearAgeOneMigrantSurvival = PopulationCalculator.doubleSimpsonIntegral(
                 PopulationCalculator.multiplyArrays(sexSpecificMigrantAgeWeights,
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(1), "-y + 0.5", lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount)),
                 lowerBoundX, upperBoundX, xCount, lowerBoundY, upperBoundY, yCount);
         //Adjust for weight
         sexSpecificMigrantAgeWeights = PopulationCalculator.estimateMigrationAgeWeights(year + 1, 1, sexSpecificMortality, "0", "1", xCount, 0, 1, yCount);
-        averageNextFirstHalfYearAgeOneMigrantSurvival /= PopulationCalculator.doubleIntegral(sexSpecificMigrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
+        averageNextFirstHalfYearAgeOneMigrantSurvival /= PopulationCalculator.doubleSimpsonIntegral(sexSpecificMigrantAgeWeights, "0", "1", xCount, 0, 1, yCount);
 
         //Compute next year population
         //Compute annual migrant populations

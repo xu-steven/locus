@@ -1,19 +1,25 @@
+import org.apache.commons.math3.analysis.interpolation.SplineInterpolator;
+import org.apache.commons.math3.analysis.polynomials.PolynomialSplineFunction;
+
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class PopulationCalculator {
+    //Transform (map: age -> cumulative mortality by that age) to double[] for computation of integrals
     public static double[] mapToArray(Map<Double, Double> map, String compositeFunction, double lowerBound, double upperBound, int xCount) {
         CountDownLatch latch = new CountDownLatch(PopulationProjector.taskCount);
         Map<Integer, List<Integer>> partitionedXCount = MultithreadingUtils.orderedPartitionList(IntStream.range(0, xCount).boxed().collect(Collectors.toList()), PopulationProjector.taskCount);
         double[] outputArray = new double[xCount];
+        PolynomialSplineFunction interpolatedCubicSpline = mapToCubicSpline(map);
+        double[] compositeFunctionCoefficients = parseCoefficients(compositeFunction);
         for (int i = 0; i < PopulationProjector.taskCount; i++) {
             int finalI = i;
             PopulationProjector.executor.execute(() -> {
                 for (int j : partitionedXCount.get(finalI)) {
                     double x = lowerBound + (upperBound - lowerBound) * j / ((double) xCount - 1);
-                    outputArray[j] = computeComposition(map, compositeFunction, x, 0);
+                    outputArray[j] = interpolatedCubicSpline.value(compositeFunctionCoefficients[0] * x + compositeFunctionCoefficients[2]); //computeComposition(map, compositeFunction, x, 0);
                 }
                 latch.countDown();
             });
@@ -34,6 +40,8 @@ public class PopulationCalculator {
         double[][] outputArray = new double[xCount][yCount];
         double[] lowerBoundXCoefficients = parseBound(lowerBoundX);
         double[] upperBoundXCoefficients = parseBound(upperBoundX);
+        PolynomialSplineFunction interpolatedCubicSpline = mapToCubicSpline(map);
+        double[] compositeFunctionCoefficients = parseCoefficients(compositeFunction);
         for (int i = 0; i < PopulationProjector.taskCount; i++) {
             int finalI = i;
             PopulationProjector.executor.execute(() -> {
@@ -43,7 +51,7 @@ public class PopulationCalculator {
                     double upperX = upperBoundXCoefficients[0] * y + upperBoundXCoefficients[1];
                     for (int k = 0; k < xCount; k++) {
                         double x = lowerX + (upperX - lowerX) * k / ((double) xCount - 1);
-                        outputArray[k][j] = computeComposition(map, compositeFunction, x, y);
+                        outputArray[k][j] = interpolatedCubicSpline.value(compositeFunctionCoefficients[0] * x + compositeFunctionCoefficients[1] * y + compositeFunctionCoefficients[2]); //computeComposition(map, compositeFunction, x, y);
                     }
                 }
                 latch.countDown();
@@ -93,7 +101,7 @@ public class PopulationCalculator {
     }
 
     //Computes integral using a function represented by map: (age in months -> cumulative mortality by that age)
-    public static double integral(double[] function, double lowerBound, double upperBound, int xCount) {
+    public static double simpsonIntegral(double[] function, double lowerBound, double upperBound, int xCount) {
         double numericalIntegral = 0;
         for (int i = 0; i < PopulationProjector.singleXCount; i++) {
             if (i == 0 || i == PopulationProjector.yCount - 1) {
@@ -108,7 +116,7 @@ public class PopulationCalculator {
     }
 
     //Computes integral using a function represented by map: (age in months -> cumulative mortality by that age)
-    public static double doubleIntegral(double[][] function, String lowerBoundX, String upperBoundX, int xCount, double lowerBoundY, double upperBoundY, int yCount) {
+    public static double doubleSimpsonIntegral(double[][] function, String lowerBoundX, String upperBoundX, int xCount, double lowerBoundY, double upperBoundY, int yCount) {
         CountDownLatch latch = new CountDownLatch(PopulationProjector.taskCount);
         Map<Integer, List<Integer>> partitionedYCount = MultithreadingUtils.orderedPartitionList(IntStream.range(0, yCount).boxed().collect(Collectors.toList()), PopulationProjector.taskCount);
         //Integrate with respect to x
@@ -156,11 +164,12 @@ public class PopulationCalculator {
     //Computes map(g(x, y)) for compositeFunction g: R2 -> R given by g(x,y) = ax + by + c
     private static double computeComposition(Map<Double, Double> map, String compositeFunction, double x, double y) {
         double[] compositeFunctionCoefficients = parseCoefficients(compositeFunction);
-        return evaluateInterpolatedMap(map, compositeFunctionCoefficients[0] * x + compositeFunctionCoefficients[1] * y + compositeFunctionCoefficients[2]);
+        //linear alternative: return evaluateLinearlyInterpolatedMap(map, compositeFunctionCoefficients[0] * x + compositeFunctionCoefficients[1] * y + compositeFunctionCoefficients[2]);
+        return evaluateCubicSplineInterpolatedMap(map, compositeFunctionCoefficients[0] * x + compositeFunctionCoefficients[1] * y + compositeFunctionCoefficients[2]);
     }
 
-    //Evaluates map(x) by interpolation
-    private static double evaluateInterpolatedMap(Map<Double, Double> map, double x) {
+    //Evaluates map(x) by linear interpolation
+    private static double evaluateLinearlyInterpolatedMap(Map<Double, Double> map, double x) {
         List<Double> orderedAges = new ArrayList<>(map.keySet());
         Collections.sort(orderedAges);
         int bestLowerBoundIndex = -1;
@@ -175,6 +184,25 @@ public class PopulationCalculator {
             return map.get(orderedAges.get(bestLowerBoundIndex)) + (map.get(orderedAges.get(bestLowerBoundIndex + 1)) - map.get(orderedAges.get(bestLowerBoundIndex))) *
                     ((x - orderedAges.get(bestLowerBoundIndex)) / (orderedAges.get(bestLowerBoundIndex + 1) - orderedAges.get(bestLowerBoundIndex)));
         }
+    }
+
+    //Evaluates map(x) by cubic spline interpolation
+    public static double evaluateCubicSplineInterpolatedMap(Map<Double, Double> map, double x) {
+        PolynomialSplineFunction interpolatedSpline = mapToCubicSpline(map);
+        return interpolatedSpline.value(x);
+    }
+
+    public static PolynomialSplineFunction mapToCubicSpline(Map<Double, Double> map) {
+        double[] xValues = new double[map.keySet().size()];
+        double[] yValues = new double[map.keySet().size()];
+        List<Double> sortedKeys = new ArrayList<>(map.keySet());
+        Collections.sort(sortedKeys);
+        for (int i = 0; i < map.keySet().size(); i++) {
+            xValues[i] = sortedKeys.get(i);
+            yValues[i] = map.get(sortedKeys.get(i));
+        }
+        SplineInterpolator cubicSplineInterpolator = new SplineInterpolator();
+        return cubicSplineInterpolator.interpolate(xValues, yValues);
     }
 
     //Fill array with same value
