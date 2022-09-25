@@ -222,7 +222,7 @@ public class PopulationCalculator {
     }
 
     //Computes sum firstArray_(i) for all i
-    private static double[] addArrays(double[]... arrays){
+    public static double[] addArrays(double[]... arrays){
         double[] output = new double[arrays[0].length];
         for (int i = 0; i < arrays[0].length; i++) {
             double positionSum = 0;
@@ -235,7 +235,7 @@ public class PopulationCalculator {
     }
 
     //Computes firstArray_(i,j) + secondArray_(i,j) for all (i,j)
-    private static double[][] addArrays(double[][]... arrays){
+    public static double[][] addArrays(double[][]... arrays){
         CountDownLatch latch = new CountDownLatch(PopulationProjector.taskCount);
         Map<Integer, List<Integer>> partitionedArrayIndex = MultithreadingUtils.orderedPartitionList(IntStream.range(0, arrays[0].length).boxed().collect(Collectors.toList()), PopulationProjector.taskCount);
         double[][] output = new double[arrays[0].length][arrays[0][0].length];
@@ -263,7 +263,7 @@ public class PopulationCalculator {
     }
 
     //Computes firstArray_(i,j) - secondArray_(i,j) for all (i,j)
-    static double[] subtractArrays(double[] firstArray, double[] secondArray){
+    public static double[] subtractArrays(double[] firstArray, double[] secondArray){
         double[] output = new double[firstArray.length];
         for (int i = 0; i < firstArray.length; i++) {
             output[i] = firstArray[i] - secondArray[i];
@@ -272,7 +272,7 @@ public class PopulationCalculator {
     }
 
     //Computes firstArray_(i,j) - secondArray_(i,j) for all (i,j)
-    static double[][] subtractArrays(double[][] firstArray, double[][] secondArray){
+    public static double[][] subtractArrays(double[][] firstArray, double[][] secondArray){
         CountDownLatch latch = new CountDownLatch(PopulationProjector.taskCount);
         Map<Integer, List<Integer>> partitionedArrayIndex = MultithreadingUtils.orderedPartitionList(IntStream.range(0, firstArray.length).boxed().collect(Collectors.toList()), PopulationProjector.taskCount);
         double[][] output = new double[firstArray.length][firstArray[0].length];
@@ -309,7 +309,7 @@ public class PopulationCalculator {
     }
 
     //Computes product firstArray_(i) for all i
-    static double[][] multiplyArrays(double[][]... arrays){
+    public static double[][] multiplyArrays(double[][]... arrays){
         CountDownLatch latch = new CountDownLatch(PopulationProjector.taskCount);
         Map<Integer, List<Integer>> partitionedArrayIndex = MultithreadingUtils.orderedPartitionList(IntStream.range(0, arrays[0].length).boxed().collect(Collectors.toList()), PopulationProjector.taskCount);
         double[][] output = new double[arrays[0].length][arrays[0][0].length];
@@ -337,7 +337,7 @@ public class PopulationCalculator {
     }
 
     //Computes firstArray_(i,j) / secondArray_(i,j) for all (i,j)
-    static double[] divideArrays(double[] firstArray, double[] secondArray){
+    public static double[] divideArrays(double[] firstArray, double[] secondArray){
         double[] output = new double[firstArray.length];
         for (int i = 0; i < firstArray.length; i++) {
             output[i] = firstArray[i] / secondArray[i];
@@ -346,7 +346,7 @@ public class PopulationCalculator {
     }
 
     //Computes firstArray_(i,j) / secondArray_(i,j) for all (i,j)
-    static double[][] divideArrays(double[][] firstArray, double[][] secondArray){
+    public static double[][] divideArrays(double[][] firstArray, double[][] secondArray){
         CountDownLatch latch = new CountDownLatch(PopulationProjector.taskCount);
         Map<Integer, List<Integer>> partitionedArrayIndex = MultithreadingUtils.orderedPartitionList(IntStream.range(0, firstArray.length).boxed().collect(Collectors.toList()), PopulationProjector.taskCount);
         double[][] output = new double[firstArray.length][firstArray[0].length];
@@ -370,7 +370,7 @@ public class PopulationCalculator {
     }
 
     //Creates 1d array of c^(ax+by+k), by = 0 as 1d
-    static double[] exponentiateArray(double c, String compositeFunction, double lowerBound, double upperBound, int xCount){
+    public static double[] exponentiateArray(double c, String compositeFunction, double lowerBound, double upperBound, int xCount){
         double[] outputArray = new double[xCount];
         double[] compositeFunctionCoefficients = parseCoefficients(compositeFunction); //ax + by + c to [a, b, c]
         for (int i = 0; i < xCount; i++) {
@@ -381,7 +381,7 @@ public class PopulationCalculator {
     }
 
     //Creates 2d array of c^(ax+by+k)
-    static double[][] exponentiateArray(double c, String compositeFunction, String lowerBoundX, String upperBoundX, int xCount, double lowerBoundY, double upperBoundY, int yCount){
+    public static double[][] exponentiateArray(double c, String compositeFunction, String lowerBoundX, String upperBoundX, int xCount, double lowerBoundY, double upperBoundY, int yCount){
         CountDownLatch latch = new CountDownLatch(PopulationProjector.taskCount);
         Map<Integer, List<Integer>> partitionedYCount = MultithreadingUtils.orderedPartitionList(IntStream.range(0, yCount).boxed().collect(Collectors.toList()), PopulationProjector.taskCount);
         double[][] outputArray = new double[xCount][yCount];
@@ -453,8 +453,7 @@ public class PopulationCalculator {
     //Parses x bound as function of y of the form ay + b
     public static double[] parseBound(String bound) {
         double[] parsedBounds = new double[2]; //parsedBounds[0] = a, parsedBounds[1] = b
-        bound.replaceAll("\\s", "");
-
+        bound = bound.replaceAll("\\s", "");
         //Account for leading negative coefficient
         double operationMultiplier;
         if (bound.indexOf("-") == 0) {
@@ -520,6 +519,8 @@ public class PopulationCalculator {
         } else {
             operationMultiplier = 1;
         }
+
+        //Iterate through remainder of function except for final term
         while (Math.max(compositeFunction.indexOf("+"), compositeFunction.indexOf("-")) != -1) {
             int addPosition = compositeFunction.indexOf("+");
             int subtractPosition = compositeFunction.indexOf("-");
@@ -555,6 +556,8 @@ public class PopulationCalculator {
                 operationMultiplier = -1;
             }
         }
+
+        //Process final term
         int xPosition = compositeFunction.indexOf("x");
         int yPosition = compositeFunction.indexOf("y");
         if (xPosition >= 0) {
@@ -574,5 +577,4 @@ public class PopulationCalculator {
         }
         return compositeFunctionCoefficients;
     }
-
 }
