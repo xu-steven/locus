@@ -367,5 +367,4 @@ public class PopulationParameters {
     public int getMigrationFormat() {
         return migrationFormat;
     }
-
 }

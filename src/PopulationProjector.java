@@ -9,7 +9,7 @@ public class PopulationProjector {
     static ExecutorService executor = Executors.newFixedThreadPool(threadCount);
 
     //Population projection parameters
-    public static PopulationParameters projectionParameters;
+    public PopulationParameters projectionParameters;
 
     //Projection parameters
     static int singleXCount = 100;
@@ -31,25 +31,29 @@ public class PopulationProjector {
         String demographicsLocation = "M:\\Optimization Project\\demographic projections\\test_alberta2016_demographics.csv";
         List<String> ageAndSexGroups = FileUtils.getCSVHeadings(demographicsLocation);
         double[] populationByAgeAndSexGroup = FileUtils.getInnerDoubleArrayFromCSV(demographicsLocation, FileUtils.getOriginCount(demographicsLocation), FileUtils.getSitesCount(demographicsLocation))[0];
-        new PopulationProjector(Population.determineOldestPyramidCohortAge(ageAndSexGroups));
+        PopulationProjector projector = new PopulationProjector(Population.determineOldestPyramidCohortAge(ageAndSexGroups));
+
         //In final program, this will be input into projector
         Population initialPopulation = new Population(2000, ageAndSexGroups, populationByAgeAndSexGroup,
-                projectionParameters.getMaleMortality(), projectionParameters.getFemaleMortality(),
-                projectionParameters.getMaleMigration(), projectionParameters.getFemaleMigration(), projectionParameters.getMigrationFormat(),
-                projectionParameters.getMaleInfantSeparationFactor(), projectionParameters.getFemaleInfantSeparationFactor());
+                projector.projectionParameters.getMaleMortality(), projector.projectionParameters.getFemaleMortality(),
+                projector.projectionParameters.getMaleMigration(), projector.projectionParameters.getFemaleMigration(), projector.projectionParameters.getMigrationFormat(),
+                projector.projectionParameters.getMaleInfantSeparationFactor(), projector.projectionParameters.getFemaleInfantSeparationFactor());
         System.out.println("Male pyramid " + initialPopulation.getMalePyramid());
         System.out.println("Female pyramid " + initialPopulation.getFemalePyramid());
 
-        String compositeFunction = "2y - 3x";
-        String lowerBoundX = "0.2y";
-        String upperBoundX = "0.5y";
-        double lowerBoundY = 0;
-        double upperBoundY = 1;
-        double[][] infantMortality = PopulationCalculator.mapToTwoDimensionalArray(projectionParameters.getMaleInfantCumulativeMortality().get(2000), compositeFunction, lowerBoundX, upperBoundX, 10000, lowerBoundY, upperBoundY, 10000);
+        //Testing functions in calculator
+        //String compositeFunction = "2y - x";
+        //String lowerBoundX = "0.2y";
+        //String upperBoundX = "0.5y";
+        //double lowerBoundY = 0;
+        //double upperBoundY = 1;
+        //double[][] infantMortality = PopulationCalculator.mapToTwoDimensionalArray(projectionParameters.getMaleInfantCumulativeMortality().get(2000), compositeFunction, lowerBoundX, upperBoundX, 1000, lowerBoundY, upperBoundY, 1000);
         //System.out.println(infantMortality[999][999]);
-        double[] singleMortalityArray = PopulationCalculator.mapToArray(projectionParameters.getMaleInfantCumulativeMortality().get(2000), "3 - 2x", 0, 1, 10000);
-        System.out.println(PopulationCalculator.simpsonIntegral(singleMortalityArray, 0, 1, 10000));
-        System.out.println(PopulationCalculator.doubleSimpsonIntegral(infantMortality, lowerBoundX, upperBoundX, 10000, lowerBoundY, upperBoundY, 10000));
+        //double[] singleMortalityArray = PopulationCalculator.mapToArray(projectionParameters.getMaleInfantCumulativeMortality().get(2000), "3 - 2x", 0, 1, 10000);
+        //System.out.println(PopulationCalculator.simpsonIntegral(singleMortalityArray, 0, 1, 10000));
+        //System.out.println(PopulationCalculator.doubleSimpsonIntegral(infantMortality, lowerBoundX, upperBoundX, 10000, lowerBoundY, upperBoundY, 10000));
+
+        Population yearOnePopulation = projector.projectNextYearPopulation(initialPopulation);
         executor.shutdown();
     }
 
@@ -86,7 +90,7 @@ public class PopulationProjector {
             if (age == 0) {
                 continue;
             } else if (age < oldestPyramidCohortAge) {
-                currentFemalePyramid.put(age + 1, ruralUrbanProjectOtherCohortPopulation(age, year, currentFemalePyramid.get(age), projectionParameters.getFemaleMortality(), projectionParameters.getFemaleMigration()));
+                nextYearFemalePyramid.put(age + 1, ruralUrbanProjectOtherCohortPopulation(age, year, currentFemalePyramid.get(age), projectionParameters.getFemaleMortality(), projectionParameters.getFemaleMigration()));
             }
         }
         //Add in remaining max age cohort that continues to survive
@@ -187,7 +191,7 @@ public class PopulationProjector {
         //Compute male cohorts aged 2 through maxCohortAge - 1 as well as preliminary maxCohortAge
         double[] variableLastAgePopulation = variableAgeOnePopulation.clone();
         for (int age = 1; age < oldestPyramidCohortAge - 1; age++) {
-            variableLastAgePopulation = projectOtherCohortPopulation(age, year, variableLastAgePopulation, currentMalePyramid.get(age), projectionParameters.getMaleMortality(), projectionParameters.getMaleMigration());
+            variableLastAgePopulation = projectOtherCohortPopulation(age, year, variableLastAgePopulation, currentMalePyramid.get(age), currentMalePyramid.get(age + 1), projectionParameters.getMaleMortality(), projectionParameters.getMaleMigration());
             nextYearMalePyramidVariable.put(age + 1, variableLastAgePopulation[0]);
             nextYearMalePyramidConstant.put(age + 1, variableLastAgePopulation[1]);
         }
@@ -199,7 +203,7 @@ public class PopulationProjector {
         //Compute female cohorts aged 2 through maxCohortAge - 1 as well as preliminary maxCohortAge
         variableLastAgePopulation = variableAgeOnePopulation.clone();
         for (int age = 1; age < oldestPyramidCohortAge - 1; age++) {
-            variableLastAgePopulation = projectOtherCohortPopulation(age, year, variableLastAgePopulation, currentFemalePyramid.get(age), projectionParameters.getFemaleMortality(), projectionParameters.getFemaleMigration());
+            variableLastAgePopulation = projectOtherCohortPopulation(age, year, variableLastAgePopulation, currentFemalePyramid.get(age), currentFemalePyramid.get(age + 1), projectionParameters.getFemaleMortality(), projectionParameters.getFemaleMigration());
             nextYearFemalePyramidVariable.put(age + 1, variableLastAgePopulation[0]);
             nextYearFemalePyramidConstant.put(age + 1, variableLastAgePopulation[1]);
         }
@@ -223,7 +227,7 @@ public class PopulationProjector {
         nextYearMalePyramidConstant.put(0, variableLastAgePopulation[1]);
 
         //Project age 1 male cohort using other cohort method for first cycle
-        variableLastAgePopulation = projectOtherCohortPopulation(0, year, variableLastAgePopulation, currentMalePyramid.get(0), projectionParameters.getMaleMortality(), projectionParameters.getMaleMigration());
+        variableLastAgePopulation = projectOtherCohortPopulation(0, year, variableLastAgePopulation, currentMalePyramid.get(0), currentMalePyramid.get(1), projectionParameters.getMaleMortality(), projectionParameters.getMaleMigration());
         nextYearMalePyramidVariable.put(1, variableLastAgePopulation[0]);
         nextYearMalePyramidConstant.put(1, variableLastAgePopulation[1]);
 
@@ -237,7 +241,7 @@ public class PopulationProjector {
         nextYearFemalePyramidConstant.put(0, variableLastAgePopulation[1]);
 
         //Project age 1 female cohort using other cohort method for first cycle
-        variableLastAgePopulation = projectOtherCohortPopulation(0, year, variableLastAgePopulation, currentFemalePyramid.get(0), projectionParameters.getFemaleMortality(), projectionParameters.getFemaleMigration());
+        variableLastAgePopulation = projectOtherCohortPopulation(0, year, variableLastAgePopulation, currentFemalePyramid.get(0), currentFemalePyramid.get(1), projectionParameters.getFemaleMortality(), projectionParameters.getFemaleMigration());
         nextYearFemalePyramidVariable.put(1, variableLastAgePopulation[0]);
         nextYearFemalePyramidConstant.put(1, variableLastAgePopulation[1]);
 
@@ -263,7 +267,7 @@ public class PopulationProjector {
         //Compute male cohorts aged 2 through maxCohortAge - 1 as well as preliminary maxCohortAge
         double[] variableLastAgePopulation = variableAgeOnePopulation.clone();
         for (int age = 1; age < oldestPyramidCohortAge - 1; age++) {
-            variableLastAgePopulation = projectOtherCohortPopulation(age, year, variableLastAgePopulation, currentMalePyramid.get(age), projectionParameters.getMaleMortality(), projectionParameters.getMaleMigration());
+            variableLastAgePopulation = projectOtherCohortPopulation(age, year, variableLastAgePopulation, currentMalePyramid.get(age), currentMalePyramid.get(age + 1), projectionParameters.getMaleMortality(), projectionParameters.getMaleMigration());
             nextYearMalePyramidVariable.put(age + 1, variableLastAgePopulation[0]);
             nextYearMalePyramidConstant.put(age + 1, variableLastAgePopulation[1]);
         }
@@ -275,7 +279,7 @@ public class PopulationProjector {
         //Compute female cohorts aged 2 through maxCohortAge - 1 as well as preliminary maxCohortAge
         variableLastAgePopulation = variableAgeOnePopulation.clone();
         for (int age = 1; age < oldestPyramidCohortAge - 1; age++) {
-            variableLastAgePopulation = projectOtherCohortPopulation(age, year, variableLastAgePopulation, currentFemalePyramid.get(age), projectionParameters.getFemaleMortality(), projectionParameters.getFemaleMigration());
+            variableLastAgePopulation = projectOtherCohortPopulation(age, year, variableLastAgePopulation, currentFemalePyramid.get(age), currentFemalePyramid.get(age + 1), projectionParameters.getFemaleMortality(), projectionParameters.getFemaleMigration());
             nextYearFemalePyramidVariable.put(age + 1, variableLastAgePopulation[0]);
             nextYearFemalePyramidConstant.put(age + 1, variableLastAgePopulation[1]);
         }
@@ -301,7 +305,7 @@ public class PopulationProjector {
 
         //Project age 1 males using method specifically for age 1
         double lastYearMaleBirths = lastYearBirths * projectionParameters.getHumanSexRatio(year - 1) / (projectionParameters.getHumanSexRatio(year - 1)  + 1);
-        variableLastAgePopulation = projectAgeOnePopulation(year, variableLastAgePopulation, lastYearPopulation.getMalePyramid().get(0), currentMalePyramid.get(0), lastYearMaleBirths, currentYearMaleBirths, projectionParameters.getMaleInfantCumulativeMortality(), projectionParameters.getMaleMortality(), projectionParameters.getMaleMigration());
+        variableLastAgePopulation = projectAgeOnePopulation(year, variableLastAgePopulation, lastYearPopulation.getMalePyramid().get(0), currentMalePyramid.get(0), currentMalePyramid.get(1), lastYearMaleBirths, currentYearMaleBirths, projectionParameters.getMaleInfantCumulativeMortality(), projectionParameters.getMaleMortality(), projectionParameters.getMaleMigration());
         nextYearMalePyramidVariable.put(1, variableLastAgePopulation[0]);
         nextYearMalePyramidConstant.put(1, variableLastAgePopulation[1]);
 
@@ -316,7 +320,7 @@ public class PopulationProjector {
 
         //Project age 1 female using method specifically for age 1
         double lastYearFemaleBirths = lastYearBirths / (projectionParameters.getHumanSexRatio(year - 1)  + 1);
-        variableLastAgePopulation = projectAgeOnePopulation(year, variableLastAgePopulation, lastYearPopulation.getFemalePyramid().get(0), currentFemalePyramid.get(0), lastYearFemaleBirths, currentYearFemaleBirths, projectionParameters.getFemaleInfantCumulativeMortality(), projectionParameters.getFemaleMortality(), projectionParameters.getFemaleMigration());
+        variableLastAgePopulation = projectAgeOnePopulation(year, variableLastAgePopulation, lastYearPopulation.getFemalePyramid().get(0), currentFemalePyramid.get(0), currentFemalePyramid.get(1), lastYearFemaleBirths, currentYearFemaleBirths, projectionParameters.getFemaleInfantCumulativeMortality(), projectionParameters.getFemaleMortality(), projectionParameters.getFemaleMigration());
         nextYearFemalePyramidVariable.put(1, variableLastAgePopulation[0]);
         nextYearFemalePyramidConstant.put(1, variableLastAgePopulation[1]);
 
@@ -327,7 +331,7 @@ public class PopulationProjector {
     }
 
     //Project next year age + 1 population using migration counts for cohorts excluding ages 0, 1, and maximal age
-    public static double projectOtherCohortPopulation(int age, int year, double currentYearPopulation, Map<Integer, Map<Integer, Double>> sexSpecificMortality, Map<Integer, Map<Integer, Double>> sexSpecificMigration) {
+    public static double projectOtherCohortPopulation(int age, int year, double currentYearAgePopulation, Map<Integer, Map<Integer, Double>> sexSpecificMortality, Map<Integer, Map<Integer, Double>> sexSpecificMigration) {
         //Surviving age + 0 to 0.5
         double survivingPopulation = PopulationCalculator.simpsonIntegral(
                 PopulationCalculator.multiplyArrays(PopulationCalculator.estimatePopulationAgeWeights(year, age, sexSpecificMortality, 0, 0.5, singleXCount),
@@ -343,7 +347,7 @@ public class PopulationProjector {
                         PopulationCalculator.createConstantArray(Math.pow(1 - sexSpecificMortality.get(year + 1).get(age + 1), 0.5), singleXCount)), //can be taken out of integral for performance
                 0.5, 1, singleXCount);
         //Adjust for weight
-        survivingPopulation *= currentYearPopulation;
+        survivingPopulation *= currentYearAgePopulation;
         survivingPopulation /= PopulationCalculator.simpsonIntegral(PopulationCalculator.estimatePopulationAgeWeights(year, age, sexSpecificMortality, 0, 1, singleXCount), 0, 1, xCount);
 
         //Age migrants who arrive between current year months 6 and 12 and will be age + 1 by next census
@@ -433,7 +437,7 @@ public class PopulationProjector {
     }
 
     //Project next year age + 1 population using migration rates for cohorts excluding 0, 1, and maximal age.
-    public static double[] projectOtherCohortPopulation(int age, int year, double[] nextYearAgePopulation, double currentYearPopulation, Map<Integer, Map<Integer, Double>> sexSpecificMortality, Map<Integer, Map<Integer, Double>> sexSpecificMigration) {
+    public static double[] projectOtherCohortPopulation(int age, int year, double[] nextYearAgePopulation, double currentYearAgePopulation, double currentYearAgePlusOnePopulation, Map<Integer, Map<Integer, Double>> sexSpecificMortality, Map<Integer, Map<Integer, Double>> sexSpecificMigration) {
         //Surviving age + 0 to 0.5
         double survivingPopulation = PopulationCalculator.simpsonIntegral(
                 PopulationCalculator.multiplyArrays(PopulationCalculator.estimatePopulationAgeWeights(year, age, sexSpecificMortality, 0, 0.5, singleXCount),
@@ -449,7 +453,7 @@ public class PopulationProjector {
                         PopulationCalculator.createConstantArray(Math.pow(1 - sexSpecificMortality.get(year + 1).get(age + 1), 0.5), singleXCount)), //can be taken out of integral for performance
                 0.5, 1, singleXCount);
         //Adjust for weight
-        survivingPopulation *= currentYearPopulation;
+        survivingPopulation *= currentYearAgePopulation;
         survivingPopulation /= PopulationCalculator.simpsonIntegral(PopulationCalculator.estimatePopulationAgeWeights(year, age, sexSpecificMortality, 0, 1, singleXCount), 0, 1, xCount);
 
         //Age migrants who arrive between current year months 6 and 12 and will be age + 1 by next census
@@ -527,8 +531,8 @@ public class PopulationProjector {
 
         //Compute next year population
         //Compute total migrant population by age and year
-        double currentYearAgeMigrants = projectMigration(age, year, currentYearPopulation, sexSpecificMigration);
-        double currentYearAgePlusOneMigrants = projectMigration(age + 1, year, currentYearPopulation, sexSpecificMigration);
+        double currentYearAgeMigrants = projectMigration(age, year, currentYearAgePopulation, sexSpecificMigration);
+        double currentYearAgePlusOneMigrants = projectMigration(age + 1, year, currentYearAgePlusOnePopulation, sexSpecificMigration);
         double nextYearAgeMigrantsVariable = projectMigration(age, year + 1, nextYearAgePopulation[0], sexSpecificMigration); //variable portion
         double nextYearAgeMigrantsConstant = projectMigration(age, year + 1, nextYearAgePopulation[1], sexSpecificMigration); //constant portion
         //Compute final population, variable and constant portions
@@ -773,11 +777,14 @@ public class PopulationProjector {
     }
 
     //Project age zero population using migration counts, infant CM curve.
-    public static double projectAgeZeroPopulation(int year, double currentYearPopulation, double currentYearBirths, double nextYearBirths, Map<Integer, Map<Double, Double>> sexSpecificInfantCumulativeMortality, Map<Integer, Map<Integer, Double>> sexSpecificMigration) {
+    public static double projectAgeZeroPopulation(int year, double currentYearAgeZeroPopulation, double currentYearBirths, double nextYearBirths, Map<Integer, Map<Double, Double>> sexSpecificInfantCumulativeMortality, Map<Integer, Map<Integer, Double>> sexSpecificMigration) {
         //Project surviving births
-        double survivingCurrentYearBirths = currentYearBirths * (PopulationCalculator.integralOfCumulativeMortality(0, 6, sexSpecificInfantCumulativeMortality.get(year))
-                + PopulationCalculator.integralOfCumulativeMortality(6, 12, sexSpecificInfantCumulativeMortality.get(year + 1)) - PopulationCalculator.integralOfCumulativeMortality(0, 6, sexSpecificInfantCumulativeMortality.get(year + 1))) / 6;
-        double survivingNextYearBirths = nextYearBirths * PopulationCalculator.integralOfCumulativeMortality(0,6, sexSpecificInfantCumulativeMortality.get(year + 1));
+        double survivingCurrentYearBirths = currentYearBirths * (PopulationCalculator.integrateCubicSpline(sexSpecificInfantCumulativeMortality.get(year), 0, 6)
+                + PopulationCalculator.integrateCubicSpline(sexSpecificInfantCumulativeMortality.get(year + 1), 6, 12) - PopulationCalculator.integrateCubicSpline(sexSpecificInfantCumulativeMortality.get(year + 1), 0, 6)) / 6;
+
+        //double survivingCurrentYearBirths = currentYearBirths * (PopulationCalculator.integralOfCumulativeMortality(0, 6, sexSpecificInfantCumulativeMortality.get(year))
+                //+ PopulationCalculator.integralOfCumulativeMortality(6, 12, sexSpecificInfantCumulativeMortality.get(year + 1)) - PopulationCalculator.integralOfCumulativeMortality(0, 6, sexSpecificInfantCumulativeMortality.get(year + 1))) / 6;
+        double survivingNextYearBirths = nextYearBirths * PopulationCalculator.integrateCubicSpline(sexSpecificInfantCumulativeMortality.get(year + 1), 0,6);
 
         //Project next year migrant death rates
         //Current year
@@ -811,12 +818,12 @@ public class PopulationProjector {
     }
 
     //Project age zero population using migration rates. Requires infant CM curve.
-    public static double[] projectAgeZeroPopulation(int year, double currentYearPopulation, double currentYearBirths, double[] nextYearBirths, Map<Integer, Map<Double, Double>> sexSpecificInfantCumulativeMortality, Map<Integer, Map<Integer, Double>> sexSpecificMigration) {
+    public static double[] projectAgeZeroPopulation(int year, double currentYearAgeZeroPopulation, double currentYearBirths, double[] nextYearBirths, Map<Integer, Map<Double, Double>> sexSpecificInfantCumulativeMortality, Map<Integer, Map<Integer, Double>> sexSpecificMigration) {
         //Project surviving births
-        double survivingCurrentYearBirths = currentYearBirths * (PopulationCalculator.integralOfCumulativeMortality(0, 6, sexSpecificInfantCumulativeMortality.get(year))
-                + PopulationCalculator.integralOfCumulativeMortality(6, 12, sexSpecificInfantCumulativeMortality.get(year + 1)) - PopulationCalculator.integralOfCumulativeMortality(0, 6, sexSpecificInfantCumulativeMortality.get(year + 1))) / 6;
-        double survivingNextYearBirthsVariable = nextYearBirths[0] * PopulationCalculator.integralOfCumulativeMortality(0,6, sexSpecificInfantCumulativeMortality.get(year + 1));
-        double survivingNextYearBirthsConstant = nextYearBirths[1] * PopulationCalculator.integralOfCumulativeMortality(0,6, sexSpecificInfantCumulativeMortality.get(year + 1));
+        double survivingCurrentYearBirths = currentYearBirths * (PopulationCalculator.integrateCubicSpline(sexSpecificInfantCumulativeMortality.get(year), 0, 6)
+                + PopulationCalculator.integrateCubicSpline(sexSpecificInfantCumulativeMortality.get(year + 1), 6, 12) - PopulationCalculator.integrateCubicSpline( sexSpecificInfantCumulativeMortality.get(year + 1), 0, 6)) / 6;
+        double survivingNextYearBirthsVariable = nextYearBirths[0] * PopulationCalculator.integrateCubicSpline(sexSpecificInfantCumulativeMortality.get(year + 1), 0,6);
+        double survivingNextYearBirthsConstant = nextYearBirths[1] * PopulationCalculator.integrateCubicSpline(sexSpecificInfantCumulativeMortality.get(year + 1), 0,6);
 
         //Project next year migrant death rates
         //Current year
@@ -842,7 +849,7 @@ public class PopulationProjector {
 
         //Compute next year population
         //Compute migrants for this year
-        double currentYearMigrants = projectMigration(0, year, currentYearPopulation, sexSpecificMigration) * 12.5/132;
+        double currentYearMigrants = projectMigration(0, year, currentYearAgeZeroPopulation, sexSpecificMigration) * 12.5/132;
         //Compute variable and constant portions of next year population
         double nextYearAgeZeroPopulationVariable = survivingNextYearBirthsVariable / (1 - sexSpecificMigration.get(year + 1).get(0) * 48/132 * averageNextYearMigrantSurvival);
         double nextYearAgeZeroPopulationConstant = (survivingCurrentYearBirths + survivingNextYearBirthsConstant + currentYearMigrants * averageCurrentYearMigrantSurvival) / (1 - sexSpecificMigration.get(year + 1).get(0) * 48/132 * averageNextYearMigrantSurvival);
@@ -854,7 +861,7 @@ public class PopulationProjector {
     }
 
     //Project age one population using migration counts, infant CM.
-    public static double projectAgeOnePopulation(int year, double lastYearPopulation, double currentYearPopulation, double lastYearBirths, double currentYearBirths,
+    public static double projectAgeOnePopulation(int year, double lastYearAgeOnePopulation, double currentYearAgeOnePopulation, double lastYearBirths, double currentYearBirths,
                                                  Map<Integer, Map<Double, Double>> sexSpecificInfantCumulativeMortality, Map<Integer, Map<Integer, Double>> sexSpecificMortality, Map<Integer, Map<Integer, Double>> sexSpecificMigration) {
         double survivingLastYearBirths = lastYearBirths * PopulationCalculator.simpsonIntegral(
                 PopulationCalculator.multiplyArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year - 1), "x", 0, 6, singleXCount)),
@@ -1048,7 +1055,7 @@ public class PopulationProjector {
     }
 
     //Project age one population using migration counts, infant CM.
-    public static double[] projectAgeOnePopulation(int year, double[] nextYearAgeZeroPopulation, double lastYearAgeZeroPopulation, double currentYearPopulation, double lastYearBirths, double currentYearBirths,
+    public static double[] projectAgeOnePopulation(int year, double[] nextYearAgeZeroPopulation, double lastYearAgeZeroPopulation, double currentYearAgeZeroPopulation, double currentYearAgeOnePopulation, double lastYearBirths, double currentYearBirths,
                                                  Map<Integer, Map<Double, Double>> sexSpecificInfantCumulativeMortality, Map<Integer, Map<Integer, Double>> sexSpecificMortality, Map<Integer, Map<Integer, Double>> sexSpecificMigration) {
         double survivingLastYearBirths = lastYearBirths * PopulationCalculator.simpsonIntegral(
                 PopulationCalculator.multiplyArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year - 1), "x", 0, 6, singleXCount)),
@@ -1227,8 +1234,8 @@ public class PopulationProjector {
         //Compute next year population
         //Compute annual migrant populations
         double lastYearAgeZeroMigrants = projectMigration(0, year - 1, lastYearAgeZeroPopulation, sexSpecificMigration);
-        double currentYearAgeZeroMigrants = projectMigration(0, year, currentYearPopulation, sexSpecificMigration);
-        double currentYearAgeOneMigrants = projectMigration(1, year, currentYearPopulation, sexSpecificMigration);
+        double currentYearAgeZeroMigrants = projectMigration(0, year, currentYearAgeZeroPopulation, sexSpecificMigration);
+        double currentYearAgeOneMigrants = projectMigration(1, year, currentYearAgeOnePopulation, sexSpecificMigration);
         double nextYearAgeZeroMigrantsVariable = projectMigration(0, year + 1, nextYearAgeZeroPopulation[0], sexSpecificMigration);
         double nextYearAgeZeroMigrantsConstant = projectMigration(0, year + 1, nextYearAgeZeroPopulation[1], sexSpecificMigration);
         //Compute variable and constant portions of next year age 1 population
@@ -1269,7 +1276,7 @@ public class PopulationProjector {
     }
 
     //Projects population of cohort in next year, i.e. Pop(t + 1, age + 1)
-    public static double ruralUrbanProjectOtherCohortPopulation(int age, int year, double currentYearPopulation, Map<Integer, Map<Integer, Double>> sexSpecificMortality, Map<Integer, Map<Integer, Double>> sexSpecificMigration) {
+    public double ruralUrbanProjectOtherCohortPopulation(int age, int year, double currentYearPopulation, Map<Integer, Map<Integer, Double>> sexSpecificMortality, Map<Integer, Map<Integer, Double>> sexSpecificMigration) {
         double nextYearPopulation;
         if (projectionParameters.getMigrationFormat() == 0) { //absolute migration
             nextYearPopulation = (currentYearPopulation - 0.5 * projectDeaths(age, year, currentYearPopulation, sexSpecificMortality)
@@ -1284,7 +1291,7 @@ public class PopulationProjector {
     }
 
     //Projects population of the oldest cohort in next year
-    public static double ruralUrbanProjectRemainingOldestCohortPopulation(int oldestCohortAge, int year, double currentYearOldestCohortPopulation, Map<Integer, Map<Integer, Double>> sexSpecificMortality, Map<Integer, Map<Integer, Double>> sexSpecificMigration) {
+    public double ruralUrbanProjectRemainingOldestCohortPopulation(int oldestCohortAge, int year, double currentYearOldestCohortPopulation, Map<Integer, Map<Integer, Double>> sexSpecificMortality, Map<Integer, Map<Integer, Double>> sexSpecificMigration) {
         double nextYearPersistentPopulation;
         if (projectionParameters.getMigrationFormat() == 0) { //absolute migration
             nextYearPersistentPopulation = (currentYearOldestCohortPopulation - 0.5 * projectDeaths(oldestCohortAge, year, currentYearOldestCohortPopulation, sexSpecificMortality)
@@ -1299,7 +1306,7 @@ public class PopulationProjector {
     }
 
     //RUP (rural urban projection) is made based on US Census Bureau methods for Pop(t + 1, age 1)
-    public static double ruralUrbanProjectAgeZeroPopulation(int year, double currentYearPopulation, double currentYearBirths, double nextYearBirths,
+    public double ruralUrbanProjectAgeZeroPopulation(int year, double currentYearPopulation, double currentYearBirths, double nextYearBirths,
                                                            Map<Integer, Double> sexSpecificInfantSeparationFactor, Map<Integer, Map<Integer, Double>> sexSpecificMortality, Map<Integer, Map<Integer, Double>> sexSpecificMigration) {
         double nextYearAgeOnePopulation;
         if (projectionParameters.getMigrationFormat() == 0) { //absolute migration
@@ -1316,7 +1323,7 @@ public class PopulationProjector {
     }
 
     //RUP (rural urban projection) is made based on US Census Bureau methods for Pop(t + 1, age 1)
-    public static double ruralUrbanProjectAgeOnePopulation(int year, double currentYearAgeZeroPopulation, double nextYearAgeZeroPopulation,
+    public double ruralUrbanProjectAgeOnePopulation(int year, double currentYearAgeZeroPopulation, double nextYearAgeZeroPopulation,
                                                            Map<Integer, Double> sexSpecificInfantSeparationFactor, Map<Integer, Map<Integer, Double>> sexSpecificMortality, Map<Integer, Map<Integer, Double>> sexSpecificMigration) {
         double nextYearAgeOnePopulation;
         if (projectionParameters.getMigrationFormat() == 0) { //absolute migration
@@ -1344,7 +1351,7 @@ public class PopulationProjector {
         return atRiskPopulation * sexSpecificMigration.get(year).get(age);
     }
 
-    public static double projectBirths(int year, Map<Integer, Double> femalePyramid) {
+    public double projectBirths(int year, Map<Integer, Double> femalePyramid) {
         double totalBirths = 0;
         for (int age = 2; age <= projectionParameters.getOldestFertilityCohortAge(); age++) { //no records of births before age 5
             totalBirths += femalePyramid.get(age) * projectionParameters.getSpecificFertility(year, age);
@@ -1355,7 +1362,6 @@ public class PopulationProjector {
     //Mean proportion of surviving live births from surviving through a to b months ago with constant birth rate; a < b <= 11
     //Using https://www150.statcan.gc.ca/t1/tbl1/en/tv.action?pid=1310071301 or https://www150.statcan.gc.ca/t1/tbl1/en/tv.action?pid=1310007801&pickMembers%5B0%5D=2.1&pickMembers%5B1%5D=4.2&cubeTimeFrame.startYear=2000&cubeTimeFrame.endYear=2015&referencePeriods=20000101%2C20150101
     public static double meanInfantSurvival(String sex, int year, double a, double b) {
-
         return 0.0;
     }
 }

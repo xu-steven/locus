@@ -65,42 +65,29 @@ public class PopulationCalculator {
         return outputArray;
     }
 
-    //calculate area under curve of infant cumulative mortality between startAge and endAge (in months)
-    public static double integralOfCumulativeMortality(double startAge, double endAge, Map<Double, Double> infantCM) {
-        //Start age = end age = 12.
-        if (startAge == 12) {
-            return infantCM.get(12);
+    //Exact integral of cubic spline approximation based on Map of points in R2. Simpson's rule is exact on cubic with xCount 3.
+    public static double integrateCubicSpline(Map<Double, Double> map, double lowerBound, double upperBound) {
+        PolynomialSplineFunction interpolatedCubicSpline = mapToCubicSpline(map);
+        double[] knotPoints = interpolatedCubicSpline.getKnots();
+
+        //Get left, midpoint, and right values between each pair of knot points. These are representative values for each cubic function between knot points for Simpson's rule.
+        double[][] cubicPointValues = new double[knotPoints.length - 1][3];
+        for (int i = 0; i < knotPoints.length - 1; i++) {
+            //ith cubic polynomial
+            cubicPointValues[i][0] = interpolatedCubicSpline.value(knotPoints[i]);
+            cubicPointValues[i][1] = interpolatedCubicSpline.value((knotPoints[i] + knotPoints[i + 1]) / 2);
+            cubicPointValues[i][2] = interpolatedCubicSpline.value(knotPoints[i + 1]);
         }
-        //Otherwise
-        int bestLowerBoundStartAgeIndex = 0;
-        int bestLowerBoundEndAgeIndex = 0;
-        List<Double> orderedAges = new ArrayList<>(infantCM.keySet());
-        Collections.sort(orderedAges);
-        for (int i = 0; i < orderedAges.size(); i++) {
-            if (orderedAges.get(i) <= startAge) {
-                bestLowerBoundStartAgeIndex = i;
-            }
-            if (orderedAges.get(i) <= endAge) {
-                bestLowerBoundEndAgeIndex = i;
-            }
+
+        //Apply Simpson's rule
+        double numericalIntegral = 0;
+        for (int i = 0; i < cubicPointValues.length; i++) {
+            numericalIntegral += simpsonIntegral(cubicPointValues[i], knotPoints[i], knotPoints[i + 1], 3);
         }
-        double estimatedStartingCM = infantCM.get(orderedAges.get(bestLowerBoundStartAgeIndex)) +
-                (infantCM.get(orderedAges.get(bestLowerBoundStartAgeIndex + 1)) - infantCM.get(orderedAges.get(bestLowerBoundStartAgeIndex))) *
-                        ((startAge - orderedAges.get(bestLowerBoundStartAgeIndex)) / (orderedAges.get(bestLowerBoundStartAgeIndex + 1) - orderedAges.get(bestLowerBoundStartAgeIndex)));
-        double areaUnderInfantCMCurve = (estimatedStartingCM + infantCM.get(orderedAges.get(bestLowerBoundStartAgeIndex + 1))) / 2 * (orderedAges.get(bestLowerBoundStartAgeIndex + 1) - startAge);
-        for (int i = bestLowerBoundStartAgeIndex + 1; i < bestLowerBoundEndAgeIndex; i++) {
-            areaUnderInfantCMCurve += (infantCM.get(orderedAges.get(bestLowerBoundStartAgeIndex)) + infantCM.get(orderedAges.get(bestLowerBoundStartAgeIndex + 1))) / 2 * (orderedAges.get(bestLowerBoundStartAgeIndex + 1) - orderedAges.get(bestLowerBoundStartAgeIndex));
-        }
-        if (endAge < 12) {
-            double estimatedEndingCM = infantCM.get(orderedAges.get(bestLowerBoundEndAgeIndex)) +
-                    (infantCM.get(orderedAges.get(bestLowerBoundEndAgeIndex + 1)) - infantCM.get(orderedAges.get(bestLowerBoundEndAgeIndex))) *
-                            ((endAge - orderedAges.get(bestLowerBoundEndAgeIndex)) / (orderedAges.get(bestLowerBoundEndAgeIndex + 1) - orderedAges.get(bestLowerBoundEndAgeIndex)));
-            areaUnderInfantCMCurve += (infantCM.get(orderedAges.get(bestLowerBoundStartAgeIndex)) + estimatedEndingCM) / 2 * (endAge - orderedAges.get(bestLowerBoundStartAgeIndex));
-        }
-        return areaUnderInfantCMCurve;
+        return numericalIntegral;
     }
 
-    //Computes integral using a function represented by map: (age in months -> cumulative mortality by that age)
+    //Computes integral using a function represented by array[] with xCount estimates of points in domain [lowerBound, upperBound]
     public static double simpsonIntegral(double[] function, double lowerBound, double upperBound, int xCount) {
         double numericalIntegral = 0;
         for (int i = 0; i < xCount; i++) {

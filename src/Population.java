@@ -2,12 +2,12 @@ import java.util.*;
 
 public class Population {
     //Current year
-    public static int year;
+    public int year;
 
     //Adjusted map age -> population with 1 year age increments, with final year including all >= that age
-    public static Map<Integer, Double> malePyramid;
-    public static Map<Integer, Double> femalePyramid;
-    static int oldestPyramidCohortAge;
+    public Map<Integer, Double> malePyramid;
+    public Map<Integer, Double> femalePyramid;
+    public int oldestPyramidCohortAge;
 
     public Population(int year, Map<Integer, Double> malePyramid, Map<Integer, Double> femalePyramid, int oldestPyramidCohortAge) {
         this.year = year;
@@ -15,6 +15,7 @@ public class Population {
         this.femalePyramid = femalePyramid;
         this.oldestPyramidCohortAge = oldestPyramidCohortAge;
     }
+
     public Population(int year, List<String> ageAndSexGroups, double[] populationByAgeAndSexGroup,
                       Map<Integer, Map<Integer, Double>> maleMortality, Map<Integer, Map<Integer, Double>> femaleMortality,
                       Map<Integer, Map<Integer, Double>> maleMigration, Map<Integer, Map<Integer, Double>> femaleMigration, int migrationFormat,
@@ -34,11 +35,13 @@ public class Population {
                 femaleRawPyramid.put(Arrays.asList(sexAgeInfo.get(1), sexAgeInfo.get(2)), populationByAgeAndSexGroup[i]);
             }
         }
+
         //Convert to 1 year increments of age with final year including all >= that age
         this.malePyramid = adjustRawPyramid(maleRawPyramid, maleMortality.get(year), maleMigration.get(year), migrationFormat, maleInfantSeparationFactor.get(year));
         this.femalePyramid = adjustRawPyramid(femaleRawPyramid, femaleMortality.get(year), femaleMigration.get(year), migrationFormat, femaleInfantSeparationFactor.get(year));
     }
 
+    //Converts raw pyramid with age ranges List<Integer> into 1 year age increments with interpolation based on mortality and migration
     public Map<Integer, Double> adjustRawPyramid(Map<List<Integer>, Double> rawPyramid, Map<Integer, Double> mortality, Map<Integer, Double> migration, int migrationFormat, Double infantSeparationFactor) {
         Map<Integer, Double> adjustedPyramid = new HashMap<>();
         for (List<Integer> ageBounds : rawPyramid.keySet()) {
@@ -194,7 +197,7 @@ public class Population {
         return remadePyramid;
     }
 
-    public static int getYear() {
+    public int getYear() {
         return year;
     }
 
@@ -206,7 +209,7 @@ public class Population {
         return femalePyramid;
     }
 
-    public static int getOldestPyramidCohortAge() {
+    public int getOldestPyramidCohortAge() {
         return oldestPyramidCohortAge;
     }
 
@@ -220,7 +223,7 @@ public class Population {
         return oldestCohortAge;
     }
 
-    public static int getTotalPopulation() {
+    public int getTotalPopulation() {
         int population = 0;
         for (int age : malePyramid.keySet()) {
             population += malePyramid.get(age);
