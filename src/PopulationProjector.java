@@ -1364,4 +1364,5 @@ public class PopulationProjector {
     public static double meanInfantSurvival(String sex, int year, double a, double b) {
         return 0.0;
     }
+
 }
