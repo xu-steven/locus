@@ -53,7 +53,7 @@ public class PopulationProjector {
         //System.out.println(PopulationCalculator.simpsonIntegral(singleMortalityArray, 0, 1, 10000));
         //System.out.println(PopulationCalculator.doubleSimpsonIntegral(infantMortality, lowerBoundX, upperBoundX, 10000, lowerBoundY, upperBoundY, 10000));
 
-        Population yearOnePopulation = projector.projectNextYearPopulation(initialPopulation);
+        Population yearOnePopulation = projector.projectNextYearPopulationWithMigrationCount(initialPopulation);
         executor.shutdown();
     }
 
@@ -63,7 +63,7 @@ public class PopulationProjector {
     }
 
     //When previous year population is not known
-    public Population projectNextYearPopulation(Population currentYearPopulation) {
+    public Population projectNextYearPopulationWithMigrationCount(Population currentYearPopulation) {
         int year = currentYearPopulation.getYear();
         Map<Integer, Double> currentMalePyramid = currentYearPopulation.getMalePyramid();
         Map<Integer, Double> currentFemalePyramid = currentYearPopulation.getFemalePyramid();
@@ -118,7 +118,7 @@ public class PopulationProjector {
     }
 
     //When previous year population is known
-    public Population projectNextYearPopulation(Population currentYearPopulation, Population lastYearPopulation) {
+    public Population projectNextYearPopulationWithMigrationCount(Population currentYearPopulation, Population lastYearPopulation) {
         int year = currentYearPopulation.getYear();
         Map<Integer, Double> currentMalePyramid = currentYearPopulation.getMalePyramid();
         Map<Integer, Double> currentFemalePyramid = currentYearPopulation.getFemalePyramid();
@@ -334,17 +334,21 @@ public class PopulationProjector {
     public static double projectOtherCohortPopulation(int age, int year, double currentYearAgePopulation, Map<Integer, Map<Integer, Double>> sexSpecificMortality, Map<Integer, Map<Integer, Double>> sexSpecificMigration) {
         //Surviving age + 0 to 0.5
         double survivingPopulation = PopulationCalculator.simpsonIntegral(
-                PopulationCalculator.multiplyArrays(PopulationCalculator.estimatePopulationAgeWeights(year, age, sexSpecificMortality, 0, 0.5, singleXCount),
+                PopulationCalculator.multiplyArrays(
+                        PopulationCalculator.estimatePopulationAgeWeights(year, age, sexSpecificMortality, 0, 0.5, singleXCount),
                         PopulationCalculator.createConstantArray(Math.pow(1 - sexSpecificMortality.get(year).get(age), 0.5), singleXCount), //can be taken out of integral for performance
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(age), "0.5 - x", 0, 0.5, singleXCount),
-                        PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(age + 1), "x", 0, 0.5, singleXCount)),
+                        PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(age + 1), "x", 0, 0.5, singleXCount)
+                ),
                 0, 0.5, singleXCount);
         //Surviving age + 0.5 to 1
         survivingPopulation += PopulationCalculator.simpsonIntegral(
-                PopulationCalculator.multiplyArrays(PopulationCalculator.estimatePopulationAgeWeights(year, age, sexSpecificMortality, 0.5, 1, singleXCount),
+                PopulationCalculator.multiplyArrays(
+                        PopulationCalculator.estimatePopulationAgeWeights(year, age, sexSpecificMortality, 0.5, 1, singleXCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(age), "1 - x", 0.5, 1, singleXCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(age + 1), "x - 0.5", 0.5, 1, singleXCount),
-                        PopulationCalculator.createConstantArray(Math.pow(1 - sexSpecificMortality.get(year + 1).get(age + 1), 0.5), singleXCount)), //can be taken out of integral for performance
+                        PopulationCalculator.createConstantArray(Math.pow(1 - sexSpecificMortality.get(year + 1).get(age + 1), 0.5), singleXCount)
+                ), //can be taken out of integral for performance
                 0.5, 1, singleXCount);
         //Adjust for weight
         survivingPopulation *= currentYearAgePopulation;
@@ -440,17 +444,21 @@ public class PopulationProjector {
     public static double[] projectOtherCohortPopulation(int age, int year, double[] nextYearAgePopulation, double currentYearAgePopulation, double currentYearAgePlusOnePopulation, Map<Integer, Map<Integer, Double>> sexSpecificMortality, Map<Integer, Map<Integer, Double>> sexSpecificMigration) {
         //Surviving age + 0 to 0.5
         double survivingPopulation = PopulationCalculator.simpsonIntegral(
-                PopulationCalculator.multiplyArrays(PopulationCalculator.estimatePopulationAgeWeights(year, age, sexSpecificMortality, 0, 0.5, singleXCount),
+                PopulationCalculator.multiplyArrays(
+                        PopulationCalculator.estimatePopulationAgeWeights(year, age, sexSpecificMortality, 0, 0.5, singleXCount),
                         PopulationCalculator.createConstantArray(Math.pow(1 - sexSpecificMortality.get(year).get(age), 0.5), singleXCount), //can be taken out of integral for performance
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(age), "0.5 - x", 0, 0.5, singleXCount),
-                        PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(age + 1), "x", 0, 0.5, singleXCount)),
+                        PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(age + 1), "x", 0, 0.5, singleXCount)
+                ),
                 0, 0.5, singleXCount);
         //Surviving age + 0.5 to 1
         survivingPopulation += PopulationCalculator.simpsonIntegral(
-                PopulationCalculator.multiplyArrays(PopulationCalculator.estimatePopulationAgeWeights(year, age, sexSpecificMortality, 0.5, 1, singleXCount),
+                PopulationCalculator.multiplyArrays(
+                        PopulationCalculator.estimatePopulationAgeWeights(year, age, sexSpecificMortality, 0.5, 1, singleXCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(age), "1 - x", 0.5, 1, singleXCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(age + 1), "x - 0.5", 0.5, 1, singleXCount),
-                        PopulationCalculator.createConstantArray(Math.pow(1 - sexSpecificMortality.get(year + 1).get(age + 1), 0.5), singleXCount)), //can be taken out of integral for performance
+                        PopulationCalculator.createConstantArray(Math.pow(1 - sexSpecificMortality.get(year + 1).get(age + 1), 0.5), singleXCount)
+                ), //can be taken out of integral for performance
                 0.5, 1, singleXCount);
         //Adjust for weight
         survivingPopulation *= currentYearAgePopulation;
@@ -554,17 +562,21 @@ public class PopulationProjector {
     public static double projectOldestCohortPopulation(int oldestCohortAge, int year, double currentYearSecondOldestCohortPopulation, double currentYearOldestCohortPopulation, Map<Integer, Map<Integer, Double>> sexSpecificMortality, Map<Integer, Map<Integer, Double>> sexSpecificMigration) {
         //Surviving (oldestCohortAge - 1) + 0 to 0.5
         double survivingPopulation = PopulationCalculator.simpsonIntegral(
-                PopulationCalculator.multiplyArrays(PopulationCalculator.estimatePopulationAgeWeights(year, oldestCohortAge - 1, sexSpecificMortality, 0, 0.5, singleXCount),
+                PopulationCalculator.multiplyArrays(
+                        PopulationCalculator.estimatePopulationAgeWeights(year, oldestCohortAge - 1, sexSpecificMortality, 0, 0.5, singleXCount),
                         PopulationCalculator.createConstantArray(Math.pow(1 - sexSpecificMortality.get(year).get(oldestCohortAge - 1), 0.5), singleXCount), //can be taken out of integral for performance
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(oldestCohortAge - 1), "0.5 - x", 0, 0.5, singleXCount),
-                        PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(oldestCohortAge), "x", 0, 0.5, singleXCount)),
+                        PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(oldestCohortAge), "x", 0, 0.5, singleXCount)
+                ),
                 0, 0.5, singleXCount);
         //Surviving (oldestCohortAge - 1) + 0.5 to 1
         survivingPopulation += PopulationCalculator.simpsonIntegral(
-                PopulationCalculator.multiplyArrays(PopulationCalculator.estimatePopulationAgeWeights(year, oldestCohortAge - 1, sexSpecificMortality, 0.5, 1, singleXCount),
+                PopulationCalculator.multiplyArrays(
+                        PopulationCalculator.estimatePopulationAgeWeights(year, oldestCohortAge - 1, sexSpecificMortality, 0.5, 1, singleXCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(oldestCohortAge), "1 - x", 0.5, 1, singleXCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(oldestCohortAge), "x - 0.5", 0.5, 1, singleXCount),
-                        PopulationCalculator.createConstantArray(Math.pow(1 - sexSpecificMortality.get(year + 1).get(oldestCohortAge), 0.5), singleXCount)), //can be taken out of integral for performance
+                        PopulationCalculator.createConstantArray(Math.pow(1 - sexSpecificMortality.get(year + 1).get(oldestCohortAge), 0.5), singleXCount)
+                ), //can be taken out of integral for performance
                 0.5, 1, singleXCount);
         //Adjust for weight
         survivingPopulation *= currentYearSecondOldestCohortPopulation;
@@ -663,17 +675,21 @@ public class PopulationProjector {
     public static double[] projectOldestCohortPopulation(int oldestCohortAge, int year, double[] nextYearSecondOldestCohortPopulation, double currentYearSecondOldestCohortPopulation, double currentYearOldestCohortPopulation, Map<Integer, Map<Integer, Double>> sexSpecificMortality, Map<Integer, Map<Integer, Double>> sexSpecificMigration) {
         //Surviving (oldestCohortAge - 1) + 0 to 0.5
         double survivingPopulation = PopulationCalculator.simpsonIntegral(
-                PopulationCalculator.multiplyArrays(PopulationCalculator.estimatePopulationAgeWeights(year, oldestCohortAge - 1, sexSpecificMortality, 0, 0.5, singleXCount),
+                PopulationCalculator.multiplyArrays(
+                        PopulationCalculator.estimatePopulationAgeWeights(year, oldestCohortAge - 1, sexSpecificMortality, 0, 0.5, singleXCount),
                         PopulationCalculator.createConstantArray(Math.pow(1 - sexSpecificMortality.get(year).get(oldestCohortAge - 1), 0.5), singleXCount), //can be taken out of integral for performance
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(oldestCohortAge - 1), "0.5 - x", 0, 0.5, singleXCount),
-                        PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(oldestCohortAge), "x", 0, 0.5, singleXCount)),
+                        PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(oldestCohortAge), "x", 0, 0.5, singleXCount)
+                ),
                 0, 0.5, singleXCount);
         //Surviving (oldestCohortAge - 1) + 0.5 to 1
         survivingPopulation += PopulationCalculator.simpsonIntegral(
-                PopulationCalculator.multiplyArrays(PopulationCalculator.estimatePopulationAgeWeights(year, oldestCohortAge - 1, sexSpecificMortality, 0.5, 1, singleXCount),
+                PopulationCalculator.multiplyArrays(
+                        PopulationCalculator.estimatePopulationAgeWeights(year, oldestCohortAge - 1, sexSpecificMortality, 0.5, 1, singleXCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(oldestCohortAge), "1 - x", 0.5, 1, singleXCount),
                         PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(oldestCohortAge), "x - 0.5", 0.5, 1, singleXCount),
-                        PopulationCalculator.createConstantArray(Math.pow(1 - sexSpecificMortality.get(year + 1).get(oldestCohortAge), 0.5), singleXCount)), //can be taken out of integral for performance
+                        PopulationCalculator.createConstantArray(Math.pow(1 - sexSpecificMortality.get(year + 1).get(oldestCohortAge), 0.5), singleXCount)
+                ), //can be taken out of integral for performance
                 0.5, 1, singleXCount);
         //Adjust for weight
         survivingPopulation *= currentYearSecondOldestCohortPopulation;
@@ -779,12 +795,18 @@ public class PopulationProjector {
     //Project age zero population using migration counts, infant CM curve.
     public static double projectAgeZeroPopulation(int year, double currentYearAgeZeroPopulation, double currentYearBirths, double nextYearBirths, Map<Integer, Map<Double, Double>> sexSpecificInfantCumulativeMortality, Map<Integer, Map<Integer, Double>> sexSpecificMigration) {
         //Project surviving births
-        double survivingCurrentYearBirths = currentYearBirths * (PopulationCalculator.integrateCubicSpline(sexSpecificInfantCumulativeMortality.get(year), 0, 6)
-                + PopulationCalculator.integrateCubicSpline(sexSpecificInfantCumulativeMortality.get(year + 1), 6, 12) - PopulationCalculator.integrateCubicSpline(sexSpecificInfantCumulativeMortality.get(year + 1), 0, 6)) / 6;
-
-        //double survivingCurrentYearBirths = currentYearBirths * (PopulationCalculator.integralOfCumulativeMortality(0, 6, sexSpecificInfantCumulativeMortality.get(year))
-                //+ PopulationCalculator.integralOfCumulativeMortality(6, 12, sexSpecificInfantCumulativeMortality.get(year + 1)) - PopulationCalculator.integralOfCumulativeMortality(0, 6, sexSpecificInfantCumulativeMortality.get(year + 1))) / 6;
-        double survivingNextYearBirths = nextYearBirths * PopulationCalculator.integrateCubicSpline(sexSpecificInfantCumulativeMortality.get(year + 1), 0,6);
+        double survivingCurrentYearBirths = 0.5 * currentYearBirths
+                * PopulationCalculator.simpsonIntegral(
+                        PopulationCalculator.multiplyArrays(
+                            PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year), "x", 0, 6, singleXCount)),
+                            PopulationCalculator.divideArrays(
+                                    PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year + 1), "x + 6", 0, 6, singleXCount)),
+                                    PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year + 1), "x", 0, 6, singleXCount))
+                            )
+                        ),
+                        0, 6, singleXCount) / 6;
+        double survivingNextYearBirths = 0.5 * nextYearBirths
+                * PopulationCalculator.integrateCubicSpline(sexSpecificInfantCumulativeMortality.get(year + 1), 0,6) / 6;
 
         //Project next year migrant death rates
         //Current year
@@ -820,10 +842,18 @@ public class PopulationProjector {
     //Project age zero population using migration rates. Requires infant CM curve.
     public static double[] projectAgeZeroPopulation(int year, double currentYearAgeZeroPopulation, double currentYearBirths, double[] nextYearBirths, Map<Integer, Map<Double, Double>> sexSpecificInfantCumulativeMortality, Map<Integer, Map<Integer, Double>> sexSpecificMigration) {
         //Project surviving births
-        double survivingCurrentYearBirths = currentYearBirths * (PopulationCalculator.integrateCubicSpline(sexSpecificInfantCumulativeMortality.get(year), 0, 6)
-                + PopulationCalculator.integrateCubicSpline(sexSpecificInfantCumulativeMortality.get(year + 1), 6, 12) - PopulationCalculator.integrateCubicSpline( sexSpecificInfantCumulativeMortality.get(year + 1), 0, 6)) / 6;
-        double survivingNextYearBirthsVariable = nextYearBirths[0] * PopulationCalculator.integrateCubicSpline(sexSpecificInfantCumulativeMortality.get(year + 1), 0,6);
-        double survivingNextYearBirthsConstant = nextYearBirths[1] * PopulationCalculator.integrateCubicSpline(sexSpecificInfantCumulativeMortality.get(year + 1), 0,6);
+        double survivingCurrentYearBirths = 0.5 * currentYearBirths
+                * PopulationCalculator.simpsonIntegral(
+                        PopulationCalculator.multiplyArrays(
+                            PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year), "x", 0, 6, singleXCount)),
+                            PopulationCalculator.divideArrays(
+                                    PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year + 1), "x + 6", 0, 6, singleXCount)),
+                                    PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year + 1), "x", 0, 6, singleXCount))
+                            )
+                        ),
+                        0, 6, singleXCount) / 6;
+        double survivingNextYearBirthsVariable = 0.5 * nextYearBirths[0] * PopulationCalculator.integrateCubicSpline(sexSpecificInfantCumulativeMortality.get(year + 1), 0,6) / 6;
+        double survivingNextYearBirthsConstant = 0.5 * nextYearBirths[1] * PopulationCalculator.integrateCubicSpline(sexSpecificInfantCumulativeMortality.get(year + 1), 0,6) / 6;
 
         //Project next year migrant death rates
         //Current year
@@ -863,19 +893,29 @@ public class PopulationProjector {
     //Project age one population using migration counts, infant CM.
     public static double projectAgeOnePopulation(int year, double lastYearAgeOnePopulation, double currentYearAgeOnePopulation, double lastYearBirths, double currentYearBirths,
                                                  Map<Integer, Map<Double, Double>> sexSpecificInfantCumulativeMortality, Map<Integer, Map<Integer, Double>> sexSpecificMortality, Map<Integer, Map<Integer, Double>> sexSpecificMigration) {
-        double survivingLastYearBirths = lastYearBirths * PopulationCalculator.simpsonIntegral(
-                PopulationCalculator.multiplyArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year - 1), "x", 0, 6, singleXCount)),
-                        PopulationCalculator.divideArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year), "12", 0, 6, singleXCount)),
-                                PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year), "x", 0, 6, singleXCount))),
-                        PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(1), "0.0833333333333x", 0, 6, singleXCount),
-                        PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(1), "0.5", 0, 6, singleXCount)),
-                0, 6, singleXCount) / 6;
-        double survivingCurrentYearBirths = currentYearBirths * PopulationCalculator.simpsonIntegral(
-                PopulationCalculator.multiplyArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year), "x", 6, 12, singleXCount)),
-                        PopulationCalculator.divideArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year + 1), "12", 6, 12, singleXCount)),
-                                PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year + 1), "x", 6, 12, singleXCount))),
-                        PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(1), "0.0833333333333x - 0.833333333333y + 0.5", 6, 12, singleXCount)),
-                6, 12, singleXCount) / 6;
+        double survivingLastYearBirths = 0.5 * lastYearBirths
+                * PopulationCalculator.simpsonIntegral(
+                    PopulationCalculator.multiplyArrays(
+                            PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year - 1), "x", 0, 6, singleXCount)),
+                            PopulationCalculator.divideArrays(
+                                    PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year), "12", 0, 6, singleXCount)),
+                                    PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year), "x", 0, 6, singleXCount))
+                            ),
+                            PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(1), "0.0833333333333x", 0, 6, singleXCount),
+                            PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(1), "0.5", 0, 6, singleXCount)
+                    ),
+                    0, 6, singleXCount) / 6;
+        double survivingCurrentYearBirths = 0.5 * currentYearBirths
+                * PopulationCalculator.simpsonIntegral(
+                    PopulationCalculator.multiplyArrays(
+                            PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year), "x", 6, 12, singleXCount)),
+                            PopulationCalculator.divideArrays(
+                                    PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year + 1), "12", 6, 12, singleXCount)),
+                                    PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year + 1), "x", 6, 12, singleXCount))
+                            ),
+                            PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(1), "0.0833333333333x - 0.833333333333y + 0.5", 6, 12, singleXCount)
+                    ),
+                    6, 12, singleXCount) / 6;
 
         //Project next year migrant death rates
         //Previous year age 0 migrants
@@ -1057,19 +1097,29 @@ public class PopulationProjector {
     //Project age one population using migration counts, infant CM.
     public static double[] projectAgeOnePopulation(int year, double[] nextYearAgeZeroPopulation, double lastYearAgeZeroPopulation, double currentYearAgeZeroPopulation, double currentYearAgeOnePopulation, double lastYearBirths, double currentYearBirths,
                                                  Map<Integer, Map<Double, Double>> sexSpecificInfantCumulativeMortality, Map<Integer, Map<Integer, Double>> sexSpecificMortality, Map<Integer, Map<Integer, Double>> sexSpecificMigration) {
-        double survivingLastYearBirths = lastYearBirths * PopulationCalculator.simpsonIntegral(
-                PopulationCalculator.multiplyArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year - 1), "x", 0, 6, singleXCount)),
-                        PopulationCalculator.divideArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year), "12", 0, 6, singleXCount)),
-                                PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year), "x", 0, 6, singleXCount))),
-                        PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(1), "0.0833333333333x", 0, 6, singleXCount),
-                        PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(1), "0.5", 0, 6, singleXCount)),
-                0, 6, singleXCount) / 6;
-        double survivingCurrentYearBirths = currentYearBirths * PopulationCalculator.simpsonIntegral(
-                PopulationCalculator.multiplyArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year), "x", 6, 12, singleXCount)),
-                        PopulationCalculator.divideArrays(PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year + 1), "12", 6, 12, singleXCount)),
-                                PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year + 1), "x", 6, 12, singleXCount))),
-                        PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(1), "0.0833333333333x - 0.833333333333y + 0.5", 6, 12, singleXCount)),
-                6, 12, singleXCount) / 6;
+        double survivingLastYearBirths = 0.5 * lastYearBirths *
+                PopulationCalculator.simpsonIntegral(
+                    PopulationCalculator.multiplyArrays(
+                            PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year - 1), "x", 0, 6, singleXCount)),
+                            PopulationCalculator.divideArrays(
+                                    PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year), "12", 0, 6, singleXCount)),
+                                    PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year), "x", 0, 6, singleXCount))
+                            ),
+                            PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year).get(1), "0.0833333333333x", 0, 6, singleXCount),
+                            PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(1), "0.5", 0, 6, singleXCount)
+                    ),
+                    0, 6, singleXCount) / 6;
+        double survivingCurrentYearBirths = 0.5 * currentYearBirths *
+                PopulationCalculator.simpsonIntegral(
+                    PopulationCalculator.multiplyArrays(
+                            PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year), "x", 6, 12, singleXCount)),
+                            PopulationCalculator.divideArrays(
+                                    PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year + 1), "12", 6, 12, singleXCount)),
+                                    PopulationCalculator.subtractArrays(PopulationCalculator.createConstantArray(1, singleXCount), PopulationCalculator.mapToArray(sexSpecificInfantCumulativeMortality.get(year + 1), "x", 6, 12, singleXCount))
+                            ),
+                            PopulationCalculator.exponentiateArray(1 - sexSpecificMortality.get(year + 1).get(1), "0.0833333333333x - 0.833333333333y + 0.5", 6, 12, singleXCount)
+                    ),
+                    6, 12, singleXCount) / 6;
 
         //Project next year migrant death rates
         //Previous year age 0 migrants
@@ -1364,5 +1414,4 @@ public class PopulationProjector {
     public static double meanInfantSurvival(String sex, int year, double a, double b) {
         return 0.0;
     }
-
 }
