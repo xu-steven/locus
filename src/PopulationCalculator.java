@@ -19,7 +19,18 @@ public class PopulationCalculator {
             PopulationProjector.executor.execute(() -> {
                 for (int j : partitionedXCount.get(finalI)) {
                     double x = lowerBound + (upperBound - lowerBound) * j / ((double) xCount - 1);
-                    outputArray[j] = interpolatedCubicSpline.value(compositeFunctionCoefficients[0] * x + compositeFunctionCoefficients[2]); //computeComposition(map, compositeFunction, x, 0);
+                    try {
+                        outputArray[j] = interpolatedCubicSpline.value(compositeFunctionCoefficients[0] * x + compositeFunctionCoefficients[2]); //computeComposition(map, compositeFunction, x, 0);
+                    } catch (Exception e) { //allow minor rounding issues
+                        double v = compositeFunctionCoefficients[0] * x + compositeFunctionCoefficients[2];
+                        if (v < interpolatedCubicSpline.getKnots()[0] && v - interpolatedCubicSpline.getKnots()[0] > -0.001) {
+                            outputArray[j] = interpolatedCubicSpline.value(interpolatedCubicSpline.getKnots()[0]);
+                        } else if (v > interpolatedCubicSpline.getKnots()[interpolatedCubicSpline.getKnots().length - 1] && v - interpolatedCubicSpline.getKnots()[interpolatedCubicSpline.getKnots().length - 1] < 0.001) {
+                            outputArray[j] = interpolatedCubicSpline.value(interpolatedCubicSpline.getKnots()[interpolatedCubicSpline.getKnots().length - 1]);
+                        } else {
+                            throw e;
+                        }
+                    }
                 }
                 latch.countDown();
             });
@@ -51,7 +62,18 @@ public class PopulationCalculator {
                     double upperX = upperBoundXCoefficients[0] * y + upperBoundXCoefficients[1];
                     for (int k = 0; k < xCount; k++) {
                         double x = lowerX + (upperX - lowerX) * k / ((double) xCount - 1);
-                        outputArray[k][j] = interpolatedCubicSpline.value(compositeFunctionCoefficients[0] * x + compositeFunctionCoefficients[1] * y + compositeFunctionCoefficients[2]); //computeComposition(map, compositeFunction, x, y);
+                        try {
+                            outputArray[k][j] = interpolatedCubicSpline.value(compositeFunctionCoefficients[0] * x + compositeFunctionCoefficients[1] * y + compositeFunctionCoefficients[2]); //computeComposition(map, compositeFunction, x, y);
+                        } catch (Exception e) { //allow minor rounding issues
+                            double v = compositeFunctionCoefficients[0] * x + compositeFunctionCoefficients[1] * y + compositeFunctionCoefficients[2];
+                            if (v < interpolatedCubicSpline.getKnots()[0] && v - interpolatedCubicSpline.getKnots()[0] > -0.001) {
+                                outputArray[k][j] = interpolatedCubicSpline.value(interpolatedCubicSpline.getKnots()[0]);
+                            } else if (v > interpolatedCubicSpline.getKnots()[interpolatedCubicSpline.getKnots().length - 1] && v - interpolatedCubicSpline.getKnots()[interpolatedCubicSpline.getKnots().length - 1] < 0.001) {
+                                outputArray[k][j] = interpolatedCubicSpline.value(interpolatedCubicSpline.getKnots()[interpolatedCubicSpline.getKnots().length - 1]);
+                            } else {
+                                throw e;
+                            }
+                        }
                     }
                 }
                 latch.countDown();
