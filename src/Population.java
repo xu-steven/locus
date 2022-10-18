@@ -57,7 +57,7 @@ public class Population {
     //If population pyramid is not given in 1 year age groups, then estimates one year age groups by using mortality. Assumes steady state population.
     public Map<Integer, Double> refineAgeGroups(List<Integer> ageBounds, Double populationSize, Map<Integer, Double> mortality, Map<Integer, Double> migration, int migrationFormat) {
         Map<Integer, Double> refinedPyramid = new HashMap<>();
-        if (migrationFormat == 0) { //total migration
+        if (migrationFormat == 0) { //migration counts
             //Coefficient of multiplicative term in front of initial population when all summed together
             List<Double> relativePopulationByAge = new ArrayList<>();
             Double nextRelativePopulation = 1.0;
@@ -72,7 +72,7 @@ public class Population {
             //Additive term of populations summed together (represents migrants)
             List<Double> migrantsByAge = new ArrayList<>();
             Double nextMigrants = 0.0;
-            migrantsByAge.add(nextRelativePopulation);
+            migrantsByAge.add(nextMigrants);
             Double totalMigrants = 0.0;
             for (int age = ageBounds.get(0); age < ageBounds.get(1); age++) {
                 nextMigrants = (nextMigrants * (1 - 0.5 * mortality.get(age)) + 0.5 * migration.get(age) + 0.5 * migration.get(age + 1)) / (1 + 0.5 * mortality.get(age + 1));
@@ -110,7 +110,7 @@ public class Population {
     //If population pyramid is not given in 1 year age groups, then estimates one year age groups by using mortality. Assumes steady state population.
     public Map<Integer, Double> refineAgeZeroGroups(List<Integer> ageBounds, Double populationSize, Map<Integer, Double> mortality, Map<Integer, Double> migration, int migrationFormat, Double infantSeparationFactor) {
         Map<Integer, Double> refinedPyramid = new HashMap<>();
-        if (migrationFormat == 0) { //total migration
+        if (migrationFormat == 0) { //migration counts
             //Coefficient of multiplicative term in front of initial population when all summed together
             List<Double> relativePopulationByAge = new ArrayList<>();
             Double nextRelativePopulation = 1.0;
@@ -130,7 +130,7 @@ public class Population {
             //Additive term of populations summed together (represents migrants)
             List<Double> migrantsByAge = new ArrayList<>();
             Double nextMigrants = 0.0;
-            migrantsByAge.add(nextRelativePopulation);
+            migrantsByAge.add(nextMigrants);
             Double totalMigrants = 0.0;
             //Compute next relative population for age 0 (i.e. relative age 1 population)
             nextMigrants = (nextMigrants * (1 - infantSeparationFactor * mortality.get(0)) + 0.5 * migration.get(0) + 0.5 * migration.get(1)) / (1 + 0.5 * mortality.get(1));
@@ -223,7 +223,23 @@ public class Population {
         return oldestCohortAge;
     }
 
-    public int getTotalPopulation() {
+    public double getMalePopulation() {
+        int population = 0;
+        for (int age : malePyramid.keySet()) {
+            population += malePyramid.get(age);
+        }
+        return population;
+    }
+
+    public double getFemalePopulation() {
+        int population = 0;
+        for (int age : femalePyramid.keySet()) {
+            population += femalePyramid.get(age);
+        }
+        return population;
+    }
+
+    public double getTotalPopulation() {
         int population = 0;
         for (int age : malePyramid.keySet()) {
             population += malePyramid.get(age);

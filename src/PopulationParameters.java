@@ -30,7 +30,7 @@ public class PopulationParameters {
     private int migrationFormat; //0 if absolute migration numbers, 1 if rates per capita
 
     public PopulationParameters(String mortalityLocation, String infantMortalityLocation, String fertilityLocation, String migrationLocation, String migrationFormat, int oldestPyramidCohortAge) {
-        ParsedEventRates fertilityRates = parseAgeSexHeadingCSV(fertilityLocation, 1.0);
+        ParsedEventRates fertilityRates = parseAgeSexHeadingCSV(fertilityLocation, 1000);
         fertility = fertilityRates.getFemaleRate();
         oldestFertilityCohortAge = fertilityRates.getMaxCohortAge();
 
@@ -38,7 +38,7 @@ public class PopulationParameters {
         for (int year = 2000; year < 3000; year++) {
             sexRatioAtBirth.put(year, 1.05);
         }
-        ParsedCumulativeMortality infantCumulativeMortality = parseCumulativeInfantMortalityCSV(infantMortalityLocation, 1);
+        ParsedCumulativeMortality infantCumulativeMortality = parseCumulativeInfantMortalityCSV(infantMortalityLocation, 1000);
         maleInfantCumulativeMortality = infantCumulativeMortality.getMaleCumulativeMortality();
         femaleInfantCumulativeMortality = infantCumulativeMortality.getFemaleCumulativeMortality();
         maleInfantSeparationFactor = new HashMap<>();
@@ -48,7 +48,7 @@ public class PopulationParameters {
         }
         femaleInfantSeparationFactor = new HashMap<>();
         for (int year = 2000; year < 3000; year++) {
-            femaleInfantSeparationFactor.put(year, 0.235);
+            femaleInfantSeparationFactor.put(year, 0.255);
         }
         ParsedEventRates mortalityRates = parseYearHeadingCSV(mortalityLocation, 1.0);
         maleMortality = mortalityRates.getMaleRate();
