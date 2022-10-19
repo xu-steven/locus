@@ -79,9 +79,9 @@ public class Population {
                 migrantsByAge.add(nextMigrants);
                 totalMigrants += nextMigrants;
             }
-            Double firstCohortPopulation = (populationSize - totalMigrants) / totalRelativePopulation;
 
             //Create a refined pyramid
+            Double firstCohortPopulation = (populationSize - totalMigrants) / totalRelativePopulation;
             refinedPyramid.put(ageBounds.get(0), firstCohortPopulation);
             for (int age = ageBounds.get(0) + 1; age <= ageBounds.get(1); age++) {
                 refinedPyramid.put(age, firstCohortPopulation * relativePopulationByAge.get(age - ageBounds.get(0)) + migrantsByAge.get(age - ageBounds.get(0)));
