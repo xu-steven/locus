@@ -1,3 +1,4 @@
+import groovyjarjarpicocli.CommandLine;
 import org.apache.commons.math3.analysis.interpolation.SplineInterpolator;
 import org.apache.commons.math3.analysis.polynomials.PolynomialSplineFunction;
 
@@ -14,7 +15,11 @@ public class PopulationCalculator {
     public int taskCount;
     public ExecutorService executor;
 
+    //Require monotonic infant mortality spline at expense of C2 interpolation
+    public static boolean requireMonotonicSpline;
+
     public PopulationCalculator(int threadCount, int taskCount) {
+        this.requireMonotonicSpline = false;
         this.threadCount = threadCount;
         this.taskCount = taskCount;
         this.executor = Executors.newFixedThreadPool(threadCount);
@@ -25,7 +30,12 @@ public class PopulationCalculator {
         CountDownLatch latch = new CountDownLatch(taskCount);
         Map<Integer, List<Integer>> partitionedXCount = MultithreadingUtils.orderedPartitionList(IntStream.range(0, xCount).boxed().collect(Collectors.toList()), taskCount);
         double[] outputArray = new double[xCount];
-        PolynomialSplineFunction interpolatedCubicSpline = mapToCubicSpline(map);
+        PolynomialSplineFunction interpolatedCubicSpline;
+        if (requireMonotonicSpline) {
+            interpolatedCubicSpline = mapToCubicSpline(map);
+        } else {
+            interpolatedCubicSpline = mapToCubicSpline(map);
+        }
         double[] compositeFunctionCoefficients = parseCoefficients(compositeFunction);
         for (int i = 0; i < taskCount; i++) {
             int finalI = i;
@@ -226,7 +236,7 @@ public class PopulationCalculator {
     private static double computeComposition(Map<Double, Double> map, String compositeFunction, double x, double y) {
         double[] compositeFunctionCoefficients = parseCoefficients(compositeFunction);
         //linear alternative: return evaluateLinearlyInterpolatedMap(map, compositeFunctionCoefficients[0] * x + compositeFunctionCoefficients[1] * y + compositeFunctionCoefficients[2]);
-        return evaluateCubicSplineInterpolatedMap(map, compositeFunctionCoefficients[0] * x + compositeFunctionCoefficients[1] * y + compositeFunctionCoefficients[2]);
+        return evaluateCubicSplineInterpolation(map, compositeFunctionCoefficients[0] * x + compositeFunctionCoefficients[1] * y + compositeFunctionCoefficients[2]);
     }
 
     //Evaluates map(x) by linear interpolation
@@ -247,8 +257,8 @@ public class PopulationCalculator {
         }
     }
 
-    //Evaluates map(x) by cubic spline interpolation
-    public static double evaluateCubicSplineInterpolatedMap(Map<Double, Double> map, double x) {
+    //Evaluates map(x) by monotonic cubic spline interpolation
+    public static double evaluateCubicSplineInterpolation(Map<Double, Double> map, double x) {
         PolynomialSplineFunction interpolatedSpline = mapToCubicSpline(map);
         return interpolatedSpline.value(x);
     }
@@ -262,8 +272,16 @@ public class PopulationCalculator {
             xValues[i] = sortedKeys.get(i);
             yValues[i] = map.get(sortedKeys.get(i));
         }
-        SplineInterpolator cubicSplineInterpolator = new SplineInterpolator();
-        return cubicSplineInterpolator.interpolate(xValues, yValues);
+
+        PolynomialSplineFunction cubicSpline;
+        if (requireMonotonicSpline) {
+            ConstrainedSplineInterpolator cubicSplineInterpolator = new ConstrainedSplineInterpolator();
+            cubicSpline = cubicSplineInterpolator.interpolate(xValues, yValues);
+        } else {
+            SplineInterpolator cubicSplineInterpolator  = new SplineInterpolator();
+            cubicSpline = cubicSplineInterpolator.interpolate(xValues, yValues);
+        }
+        return cubicSpline;
     }
 
     //Fill array with same value

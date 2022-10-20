@@ -62,7 +62,7 @@ public class IterativePopulationProjector extends PopulationProjector {
         double nextRelativePopulation;
         double totalRelativePopulation = 0;
         for (int subgroup = 0; subgroup < ageSubgroups; subgroup++) {
-            nextRelativePopulation = 1 - PopulationCalculator.evaluateCubicSplineInterpolatedMap(infantMortality, (1 + 2 * subgroup) / (2 * (double) ageSubgroups)); //cubic spline approximation
+            nextRelativePopulation = 1 - PopulationCalculator.evaluateCubicSplineInterpolation(infantMortality, (1 + 2 * subgroup) / (2 * (double) ageSubgroups)); //cubic spline approximation
             relativePopulationBySubgroup.add(nextRelativePopulation);
             totalRelativePopulation += nextRelativePopulation;
         }
@@ -79,12 +79,12 @@ public class IterativePopulationProjector extends PopulationProjector {
                 if (nextMigrants == 0) {
                     migrantGroups = ageSubgroups - subgroup;
                     nextMigrants = migration.get(0) / migrantGroups
-                            * (1 - PopulationCalculator.evaluateCubicSplineInterpolatedMap(infantMortality, (3 + 4 * subgroup) / (4 * (double) ageSubgroups))) / (1 - PopulationCalculator.evaluateCubicSplineInterpolatedMap(infantMortality, (1 + 4 * subgroup) / (4 * (double) ageSubgroups)));
+                            * (1 - PopulationCalculator.evaluateCubicSplineInterpolation(infantMortality, (3 + 4 * subgroup) / (4 * (double) ageSubgroups))) / (1 - PopulationCalculator.evaluateCubicSplineInterpolation(infantMortality, (1 + 4 * subgroup) / (4 * (double) ageSubgroups)));
                 } else {
                     nextMigrants = nextMigrants
-                            * (1 - PopulationCalculator.evaluateCubicSplineInterpolatedMap(infantMortality, (1 + 2 * subgroup) / (2 * (double) ageSubgroups))) / (1 - PopulationCalculator.evaluateCubicSplineInterpolatedMap(infantMortality, (-1 + 2 * subgroup) / (2 * (double) ageSubgroups)))
+                            * (1 - PopulationCalculator.evaluateCubicSplineInterpolation(infantMortality, (1 + 2 * subgroup) / (2 * (double) ageSubgroups))) / (1 - PopulationCalculator.evaluateCubicSplineInterpolation(infantMortality, (-1 + 2 * subgroup) / (2 * (double) ageSubgroups)))
                             + migration.get(0) / migrantGroups
-                            * (1 - PopulationCalculator.evaluateCubicSplineInterpolatedMap(infantMortality, (3 + 4 * subgroup) / (4 * (double) ageSubgroups))) / (1 - PopulationCalculator.evaluateCubicSplineInterpolatedMap(infantMortality, (1 + 4 * subgroup) / (4 * (double) ageSubgroups)));
+                            * (1 - PopulationCalculator.evaluateCubicSplineInterpolation(infantMortality, (3 + 4 * subgroup) / (4 * (double) ageSubgroups))) / (1 - PopulationCalculator.evaluateCubicSplineInterpolation(infantMortality, (1 + 4 * subgroup) / (4 * (double) ageSubgroups)));
                 }
                 migrantsBySubgroup.add(nextMigrants);
                 totalMigrants += nextMigrants;
@@ -141,12 +141,12 @@ public class IterativePopulationProjector extends PopulationProjector {
         //For age 0
         //Coefficient of multiplicative term in front of initial population when all summed together
         List<Double> relativePopulationBySubgroup = new ArrayList<>();
-        double nextRelativePopulation = 1 - PopulationCalculator.evaluateCubicSplineInterpolatedMap(infantMortality, 1 / (2 * (double) ageSubgroups));
+        double nextRelativePopulation = 1 - PopulationCalculator.evaluateCubicSplineInterpolation(infantMortality, 1 / (2 * (double) ageSubgroups));
         relativePopulationBySubgroup.add(nextRelativePopulation);
         double totalRelativePopulation = nextRelativePopulation;
         for (int subgroup = 1; subgroup < ageSubgroups; subgroup++) {
             nextRelativePopulation = nextRelativePopulation
-                    * (Math.pow(1 + migration.get(0), 1 / (double) ageSubgroups) - PopulationCalculator.evaluateCubicSplineInterpolatedMap(infantMortality, (1 + 2 * subgroup) / (2 * (double) ageSubgroups))) / (1 - PopulationCalculator.evaluateCubicSplineInterpolatedMap(infantMortality, (-1 + 2 * subgroup) / (2 * (double) ageSubgroups))); //cubic spline approximation
+                    * (Math.pow(1 + migration.get(0), 1 / (double) ageSubgroups) - PopulationCalculator.evaluateCubicSplineInterpolation(infantMortality, (1 + 2 * subgroup) / (2 * (double) ageSubgroups))) / (1 - PopulationCalculator.evaluateCubicSplineInterpolation(infantMortality, (-1 + 2 * subgroup) / (2 * (double) ageSubgroups))); //cubic spline approximation
             relativePopulationBySubgroup.add(nextRelativePopulation);
             totalRelativePopulation += nextRelativePopulation;
         }

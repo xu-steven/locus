@@ -26,7 +26,7 @@ public class DirectPopulationProjector extends PopulationProjector{
         String fertilityLocation = "M:\\Optimization Project\\demographic projections\\alberta_fertility.csv";
         String migrationLocation = "M:\\Optimization Project\\demographic projections\\alberta_migration.csv";
         DirectPopulationProjector projector = new DirectPopulationProjector(mortalityLocation, infantMortalityLocation, fertilityLocation, migrationLocation, "Total migrants",
-                Population.determineOldestPyramidCohortAge(ageAndSexGroups), 200, 200, 100, 6, 6);
+                Population.determineOldestPyramidCohortAge(ageAndSexGroups), 10000, 10000, 10000, 6, 6);
 
         //In final program, this will be input into projector
         Population initialPopulation = new Population(2000, ageAndSexGroups, populationByAgeAndSexGroup,
@@ -37,16 +37,16 @@ public class DirectPopulationProjector extends PopulationProjector{
         //System.out.println("Female pyramid " + initialPopulation.getFemalePyramid());
 
         //Testing functions in calculator
-        //String compositeFunction = "2y - x";
-        //String lowerBoundX = "0.2y";
-        //String upperBoundX = "0.5y";
-        //double lowerBoundY = 0;
-        //double upperBoundY = 1;
-        //double[][] infantMortality = populationCalculator.mapToTwoDimensionalArray(projectionParameters.getMaleInfantCumulativeMortality().get(2000), compositeFunction, lowerBoundX, upperBoundX, 1000, lowerBoundY, upperBoundY, 1000);
+        String compositeFunction = "2y + x";
+        String lowerBoundX = "0.2y";
+        String upperBoundX = "0.5y + 1";
+        double lowerBoundY = 0;
+        double upperBoundY = 1;
+        double[][] infantMortality = projector.getPopulationCalculator().mapToTwoDimensionalArray(projector.getProjectionParameters().getMaleInfantCumulativeMortality().get(2000), compositeFunction, lowerBoundX, upperBoundX, projector.xCount, lowerBoundY, upperBoundY, projector.yCount);
         //System.out.println(infantMortality[999][999]);
-        //double[] singleMortalityArray = populationCalculator.mapToArray(projectionParameters.getMaleInfantCumulativeMortality().get(2000), "3 - 2x", 0, 1, 10000);
-        //System.out.println(populationCalculator.simpsonIntegral(singleMortalityArray, 0, 1, 10000));
-        //System.out.println(populationCalculator.doubleSimpsonIntegral(infantMortality, lowerBoundX, upperBoundX, 10000, lowerBoundY, upperBoundY, 10000));
+        double[] singleMortalityArray = projector.getPopulationCalculator().mapToArray(projector.getProjectionParameters().getMaleInfantCumulativeMortality().get(2000), "3 - 2x", 0, 1, projector.singleXCount);
+        System.out.println(projector.getPopulationCalculator().simpsonIntegral(singleMortalityArray, 0, 1, projector.singleXCount));
+        System.out.println(projector.getPopulationCalculator().doubleSimpsonIntegral(infantMortality, lowerBoundX, upperBoundX, projector.xCount, lowerBoundY, upperBoundY, projector.yCount));
 
         System.out.println("Start projection.");
         Population yearOnePopulation = projector.projectNextYearPopulationWithMigrationCount(initialPopulation);
@@ -132,7 +132,6 @@ public class DirectPopulationProjector extends PopulationProjector{
 
     //When previous year population is known
     public Population projectNextYearPopulationWithMigrationCount(Population lastYearPopulation, Population currentYearPopulation) {
-        System.out.println("Year " + currentYearPopulation.getYear());
         int year = currentYearPopulation.getYear();
         Map<Integer, Double> currentMalePyramid = currentYearPopulation.getMalePyramid();
         Map<Integer, Double> currentFemalePyramid = currentYearPopulation.getFemalePyramid();
@@ -362,7 +361,7 @@ public class DirectPopulationProjector extends PopulationProjector{
                 0.5, 1, singleXCount);
         //Adjust for weight
         survivingPopulation *= currentYearAgePopulation;
-        survivingPopulation /= populationCalculator.simpsonIntegral(populationCalculator.estimatePopulationAgeWeights(year, age, sexSpecificMortality, 0, 1, singleXCount), 0, 1, xCount);
+        survivingPopulation /= populationCalculator.simpsonIntegral(populationCalculator.estimatePopulationAgeWeights(year, age, sexSpecificMortality, 0, 1, singleXCount), 0, 1, singleXCount);
 
         //Age migrants who arrive between current year months 6 and 12 and will be age + 1 by next census
         //Those who will be age + 1 next year
@@ -482,7 +481,7 @@ public class DirectPopulationProjector extends PopulationProjector{
                 0.5, 1, singleXCount);
         //Adjust for weight
         survivingPopulation *= currentYearAgePopulation;
-        survivingPopulation /= populationCalculator.simpsonIntegral(populationCalculator.estimatePopulationAgeWeights(year, age, sexSpecificMortality, 0, 1, singleXCount), 0, 1, xCount);
+        survivingPopulation /= populationCalculator.simpsonIntegral(populationCalculator.estimatePopulationAgeWeights(year, age, sexSpecificMortality, 0, 1, singleXCount), 0, 1, singleXCount);
 
         //Age migrants who arrive between current year months 6 and 12 and will be age + 1 by next census
         //Those who will be age + 1 next year
@@ -610,7 +609,7 @@ public class DirectPopulationProjector extends PopulationProjector{
                 0.5, 1, singleXCount);
         //Adjust for weight
         survivingPopulation *= currentYearSecondOldestCohortPopulation;
-        survivingPopulation /= populationCalculator.simpsonIntegral(populationCalculator.estimatePopulationAgeWeights(year, oldestCohortAge - 1, sexSpecificMortality, 0, 1, singleXCount), 0, 1, xCount);
+        survivingPopulation /= populationCalculator.simpsonIntegral(populationCalculator.estimatePopulationAgeWeights(year, oldestCohortAge - 1, sexSpecificMortality, 0, 1, singleXCount), 0, 1, singleXCount);
 
         //Surviving oldestCohortAge population
         survivingPopulation += currentYearOldestCohortPopulation * Math.pow(1 - sexSpecificMortality.get(year).get(oldestCohortAge), 0.5) * Math.pow(1 - sexSpecificMortality.get(year + 1).get(oldestCohortAge), 0.5);
@@ -733,7 +732,7 @@ public class DirectPopulationProjector extends PopulationProjector{
                 0.5, 1, singleXCount);
         //Adjust for weight
         survivingPopulation *= currentYearSecondOldestCohortPopulation;
-        survivingPopulation /= populationCalculator.simpsonIntegral(populationCalculator.estimatePopulationAgeWeights(year, oldestCohortAge - 1, sexSpecificMortality, 0, 1, singleXCount), 0, 1, xCount);
+        survivingPopulation /= populationCalculator.simpsonIntegral(populationCalculator.estimatePopulationAgeWeights(year, oldestCohortAge - 1, sexSpecificMortality, 0, 1, singleXCount), 0, 1, singleXCount);
 
         //Surviving oldestCohortAge population
         survivingPopulation += currentYearOldestCohortPopulation * Math.pow(1 - sexSpecificMortality.get(year).get(oldestCohortAge), 0.5) * Math.pow(1 - sexSpecificMortality.get(year + 1).get(oldestCohortAge), 0.5);
