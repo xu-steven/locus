@@ -1,4 +1,5 @@
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class RuralUrbanPopulationProjector extends PopulationProjector{
@@ -6,9 +7,48 @@ public class RuralUrbanPopulationProjector extends PopulationProjector{
         super(mortalityLocation, infantMortalityLocation, fertilityLocation, migrationLocation, migrationFormat, oldestPyramidCohortAge, 1, 1);
     }
 
+    public static void main(String[] args) {
+        //Demographics file
+        String demographicsLocation = "M:\\Optimization Project\\demographic projections\\test_alberta2016_demographics.csv";
+        List<String> ageAndSexGroups = FileUtils.getCSVHeadings(demographicsLocation);
+        double[] populationByAgeAndSexGroup = FileUtils.getInnerDoubleArrayFromCSV(demographicsLocation, FileUtils.getOriginCount(demographicsLocation), FileUtils.getSitesCount(demographicsLocation))[0];
+
+        //File locations
+        String mortalityLocation = "M:\\Optimization Project\\demographic projections\\alberta_mortality.csv";
+        String infantMortalityLocation = "M:\\Optimization Project\\demographic projections\\test_alberta_infant_mortality.csv";
+        String fertilityLocation = "M:\\Optimization Project\\demographic projections\\alberta_fertility.csv";
+        String migrationLocation = "M:\\Optimization Project\\demographic projections\\alberta_migration.csv";
+        RuralUrbanPopulationProjector projector = new RuralUrbanPopulationProjector(mortalityLocation, infantMortalityLocation, fertilityLocation, migrationLocation, "Total migrants",
+                Population.determineOldestPyramidCohortAge(ageAndSexGroups));
+
+        //In final program, this will be input into projector
+        Population initialPopulation = new Population(2000, ageAndSexGroups, populationByAgeAndSexGroup,
+                projector.getProjectionParameters().getMaleMortality(), projector.getProjectionParameters().getFemaleMortality(),
+                projector.getProjectionParameters().getMaleMigration(), projector.getProjectionParameters().getFemaleMigration(), projector.getProjectionParameters().getMigrationFormat(),
+                projector.getProjectionParameters().getMaleInfantSeparationFactor(), projector.getProjectionParameters().getFemaleInfantSeparationFactor());
+        //System.out.println("Male pyramid " + initialPopulation.getMalePyramid());
+        //System.out.println("Female pyramid " + initialPopulation.getFemalePyramid());
+
+        System.out.println("Start projection.");
+        Population yearOnePopulation = projector.projectNextYearPopulation(initialPopulation);
+        Population yearTwoPopulation = projector.projectNextYearPopulation(yearOnePopulation);
+        Map<Integer, Population> projectedPopulation = projector.projectPopulation(initialPopulation, 2000, 2002);
+        //System.out.println("Year zero male pyramid " + initialPopulation.getMalePyramid());
+        //System.out.println("Year one male pyramid " + yearOnePopulation.getMalePyramid());
+        //System.out.println("Year two male pyramid " + yearTwoPopulation.getMalePyramid());
+        System.out.println("Year zero female pyramid " + initialPopulation.getFemalePyramid());
+        System.out.println("Year one female pyramid " + yearOnePopulation.getFemalePyramid());
+        System.out.println("Year two female pyramid " + yearTwoPopulation.getFemalePyramid());
+        //System.out.println("Projected year one pyramid " + projectedPopulation.get(2001).getFemalePyramid());
+        //System.out.println("Projected year two pyramid " + projectedPopulation.get(2002).getFemalePyramid());
+
+        projector.getPopulationCalculator().getExecutor().shutdown();
+    }
+
     //Project population storing population of every year from initialYear to finalYear
     public Map<Integer, Population> projectPopulation(Population initialPopulation, int initialYear, int finalYear) {
         Map<Integer, Population> populationProjection = new HashMap<>();
+        populationProjection.put(initialYear, initialPopulation);
         for (int year = initialYear; year < finalYear; year++) {
             populationProjection.put(year + 1, projectNextYearPopulation(populationProjection.get(year)));
         }
