@@ -3,7 +3,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-public class IterativePopulationProjector extends PopulationProjector{
+public class IterativePopulationProjector extends PopulationProjector {
     //Number of subgroups per age less than max age
     static int ageSubgroups;
 
@@ -24,7 +24,7 @@ public class IterativePopulationProjector extends PopulationProjector{
         String fertilityLocation = "M:\\Optimization Project\\demographic projections\\alberta_fertility.csv";
         String migrationLocation = "M:\\Optimization Project\\demographic projections\\alberta_migration.csv";
         IterativePopulationProjector projector = new IterativePopulationProjector(mortalityLocation, infantMortalityLocation, fertilityLocation, migrationLocation, "Total migrants",
-                Population.determineOldestPyramidCohortAge(ageAndSexGroups), 50);
+                Population.determineOldestPyramidCohortAge(ageAndSexGroups), 5);
 
         //In final program, this will be input into projector
         Population initialPopulation = new Population(2000, ageAndSexGroups, populationByAgeAndSexGroup,
@@ -34,10 +34,10 @@ public class IterativePopulationProjector extends PopulationProjector{
         System.out.println("Male pyramid " + initialPopulation.getMalePyramid());
         System.out.println("Female pyramid " + initialPopulation.getFemalePyramid());
         double[][] maleSubpyramid = createSubpyramidWithMigrationCount(initialPopulation.getMalePyramid(), projector.getProjectionParameters().getMaleMortality().get(2000), projector.getProjectionParameters().getMaleInfantCumulativeMortality().get(2000), projector.getProjectionParameters().getMaleMigration().get(2000));
-        double[][] femaleSubpyramid = createSubpyramidWithMigrationCount(initialPopulation.getFemalePyramid(), projector.getProjectionParameters().getFemaleMortality().get(2000), projector.getProjectionParameters().getFemaleInfantCumulativeMortality().get(2000), projector.getProjectionParameters().getFemaleMigration().get(2000));
+        //double[][] femaleSubpyramid = createSubpyramidWithMigrationCount(initialPopulation.getFemalePyramid(), projector.getProjectionParameters().getFemaleMortality().get(2000), projector.getProjectionParameters().getFemaleInfantCumulativeMortality().get(2000), projector.getProjectionParameters().getFemaleMigration().get(2000));
         System.out.println(Arrays.deepToString(maleSubpyramid));
         //System.out.println(Arrays.deepToString(femaleSubpyramid));
-        System.out.println(projector.getProjectionParameters().getMaleInfantCumulativeMortality().get(2000));
+        //System.out.println(projector.getProjectionParameters().getMaleInfantCumulativeMortality().get(2000));
 
         System.out.println("Start projection.");
         //Population yearOnePopulation = projector.projectNextYearPopulationWithMigrationCount(initialPopulation);
@@ -71,17 +71,19 @@ public class IterativePopulationProjector extends PopulationProjector{
         List<Double> migrantsBySubgroup = new ArrayList<>();
         double nextMigrants = 0;
         double totalMigrants = 0;
+        double migrantGroups = 0;
         for (int subgroup = 0; subgroup < ageSubgroups; subgroup++) {
-            if ((1 + 2 * subgroup) / (2 * ageSubgroups) < 1/12) {
+            if ((1 + 2 * subgroup) / (2 * (double) ageSubgroups) < 1 / (double) 12) {
                 migrantsBySubgroup.add(0.0);
             } else {
                 if (nextMigrants == 0) {
-                    nextMigrants = migration.get(0) / (ageSubgroups - subgroup)
+                    migrantGroups = ageSubgroups - subgroup;
+                    nextMigrants = migration.get(0) / migrantGroups
                             * (1 - PopulationCalculator.evaluateCubicSplineInterpolatedMap(infantMortality, (3 + 4 * subgroup) / (4 * (double) ageSubgroups))) / (1 - PopulationCalculator.evaluateCubicSplineInterpolatedMap(infantMortality, (1 + 4 * subgroup) / (4 * (double) ageSubgroups)));
                 } else {
                     nextMigrants = nextMigrants
                             * (1 - PopulationCalculator.evaluateCubicSplineInterpolatedMap(infantMortality, (1 + 2 * subgroup) / (2 * (double) ageSubgroups))) / (1 - PopulationCalculator.evaluateCubicSplineInterpolatedMap(infantMortality, (-1 + 2 * subgroup) / (2 * (double) ageSubgroups)))
-                            + migration.get(0) / (ageSubgroups - subgroup)
+                            + migration.get(0) / migrantGroups
                             * (1 - PopulationCalculator.evaluateCubicSplineInterpolatedMap(infantMortality, (3 + 4 * subgroup) / (4 * (double) ageSubgroups))) / (1 - PopulationCalculator.evaluateCubicSplineInterpolatedMap(infantMortality, (1 + 4 * subgroup) / (4 * (double) ageSubgroups)));
                 }
                 migrantsBySubgroup.add(nextMigrants);
@@ -139,72 +141,45 @@ public class IterativePopulationProjector extends PopulationProjector{
         //For age 0
         //Coefficient of multiplicative term in front of initial population when all summed together
         List<Double> relativePopulationBySubgroup = new ArrayList<>();
-        double nextRelativePopulation;
-        double totalRelativePopulation = 0;
-        for (int subgroup = 0; subgroup < ageSubgroups; subgroup++) {
-            nextRelativePopulation = 1 - PopulationCalculator.evaluateCubicSplineInterpolatedMap(infantMortality, (1 + 2 * subgroup) / (2 * ageSubgroups)); //cubic spline approximation
+        double nextRelativePopulation = 1 - PopulationCalculator.evaluateCubicSplineInterpolatedMap(infantMortality, 1 / (2 * (double) ageSubgroups));
+        relativePopulationBySubgroup.add(nextRelativePopulation);
+        double totalRelativePopulation = nextRelativePopulation;
+        for (int subgroup = 1; subgroup < ageSubgroups; subgroup++) {
+            nextRelativePopulation = nextRelativePopulation
+                    * (Math.pow(1 + migration.get(0), 1 / (double) ageSubgroups) - PopulationCalculator.evaluateCubicSplineInterpolatedMap(infantMortality, (1 + 2 * subgroup) / (2 * (double) ageSubgroups))) / (1 - PopulationCalculator.evaluateCubicSplineInterpolatedMap(infantMortality, (-1 + 2 * subgroup) / (2 * (double) ageSubgroups))); //cubic spline approximation
             relativePopulationBySubgroup.add(nextRelativePopulation);
             totalRelativePopulation += nextRelativePopulation;
         }
 
-        //Additive term of populations summed together (represents migrants), assume migrants only arrive after first month of life
-        List<Double> migrantsBySubgroup = new ArrayList<>();
-        double nextMigrants = 0;
-        double totalMigrants = 0;
-        for (int subgroup = 0; subgroup < ageSubgroups; subgroup++) {
-            if ((1 + 2 * subgroup) / (2 * ageSubgroups) < 1/12) {
-                migrantsBySubgroup.add(0.0);
-            } else {
-                if (nextMigrants == 0) {
-                    nextMigrants = migration.get(0) / (ageSubgroups - subgroup)
-                            * (1 - PopulationCalculator.evaluateCubicSplineInterpolatedMap(infantMortality, (3 + 4 * subgroup) / (4 * ageSubgroups))) / (1 - PopulationCalculator.evaluateCubicSplineInterpolatedMap(infantMortality, (1 + 4 * subgroup) / (4 * ageSubgroups)));
-                } else {
-                    nextMigrants = nextMigrants
-                            * (1 - PopulationCalculator.evaluateCubicSplineInterpolatedMap(infantMortality, (1 + 2 * subgroup) / (2 * ageSubgroups))) / (1 - PopulationCalculator.evaluateCubicSplineInterpolatedMap(infantMortality, (-1 + 2 * subgroup) / (2 * ageSubgroups)))
-                            + migration.get(0) / (ageSubgroups - subgroup)
-                            * (1 - PopulationCalculator.evaluateCubicSplineInterpolatedMap(infantMortality, (3 + 4 * subgroup) / (4 * ageSubgroups))) / (1 - PopulationCalculator.evaluateCubicSplineInterpolatedMap(infantMortality, (1 + 4 * subgroup) / (4 * ageSubgroups)));
-                }
-                migrantsBySubgroup.add(nextMigrants);
-                totalMigrants += nextMigrants;
-            }
-        }
-
         //Update subpyramid
-        double basePopulation = (pyramid.get(0) - totalMigrants) / totalRelativePopulation;
+        double firstCohortPopulation = pyramid.get(0) / totalRelativePopulation;
         for (int subgroup = 0; subgroup < ageSubgroups; subgroup++) {
-            subpyramid[0][subgroup] = basePopulation * relativePopulationBySubgroup.get(subgroup) + migrantsBySubgroup.get(subgroup);
+            subpyramid[0][subgroup] = firstCohortPopulation * relativePopulationBySubgroup.get(subgroup);
         }
 
         //For other ages
-        for (int age : pyramid.keySet()) {
+        for (int age = 1; age < pyramid.keySet().size() - 1; age++) {
             //Coefficient of multiplicative term in front of initial population when all summed together
             relativePopulationBySubgroup = new ArrayList<>();
             nextRelativePopulation = 1.0;
             relativePopulationBySubgroup.add(nextRelativePopulation);
             totalRelativePopulation = 1.0;
             for (int subgroup = 1; subgroup < ageSubgroups; subgroup++) {
-                nextRelativePopulation = nextRelativePopulation * Math.pow(1 - mortality.get(age), 1 / ageSubgroups); //linear approximation
+                nextRelativePopulation = nextRelativePopulation * Math.pow(1 - mortality.get(age) + migration.get(age), 1 / (double) ageSubgroups); //linear approximation
                 relativePopulationBySubgroup.add(nextRelativePopulation);
                 totalRelativePopulation += nextRelativePopulation;
             }
 
-            //Additive term of populations summed together (represents migrants)
-            migrantsBySubgroup = new ArrayList<>();
-            nextMigrants = migration.get(age) / ageSubgroups * (1 - 0.5 * mortality.get(age) / ageSubgroups);
-            migrantsBySubgroup.add(nextMigrants);
-            totalMigrants = nextMigrants;
-            for (int subgroup = 1; subgroup < ageSubgroups; subgroup++) {
-                nextMigrants = nextMigrants * Math.pow(1 - mortality.get(age), 1 / ageSubgroups) + migration.get(age) / ageSubgroups * Math.pow(1 - mortality.get(age), 0.5 / ageSubgroups);
-                migrantsBySubgroup.add(nextMigrants);
-                totalMigrants += nextMigrants;
-            }
-
             //Create a refined pyramid
-            basePopulation = (pyramid.get(age) - totalMigrants) / totalRelativePopulation;
+            firstCohortPopulation = pyramid.get(age) / totalRelativePopulation;
             for (int subgroup = 0; subgroup < ageSubgroups; subgroup++) {
-                subpyramid[age][subgroup] = basePopulation * relativePopulationBySubgroup.get(subgroup) + migrantsBySubgroup.get(subgroup);
+                subpyramid[age][subgroup] = firstCohortPopulation * relativePopulationBySubgroup.get(subgroup);
             }
         }
+
+        //For final age
+        subpyramid[pyramid.size() - 1][0] = pyramid.get(pyramid.size() - 1);
+
         return subpyramid;
     }
 }
