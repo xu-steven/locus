@@ -5,11 +5,11 @@ public class Population {
     public int year;
 
     //Adjusted map age -> population with 1 year age increments, with final year including all >= that age
-    public Map<Integer, Double> malePyramid;
-    public Map<Integer, Double> femalePyramid;
+    public double[] malePyramid;
+    public double[] femalePyramid;
     public int oldestPyramidCohortAge;
 
-    public Population(int year, Map<Integer, Double> malePyramid, Map<Integer, Double> femalePyramid, int oldestPyramidCohortAge) {
+    public Population(int year, double[] malePyramid, double[] femalePyramid, int oldestPyramidCohortAge) {
         this.year = year;
         this.malePyramid = malePyramid;
         this.femalePyramid = femalePyramid;
@@ -17,8 +17,8 @@ public class Population {
     }
 
     public Population(int year, List<String> ageAndSexGroups, double[] populationByAgeAndSexGroup,
-                      Map<Integer, Map<Integer, Double>> maleMortality, Map<Integer, Map<Integer, Double>> femaleMortality,
-                      Map<Integer, Map<Integer, Double>> maleMigration, Map<Integer, Map<Integer, Double>> femaleMigration, int migrationFormat,
+                      Map<Integer, double[]> maleMortality, Map<Integer, double[]> femaleMortality,
+                      Map<Integer, double[]> maleMigration, Map<Integer, double[]> femaleMigration, int migrationFormat,
                       Map<Integer, Double> maleInfantSeparationFactor, Map<Integer, Double> femaleInfantSeparationFactor) {
         this.year = year;
 
@@ -37,25 +37,31 @@ public class Population {
         }
 
         //Convert to 1 year increments of age with final year including all >= that age
-        this.malePyramid = adjustRawPyramid(maleRawPyramid, maleMortality.get(year), maleMigration.get(year), migrationFormat, maleInfantSeparationFactor.get(year));
-        this.femalePyramid = adjustRawPyramid(femaleRawPyramid, femaleMortality.get(year), femaleMigration.get(year), migrationFormat, femaleInfantSeparationFactor.get(year));
+        this.malePyramid = adjustRawPyramid(maleRawPyramid, maleMortality.get(year), maleMigration.get(year), migrationFormat, maleInfantSeparationFactor.get(year), oldestPyramidCohortAge);
+        this.femalePyramid = adjustRawPyramid(femaleRawPyramid, femaleMortality.get(year), femaleMigration.get(year), migrationFormat, femaleInfantSeparationFactor.get(year), oldestPyramidCohortAge);
     }
 
     //Converts raw pyramid with age ranges List<Integer> into 1 year age increments with interpolation based on mortality and migration
-    public Map<Integer, Double> adjustRawPyramid(Map<List<Integer>, Double> rawPyramid, Map<Integer, Double> mortality, Map<Integer, Double> migration, int migrationFormat, Double infantSeparationFactor) {
-        Map<Integer, Double> adjustedPyramid = new HashMap<>();
+    public double[] adjustRawPyramid(Map<List<Integer>, Double> rawPyramid, double[] mortality, double[] migration, int migrationFormat, Double infantSeparationFactor, int oldestPyramidCohortAge) {
+        double[] adjustedPyramid = new double[oldestPyramidCohortAge + 1];
         for (List<Integer> ageBounds : rawPyramid.keySet()) {
             if (ageBounds.get(0) == 0) {
-                adjustedPyramid.putAll(refineAgeZeroGroups(ageBounds, rawPyramid.get(ageBounds), mortality, migration, migrationFormat, infantSeparationFactor));
+                Map<Integer, Double> refinedAgeZeroGroups = refineAgeZeroGroups(ageBounds, rawPyramid.get(ageBounds), mortality, migration, migrationFormat, infantSeparationFactor);
+                for (int age : refinedAgeZeroGroups.keySet()) {
+                    adjustedPyramid[age] = refinedAgeZeroGroups.get(age);
+                }
             } else {
-                adjustedPyramid.putAll(refineAgeGroups(ageBounds, rawPyramid.get(ageBounds), mortality, migration, migrationFormat));
+                Map<Integer, Double> refinedAgeGroups = refineAgeGroups(ageBounds, rawPyramid.get(ageBounds), mortality, migration, migrationFormat);
+                for (int age : refinedAgeGroups.keySet()) {
+                    adjustedPyramid[age] = refinedAgeGroups.get(age);
+                }
             }
         }
         return adjustedPyramid;
     }
 
     //If population pyramid is not given in 1 year age groups, then estimates one year age groups by using mortality. Assumes steady state population.
-    public Map<Integer, Double> refineAgeGroups(List<Integer> ageBounds, Double populationSize, Map<Integer, Double> mortality, Map<Integer, Double> migration, int migrationFormat) {
+    public Map<Integer, Double> refineAgeGroups(List<Integer> ageBounds, Double populationSize, double[] mortality, double[] migration, int migrationFormat) {
         Map<Integer, Double> refinedPyramid = new HashMap<>();
         if (migrationFormat == 0) { //migration counts
             //Coefficient of multiplicative term in front of initial population when all summed together
@@ -64,7 +70,7 @@ public class Population {
             relativePopulationByAge.add(nextRelativePopulation);
             Double totalRelativePopulation = 1.0;
             for (int age = ageBounds.get(0); age < ageBounds.get(1); age++) {
-                nextRelativePopulation = nextRelativePopulation * (1 - 0.5 * mortality.get(age)) / (1 + 0.5 * mortality.get(age + 1));
+                nextRelativePopulation = nextRelativePopulation * (1 - 0.5 * mortality[age]) / (1 + 0.5 * mortality[age + 1]);
                 relativePopulationByAge.add(nextRelativePopulation);
                 totalRelativePopulation += nextRelativePopulation;
             }
@@ -75,7 +81,7 @@ public class Population {
             migrantsByAge.add(nextMigrants);
             Double totalMigrants = 0.0;
             for (int age = ageBounds.get(0); age < ageBounds.get(1); age++) {
-                nextMigrants = (nextMigrants * (1 - 0.5 * mortality.get(age)) + 0.5 * migration.get(age) + 0.5 * migration.get(age + 1)) / (1 + 0.5 * mortality.get(age + 1));
+                nextMigrants = (nextMigrants * (1 - 0.5 * mortality[age]) + 0.5 * migration[age] + 0.5 * migration[age + 1]) / (1 + 0.5 * mortality[age + 1]);
                 migrantsByAge.add(nextMigrants);
                 totalMigrants += nextMigrants;
             }
@@ -93,8 +99,8 @@ public class Population {
             relativePopulationByAge.add(nextRelativePopulation);
             Double totalRelativePopulation = 1.0;
             for (int age = ageBounds.get(0); age < ageBounds.get(1); age++) {
-                nextRelativePopulation = nextRelativePopulation * (1 - 0.5 * mortality.get(age) + 0.5 * migration.get(age))
-                        / (1 + 0.5 * mortality.get(age + 1) - 0.5 * migration.get(age + 1));
+                nextRelativePopulation = nextRelativePopulation * (1 - 0.5 * mortality[age] + 0.5 * migration[age])
+                        / (1 + 0.5 * mortality[age + 1] - 0.5 * migration[age + 1]);
                 relativePopulationByAge.add(nextRelativePopulation);
                 totalRelativePopulation += nextRelativePopulation;
             }
@@ -108,7 +114,7 @@ public class Population {
     }
 
     //If population pyramid is not given in 1 year age groups, then estimates one year age groups by using mortality. Assumes steady state population.
-    public Map<Integer, Double> refineAgeZeroGroups(List<Integer> ageBounds, Double populationSize, Map<Integer, Double> mortality, Map<Integer, Double> migration, int migrationFormat, Double infantSeparationFactor) {
+    public Map<Integer, Double> refineAgeZeroGroups(List<Integer> ageBounds, Double populationSize, double[] mortality, double[] migration, int migrationFormat, Double infantSeparationFactor) {
         Map<Integer, Double> refinedPyramid = new HashMap<>();
         if (migrationFormat == 0) { //migration counts
             //Coefficient of multiplicative term in front of initial population when all summed together
@@ -117,12 +123,12 @@ public class Population {
             relativePopulationByAge.add(nextRelativePopulation);
             Double totalRelativePopulation = 1.0;
             //Compute next relative population for age 0 (i.e. relative age 1 population)
-            nextRelativePopulation = nextRelativePopulation * (1 - infantSeparationFactor * mortality.get(0)) / (1 + 0.5 * mortality.get(1));
+            nextRelativePopulation = nextRelativePopulation * (1 - infantSeparationFactor * mortality[0]) / (1 + 0.5 * mortality[1]);
             relativePopulationByAge.add(nextRelativePopulation);
             totalRelativePopulation += nextRelativePopulation;
             //Compute next relative population beginning age 1
             for (int age = 1; age < ageBounds.get(1); age++) {
-                nextRelativePopulation = nextRelativePopulation * (1 - 0.5 * mortality.get(age)) / (1 + 0.5 * mortality.get(age + 1));
+                nextRelativePopulation = nextRelativePopulation * (1 - 0.5 * mortality[age]) / (1 + 0.5 * mortality[age + 1]);
                 relativePopulationByAge.add(nextRelativePopulation);
                 totalRelativePopulation += nextRelativePopulation;
             }
@@ -133,12 +139,12 @@ public class Population {
             migrantsByAge.add(nextMigrants);
             Double totalMigrants = 0.0;
             //Compute next relative population for age 0 (i.e. relative age 1 population)
-            nextMigrants = (nextMigrants * (1 - infantSeparationFactor * mortality.get(0)) + 0.5 * migration.get(0) + 0.5 * migration.get(1)) / (1 + 0.5 * mortality.get(1));
+            nextMigrants = (nextMigrants * (1 - infantSeparationFactor * mortality[0]) + 0.5 * migration[0] + 0.5 * migration[1]) / (1 + 0.5 * mortality[1]);
             migrantsByAge.add(nextMigrants);
             totalMigrants += nextMigrants;
             //Compute next relative population beginning age 1
             for (int age = 1; age < ageBounds.get(1); age++) {
-                nextMigrants = (nextMigrants * (1 - 0.5 * mortality.get(age)) + 0.5 * migration.get(age) + 0.5 * migration.get(age + 1)) / (1 + 0.5 * mortality.get(age + 1));
+                nextMigrants = (nextMigrants * (1 - 0.5 * mortality[age]) + 0.5 * migration[age] + 0.5 * migration[age + 1]) / (1 + 0.5 * mortality[age + 1]);
                 migrantsByAge.add(nextMigrants);
                 totalMigrants += nextMigrants;
             }
@@ -156,14 +162,14 @@ public class Population {
             relativePopulationByAge.add(nextRelativePopulation);
             Double totalRelativePopulation = 1.0;
             //Compute next relative population for age 0 (relative age 1 population)
-            nextRelativePopulation = nextRelativePopulation * (1 - infantSeparationFactor * mortality.get(0) + 0.5 * migration.get(0))
-                    / (1 + 0.5 * mortality.get(1) - 0.5 * migration.get(1));
+            nextRelativePopulation = nextRelativePopulation * (1 - infantSeparationFactor * mortality[0] + 0.5 * migration[0])
+                    / (1 + 0.5 * mortality[1] - 0.5 * migration[1]);
             relativePopulationByAge.add(nextRelativePopulation);
             totalRelativePopulation += nextRelativePopulation;
             //Compute next relative population beginning at age 1
             for (int age = 1; age < ageBounds.get(1); age++) {
-                nextRelativePopulation = nextRelativePopulation * (1 - 0.5 * mortality.get(age) + 0.5 * migration.get(age))
-                        / (1 + 0.5 * mortality.get(age + 1) - 0.5 * migration.get(age + 1));
+                nextRelativePopulation = nextRelativePopulation * (1 - 0.5 * mortality[age] + 0.5 * migration[age])
+                        / (1 + 0.5 * mortality[age + 1] - 0.5 * migration[age + 1]);
                 relativePopulationByAge.add(nextRelativePopulation);
                 totalRelativePopulation += nextRelativePopulation;
             }
@@ -201,11 +207,11 @@ public class Population {
         return year;
     }
 
-    public Map<Integer, Double> getMalePyramid() {
+    public double[] getMalePyramid() {
         return malePyramid;
     }
 
-    public Map<Integer, Double> getFemalePyramid() {
+    public double[] getFemalePyramid() {
         return femalePyramid;
     }
 
@@ -225,27 +231,27 @@ public class Population {
 
     public double getMalePopulation() {
         int population = 0;
-        for (int age : malePyramid.keySet()) {
-            population += malePyramid.get(age);
+        for (int age = 0; age <= oldestPyramidCohortAge; age++) {
+            population += malePyramid[age];
         }
         return population;
     }
 
     public double getFemalePopulation() {
         int population = 0;
-        for (int age : femalePyramid.keySet()) {
-            population += femalePyramid.get(age);
+        for (int age = 0; age <= oldestPyramidCohortAge; age++) {
+            population += femalePyramid[age];
         }
         return population;
     }
 
     public double getTotalPopulation() {
         int population = 0;
-        for (int age : malePyramid.keySet()) {
-            population += malePyramid.get(age);
+        for (int age = 0; age <= oldestPyramidCohortAge; age++) {
+            population += malePyramid[age];
         }
-        for (int age : femalePyramid.keySet()) {
-            population += femalePyramid.get(age);
+        for (int age = 0; age <= oldestPyramidCohortAge; age++) {
+            population += femalePyramid[age];
         }
         return population;
     }

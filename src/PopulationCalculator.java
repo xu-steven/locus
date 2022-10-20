@@ -26,7 +26,7 @@ public class PopulationCalculator {
     }
 
     //Transform (map: age -> cumulative mortality by that age) to double[] for computation of integrals
-    public double[] mapToArray(Map<Double, Double> map, String compositeFunction, double lowerBound, double upperBound, int xCount) {
+    public double[] mapToArray(double[][] map, String compositeFunction, double lowerBound, double upperBound, int xCount) {
         CountDownLatch latch = new CountDownLatch(taskCount);
         Map<Integer, List<Integer>> partitionedXCount = MultithreadingUtils.orderedPartitionList(IntStream.range(0, xCount).boxed().collect(Collectors.toList()), taskCount);
         double[] outputArray = new double[xCount];
@@ -68,7 +68,7 @@ public class PopulationCalculator {
 
     //Transform (map: age -> cumulative mortality by that age) to double[][] for computation of integral
     //compositeFunction g: R^2 -> R of the form (x,y) -> ax + by + c is composed with map: R -> R to make map(g): R^2 -> R
-    public double[][] mapToTwoDimensionalArray(Map<Double, Double> map, String compositeFunction, String lowerBoundX, String upperBoundX, int xCount, double lowerBoundY, double upperBoundY, int yCount) {
+    public double[][] mapToTwoDimensionalArray(double[][] map, String compositeFunction, String lowerBoundX, String upperBoundX, int xCount, double lowerBoundY, double upperBoundY, int yCount) {
         CountDownLatch latch = new CountDownLatch(taskCount);
         Map<Integer, List<Integer>> partitionedYCount = MultithreadingUtils.orderedPartitionList(IntStream.range(0, yCount).boxed().collect(Collectors.toList()), taskCount);
         double[][] outputArray = new double[xCount][yCount];
@@ -111,7 +111,7 @@ public class PopulationCalculator {
     }
 
     //Exact integral of cubic spline approximation based on Map of points in R2. Simpson's rule is exact on cubic with xCount 3.
-    public static double integrateCubicSpline(Map<Double, Double> map, double lowerBound, double upperBound) {
+    public static double integrateCubicSpline(double[][] map, double lowerBound, double upperBound) {
         PolynomialSplineFunction interpolatedCubicSpline = mapToCubicSpline(map);
         double[] knotPoints = interpolatedCubicSpline.getKnots();
 
@@ -233,7 +233,7 @@ public class PopulationCalculator {
     }
 
     //Computes map(g(x, y)) for compositeFunction g: R2 -> R given by g(x,y) = ax + by + c
-    private static double computeComposition(Map<Double, Double> map, String compositeFunction, double x, double y) {
+    private static double computeComposition(double[][] map, String compositeFunction, double x, double y) {
         double[] compositeFunctionCoefficients = parseCoefficients(compositeFunction);
         //linear alternative: return evaluateLinearlyInterpolatedMap(map, compositeFunctionCoefficients[0] * x + compositeFunctionCoefficients[1] * y + compositeFunctionCoefficients[2]);
         return evaluateCubicSplineInterpolation(map, compositeFunctionCoefficients[0] * x + compositeFunctionCoefficients[1] * y + compositeFunctionCoefficients[2]);
@@ -258,28 +258,19 @@ public class PopulationCalculator {
     }
 
     //Evaluates map(x) by monotonic cubic spline interpolation
-    public static double evaluateCubicSplineInterpolation(Map<Double, Double> map, double x) {
+    public static double evaluateCubicSplineInterpolation(double[][] map, double x) {
         PolynomialSplineFunction interpolatedSpline = mapToCubicSpline(map);
         return interpolatedSpline.value(x);
     }
 
-    public static PolynomialSplineFunction mapToCubicSpline(Map<Double, Double> map) {
-        double[] xValues = new double[map.keySet().size()];
-        double[] yValues = new double[map.keySet().size()];
-        List<Double> sortedKeys = new ArrayList<>(map.keySet());
-        Collections.sort(sortedKeys);
-        for (int i = 0; i < map.keySet().size(); i++) {
-            xValues[i] = sortedKeys.get(i);
-            yValues[i] = map.get(sortedKeys.get(i));
-        }
-
+    public static PolynomialSplineFunction mapToCubicSpline(double[][] map) {
         PolynomialSplineFunction cubicSpline;
         if (requireMonotonicSpline) {
             ConstrainedSplineInterpolator cubicSplineInterpolator = new ConstrainedSplineInterpolator();
-            cubicSpline = cubicSplineInterpolator.interpolate(xValues, yValues);
+            cubicSpline = cubicSplineInterpolator.interpolate(map[0], map[1]);
         } else {
             SplineInterpolator cubicSplineInterpolator  = new SplineInterpolator();
-            cubicSpline = cubicSplineInterpolator.interpolate(xValues, yValues);
+            cubicSpline = cubicSplineInterpolator.interpolate(map[0], map[1]);
         }
         return cubicSpline;
     }
@@ -491,17 +482,17 @@ public class PopulationCalculator {
     }
 
     //Computes age weights using sex-specific mortality in format year -> (age -> ageWeights based on xCount)
-    public static double[] estimatePopulationAgeWeights(int year, int age, Map<Integer, Map<Integer, Double>> sexSpecificMortality, double lowerBound, double upperBound, int xCount) {
+    public static double[] estimatePopulationAgeWeights(int year, int age, Map<Integer, double[]> sexSpecificMortality, double lowerBound, double upperBound, int xCount) {
         double[] ageWeights = new double[xCount];
         for (int i = 0; i < xCount; i++) {
             // ageWeights[i] = Math.pow(1 - sexSpecificMortality.get(year).get(age), lowerBound + (upperBound - lowerBound) * i / ((double) xCount - 1)); //Exponential approximation
-            ageWeights[i] = 1 - sexSpecificMortality.get(year).get(age) * (lowerBound + (upperBound - lowerBound) * i / ((double) xCount - 1)); //Linear approximation
+            ageWeights[i] = 1 - sexSpecificMortality.get(year)[age] * (lowerBound + (upperBound - lowerBound) * i / ((double) xCount - 1)); //Linear approximation
         }
         return ageWeights;
     }
 
     //Computes age weights using sex-specific mortality in format year -> (age -> ageWeights based on xCount and yCount)
-    public double[][] estimateMigrationAgeWeights(int year, int age, Map<Integer, Map<Integer, Double>> sexSpecificMortality, String lowerBoundX, String upperBoundX, int xCount, double lowerBoundY, double upperBoundY, int yCount) {
+    public double[][] estimateMigrationAgeWeights(int year, int age, Map<Integer, double[]> sexSpecificMortality, String lowerBoundX, String upperBoundX, int xCount, double lowerBoundY, double upperBoundY, int yCount) {
         CountDownLatch latch = new CountDownLatch(taskCount);
         Map<Integer, List<Integer>> partitionedYCount = MultithreadingUtils.orderedPartitionList(IntStream.range(0, yCount).boxed().collect(Collectors.toList()), taskCount);
         double[][] ageWeights = new double[xCount][yCount];
@@ -516,7 +507,7 @@ public class PopulationCalculator {
                     double upperX = upperBoundXCoefficients[0] * y + upperBoundXCoefficients[1];
                     for (int k = 0; k < xCount; k++) {
                         double x = lowerX + (upperX - lowerX) * k / ((double) xCount - 1);
-                        ageWeights[k][j] = Math.pow(sexSpecificMortality.get(year).get(age), x);
+                        ageWeights[k][j] = Math.pow(sexSpecificMortality.get(year)[age], x);
                     }
                 }
                 latch.countDown();

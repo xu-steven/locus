@@ -6,27 +6,27 @@ import java.util.stream.IntStream;
 
 public class PopulationParameters {
     //Fertility data; year -> (age -> fertility)
-    private final Map<Integer, Map<Integer, Double>> fertility;
+    private final Map<Integer, double[]> fertility;
     private final int oldestFertilityCohortAge;
 
     //year -> male to female birth ratio
     private final Map<Integer, Double> sexRatioAtBirth;
 
     //Mortality data; year -> (age -> mortality)
-    private final Map<Integer, Map<Integer, Double>> maleMortality;
-    private final Map<Integer, Map<Integer, Double>> femaleMortality;
+    private final Map<Integer, double[]> maleMortality;
+    private final Map<Integer, double[]> femaleMortality;
 
-    //Infant mortality data; year -> (age in months -> cumulative mortality by that age)
-    private final Map<Integer, Map<Double, Double>> maleInfantCumulativeMortality;
-    private final Map<Integer, Map<Double, Double>> femaleInfantCumulativeMortality;
+    //Infant mortality data; year -> (double[0][] age in months -> double[1][] cumulative mortality by that age)
+    private final Map<Integer, double[][]> maleInfantCumulativeMortality;
+    private final Map<Integer, double[][]> femaleInfantCumulativeMortality;
 
     //Separation factor; year -> infant separation factor (mean age of death in years <= 1)
     private final Map<Integer, Double> maleInfantSeparationFactor;
     private final Map<Integer, Double> femaleInfantSeparationFactor;
 
     //Migration data; year -> (age -> migration)
-    private final Map<Integer, Map<Integer, Double>> maleMigration;
-    private final Map<Integer, Map<Integer, Double>> femaleMigration;
+    private final Map<Integer, double[]> maleMigration;
+    private final Map<Integer, double[]> femaleMigration;
     private int migrationFormat; //0 if absolute migration numbers, 1 if rates per capita
 
     public PopulationParameters(String mortalityLocation, String infantMortalityLocation, String fertilityLocation, String migrationLocation, String migrationFormat, int oldestPyramidCohortAge) {
@@ -128,7 +128,10 @@ public class PopulationParameters {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return new ParsedEventRates(maleData, femaleData, maxAgeCohort);
+        //Reformat data
+        Map<Integer, double[]> reformattedMaleData = reformatEventData(maleData, maxAgeCohort);
+        Map<Integer, double[]> reformattedFemaleData = reformatEventData(femaleData, maxAgeCohort);
+        return new ParsedEventRates(reformattedMaleData, reformattedFemaleData, maxAgeCohort);
     }
 
     public static ParsedEventRates parseAgeSexHeadingCSV(String fileLocation, double perPopulation) {
@@ -169,7 +172,10 @@ public class PopulationParameters {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return new ParsedEventRates(maleData, femaleData, maxAgeCohort);
+        //Reformat data
+        Map<Integer, double[]> reformattedMaleData = reformatEventData(maleData, maxAgeCohort);
+        Map<Integer, double[]> reformattedFemaleData = reformatEventData(femaleData, maxAgeCohort);
+        return new ParsedEventRates(reformattedMaleData, reformattedFemaleData, maxAgeCohort);
     }
 
     //Cumulative infant mortality CSV with year headings
@@ -208,7 +214,40 @@ public class PopulationParameters {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return new ParsedCumulativeMortality(maleData, femaleData);
+        //Sort and reformat data
+        Map<Integer, double[][]> sortedMaleData = reformatCumulativeInfantMortalityData(maleData);
+        Map<Integer, double[][]> sortedFemaleData = reformatCumulativeInfantMortalityData(femaleData);
+        return new ParsedCumulativeMortality(sortedMaleData, sortedFemaleData);
+    }
+
+    //Reformat event data for faster processing
+    private static Map<Integer, double[]> reformatEventData(Map<Integer, Map<Integer, Double>> data, int maxAgeCohort) {
+         Map<Integer, double[]> reformattedData = new HashMap<>();
+        for (int year : data.keySet()) {
+            double[] ageEventMap = new double[maxAgeCohort + 1];
+            for (int age : data.get(year).keySet()) {
+                ageEventMap[age] = data.get(year).get(age);
+            }
+            reformattedData.put(year, ageEventMap);
+        }
+        return reformattedData;
+    }
+
+
+    //Sort and reformat cumulative infant mortality for faster processing
+    private static Map<Integer, double[][]> reformatCumulativeInfantMortalityData(Map<Integer, Map<Double, Double>> data) {
+        Map<Integer, double[][]> sortedData = new HashMap<>();
+        for (int year : data.keySet()) {
+            double[][] ageMortalityMap = new double[2][data.get(year).keySet().size()];
+            List<Double> sortedKeys = new ArrayList<>(data.get(year).keySet());
+            Collections.sort(sortedKeys);
+            for (int i = 0; i < data.get(year).keySet().size(); i++) {
+                ageMortalityMap[0][i] = sortedKeys.get(i);
+                ageMortalityMap[1][i] = data.get(year).get(sortedKeys.get(i));
+            }
+            sortedData.put(year, ageMortalityMap);
+        }
+        return sortedData;
     }
 
     //Reads population partition and outputs list of 3 integers: sex (0 male or 1 female), lower age bound, upper age bound
@@ -295,11 +334,11 @@ public class PopulationParameters {
         return anyMissingYears;
     }
 
-    record ParsedEventRates(Map<Integer, Map<Integer, Double>> maleRate, Map<Integer, Map<Integer, Double>> femaleRate, int maxCohortAge) {
-        public Map<Integer, Map<Integer, Double>> getMaleRate() {
+    record ParsedEventRates(Map<Integer, double[]> maleRate, Map<Integer, double[]> femaleRate, int maxCohortAge) {
+        public Map<Integer, double[]> getMaleRate() {
             return maleRate;
         }
-        public Map<Integer, Map<Integer, Double>> getFemaleRate() {
+        public Map<Integer, double[]> getFemaleRate() {
             return femaleRate;
         }
         public int getMaxCohortAge() {
@@ -307,11 +346,11 @@ public class PopulationParameters {
         }
     }
 
-    record ParsedCumulativeMortality(Map<Integer, Map<Double, Double>> maleCumulativeMortality, Map<Integer, Map<Double, Double>> femaleCumulativeMortality) {
-        public Map<Integer, Map<Double, Double>> getMaleCumulativeMortality() {
+    record ParsedCumulativeMortality(Map<Integer, double[][]> maleCumulativeMortality, Map<Integer, double[][]> femaleCumulativeMortality) {
+        public Map<Integer, double[][]> getMaleCumulativeMortality() {
             return maleCumulativeMortality;
         }
-        public Map<Integer, Map<Double, Double>> getFemaleCumulativeMortality() {
+        public Map<Integer, double[][]> getFemaleCumulativeMortality() {
             return femaleCumulativeMortality;
         }
     }
@@ -320,7 +359,7 @@ public class PopulationParameters {
         if (age > oldestFertilityCohortAge) {
             return 0.0;
         } else {
-            return fertility.get(year).get(Math.min(age, oldestFertilityCohortAge));
+            return fertility.get(year)[age];
         }
     }
 
@@ -332,19 +371,19 @@ public class PopulationParameters {
         return sexRatioAtBirth.get(year);
     }
 
-    public Map<Integer, Map<Integer, Double>> getMaleMortality() {
+    public Map<Integer, double[]> getMaleMortality() {
         return maleMortality;
     }
 
-    public Map<Integer, Map<Integer, Double>> getFemaleMortality() {
+    public Map<Integer, double[]> getFemaleMortality() {
         return femaleMortality;
     }
 
-    public Map<Integer, Map<Double, Double>> getMaleInfantCumulativeMortality() {
+    public Map<Integer, double[][]> getMaleInfantCumulativeMortality() {
         return maleInfantCumulativeMortality;
     }
 
-    public Map<Integer, Map<Double, Double>> getFemaleInfantCumulativeMortality() {
+    public Map<Integer, double[][]> getFemaleInfantCumulativeMortality() {
         return femaleInfantCumulativeMortality;
     }
 
@@ -356,11 +395,11 @@ public class PopulationParameters {
         return femaleInfantSeparationFactor;
     }
 
-    public Map<Integer, Map<Integer, Double>> getMaleMigration() {
+    public Map<Integer, double[]> getMaleMigration() {
         return maleMigration;
     }
 
-    public Map<Integer, Map<Integer, Double>> getFemaleMigration() {
+    public Map<Integer, double[]> getFemaleMigration() {
         return femaleMigration;
     }
 
