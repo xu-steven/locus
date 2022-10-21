@@ -482,17 +482,17 @@ public class PopulationCalculator {
     }
 
     //Computes age weights using sex-specific mortality in format year -> (age -> ageWeights based on xCount)
-    public static double[] estimatePopulationAgeWeights(int year, int age, Map<Integer, double[]> sexSpecificMortality, double lowerBound, double upperBound, int xCount) {
+    public static double[] estimatePopulationAgeWeights(int age, double[] sexSpecificMortality, double lowerBound, double upperBound, int xCount) {
         double[] ageWeights = new double[xCount];
         for (int i = 0; i < xCount; i++) {
             // ageWeights[i] = Math.pow(1 - sexSpecificMortality.get(year).get(age), lowerBound + (upperBound - lowerBound) * i / ((double) xCount - 1)); //Exponential approximation
-            ageWeights[i] = 1 - sexSpecificMortality.get(year)[age] * (lowerBound + (upperBound - lowerBound) * i / ((double) xCount - 1)); //Linear approximation
+            ageWeights[i] = 1 - sexSpecificMortality[age] * (lowerBound + (upperBound - lowerBound) * i / ((double) xCount - 1)); //Linear approximation
         }
         return ageWeights;
     }
 
     //Computes age weights using sex-specific mortality in format year -> (age -> ageWeights based on xCount and yCount)
-    public double[][] estimateMigrationAgeWeights(int year, int age, Map<Integer, double[]> sexSpecificMortality, String lowerBoundX, String upperBoundX, int xCount, double lowerBoundY, double upperBoundY, int yCount) {
+    public double[][] estimateMigrationAgeWeights(int age, double[] sexSpecificMortality, String lowerBoundX, String upperBoundX, int xCount, double lowerBoundY, double upperBoundY, int yCount) {
         CountDownLatch latch = new CountDownLatch(taskCount);
         Map<Integer, List<Integer>> partitionedYCount = MultithreadingUtils.orderedPartitionList(IntStream.range(0, yCount).boxed().collect(Collectors.toList()), taskCount);
         double[][] ageWeights = new double[xCount][yCount];
@@ -507,7 +507,7 @@ public class PopulationCalculator {
                     double upperX = upperBoundXCoefficients[0] * y + upperBoundXCoefficients[1];
                     for (int k = 0; k < xCount; k++) {
                         double x = lowerX + (upperX - lowerX) * k / ((double) xCount - 1);
-                        ageWeights[k][j] = Math.pow(sexSpecificMortality.get(year)[age], x);
+                        ageWeights[k][j] = Math.pow(sexSpecificMortality[age], x);
                     }
                 }
                 latch.countDown();
