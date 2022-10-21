@@ -1534,16 +1534,22 @@ public class DirectPopulationProjector extends PopulationProjector{
     //RUP (rural urban projection) is made based on US Census Bureau methods for Pop(t + 1, age 1). Necessary as direct projection requires knowledge of previous year births.
     public double[] ruralUrbanProjectAgeOnePopulationWithMigrationRates(int year, double currentYearAgeZeroPopulation, double[] nextYearAgeZeroPopulation,
                                                                       Map<Integer, Double> sexSpecificInfantSeparationFactor, Map<Integer, double[]> sexSpecificMortality, Map<Integer, double[]> sexSpecificMigration) {
+        //Get projection parameters
+        double[] sexSpecificCurrentYearMortality = sexSpecificMortality.get(year);
+        double[] sexSpecificNextYearMortality = sexSpecificMortality.get(year + 1);
+        double[] sexSpecificCurrentYearMigration = sexSpecificMigration.get(year);
+        double[] sexSpecificNextYearMigration = sexSpecificMigration.get(year + 1);
+
         double nextYearAgeOnePopulationVariable = (currentYearAgeZeroPopulation
-                - 0.5 * projectDeaths(0, currentYearAgeZeroPopulation, sexSpecificMortality.get(year)) * sexSpecificInfantSeparationFactor.get(year)
-                - 0.5 * projectDeaths(0, nextYearAgeZeroPopulation[0], sexSpecificMortality.get(year + 1)) * sexSpecificInfantSeparationFactor.get(year + 1)
-                + 0.5 * projectMigration(0, currentYearAgeZeroPopulation, sexSpecificMigration.get(year)))
-                / (1 + 0.5 * sexSpecificMortality.get(year + 1)[1] - 0.5 * sexSpecificMigration.get(year + 1)[1]);
+                - 0.5 * projectDeaths(0, currentYearAgeZeroPopulation, sexSpecificCurrentYearMortality) * sexSpecificInfantSeparationFactor.get(year)
+                - 0.5 * projectDeaths(0, nextYearAgeZeroPopulation[0], sexSpecificNextYearMortality) * sexSpecificInfantSeparationFactor.get(year + 1)
+                + 0.5 * projectMigration(0, currentYearAgeZeroPopulation, sexSpecificCurrentYearMigration))
+                / (1 + 0.5 * sexSpecificNextYearMortality[1] - 0.5 * sexSpecificNextYearMigration[1]);
         double nextYearAgeOnePopulationConstant = (currentYearAgeZeroPopulation
-                - 0.5 * projectDeaths(0, currentYearAgeZeroPopulation, sexSpecificMortality.get(year)) * sexSpecificInfantSeparationFactor.get(year)
-                - 0.5 * projectDeaths(0, nextYearAgeZeroPopulation[1], sexSpecificMortality.get(year + 1)) * sexSpecificInfantSeparationFactor.get(year + 1)
-                + 0.5 * projectMigration(0, currentYearAgeZeroPopulation, sexSpecificMigration.get(year)))
-                / (1 + 0.5 * sexSpecificMortality.get(year + 1)[1] - 0.5 * sexSpecificMigration.get(year + 1)[1]);
+                - 0.5 * projectDeaths(0, currentYearAgeZeroPopulation, sexSpecificCurrentYearMortality) * sexSpecificInfantSeparationFactor.get(year)
+                - 0.5 * projectDeaths(0, nextYearAgeZeroPopulation[1], sexSpecificNextYearMortality) * sexSpecificInfantSeparationFactor.get(year + 1)
+                + 0.5 * projectMigration(0, currentYearAgeZeroPopulation, sexSpecificCurrentYearMigration))
+                / (1 + 0.5 * sexSpecificNextYearMortality[1] - 0.5 * sexSpecificNextYearMigration[1]);
         //Combine variable and constant components of age one population
         double[] nextYearAgeOnePopulation = new double[2];
         nextYearAgeOnePopulation[0] = nextYearAgeOnePopulationVariable;
