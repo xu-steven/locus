@@ -28,7 +28,7 @@ public class PopulationCalculator {
     //Transform (map: age -> cumulative mortality by that age) to double[] for computation of integrals
     public double[] mapToArray(double[][] map, String compositeFunction, double lowerBound, double upperBound, int xCount) {
         CountDownLatch latch = new CountDownLatch(taskCount);
-        Map<Integer, List<Integer>> partitionedXCount = MultithreadingUtils.orderedPartitionList(IntStream.range(0, xCount).boxed().collect(Collectors.toList()), taskCount);
+        int[][] partitionedXCount = MultithreadingUtils.orderedPartitionArray(IntStream.range(0, xCount).toArray(), taskCount);
         double[] outputArray = new double[xCount];
         PolynomialSplineFunction interpolatedCubicSpline;
         if (requireMonotonicSpline) {
@@ -40,7 +40,7 @@ public class PopulationCalculator {
         for (int i = 0; i < taskCount; i++) {
             int finalI = i;
             executor.execute(() -> {
-                for (int j : partitionedXCount.get(finalI)) {
+                for (int j : partitionedXCount[finalI]) {
                     double x = lowerBound + (upperBound - lowerBound) * j / ((double) xCount - 1);
                     try {
                         outputArray[j] = interpolatedCubicSpline.value(compositeFunctionCoefficients[0] * x + compositeFunctionCoefficients[2]); //computeComposition(map, compositeFunction, x, 0);
@@ -70,7 +70,7 @@ public class PopulationCalculator {
     //compositeFunction g: R^2 -> R of the form (x,y) -> ax + by + c is composed with map: R -> R to make map(g): R^2 -> R
     public double[][] mapToTwoDimensionalArray(double[][] map, String compositeFunction, String lowerBoundX, String upperBoundX, int xCount, double lowerBoundY, double upperBoundY, int yCount) {
         CountDownLatch latch = new CountDownLatch(taskCount);
-        Map<Integer, List<Integer>> partitionedYCount = MultithreadingUtils.orderedPartitionList(IntStream.range(0, yCount).boxed().collect(Collectors.toList()), taskCount);
+        int[][] partitionedYCount = MultithreadingUtils.orderedPartitionArray(IntStream.range(0, yCount).toArray(), taskCount);
         double[][] outputArray = new double[xCount][yCount];
         double[] lowerBoundXCoefficients = parseBound(lowerBoundX);
         double[] upperBoundXCoefficients = parseBound(upperBoundX);
@@ -79,7 +79,7 @@ public class PopulationCalculator {
         for (int i = 0; i < taskCount; i++) {
             int finalI = i;
             executor.execute(() -> {
-                for (int j : partitionedYCount.get(finalI)) {
+                for (int j : partitionedYCount[finalI]) {
                     double y = lowerBoundY + (upperBoundY - lowerBoundY) * j / ((double) yCount - 1);
                     double lowerX = lowerBoundXCoefficients[0] * y + lowerBoundXCoefficients[1];
                     double upperX = upperBoundXCoefficients[0] * y + upperBoundXCoefficients[1];
@@ -189,13 +189,13 @@ public class PopulationCalculator {
     //Computes integral using a function represented by map: (age in months -> cumulative mortality by that age)
     public double doubleSimpsonIntegral(double[][] function, String lowerBoundX, String upperBoundX, int xCount, double lowerBoundY, double upperBoundY, int yCount) {
         CountDownLatch latch = new CountDownLatch(taskCount);
-        Map<Integer, List<Integer>> partitionedYCount = MultithreadingUtils.orderedPartitionList(IntStream.range(0, yCount).boxed().collect(Collectors.toList()), taskCount);
+        int[][] partitionedYCount = MultithreadingUtils.orderedPartitionArray(IntStream.range(0, yCount).toArray(), taskCount);
         //Integrate with respect to x
         double[] numericalIntegralWrtX = new double[yCount];
         for (int i = 0; i < taskCount; i++) {
             int finalI = i;
             executor.execute(() -> {
-                for (int j : partitionedYCount.get(finalI)){
+                for (int j : partitionedYCount[finalI]){
                     numericalIntegralWrtX[j] = 0;
                     double lowerX = parseBound(lowerBoundX)[0] * (lowerBoundY + j / ((double) yCount - 1) * (upperBoundY - lowerBoundY)) + parseBound(lowerBoundX)[1];
                     double upperX = parseBound(upperBoundX)[0] * (lowerBoundY + j / ((double) yCount - 1) * (upperBoundY - lowerBoundY)) + parseBound(upperBoundX)[1];
@@ -307,12 +307,12 @@ public class PopulationCalculator {
     //Computes firstArray_(i,j) + secondArray_(i,j) for all (i,j)
     public double[][] addArrays(double[][]... arrays){
         CountDownLatch latch = new CountDownLatch(taskCount);
-        Map<Integer, List<Integer>> partitionedArrayIndex = MultithreadingUtils.orderedPartitionList(IntStream.range(0, arrays[0].length).boxed().collect(Collectors.toList()), taskCount);
+        int[][] partitionedArrayIndex = MultithreadingUtils.orderedPartitionArray(IntStream.range(0, arrays[0].length).toArray(), taskCount);
         double[][] output = new double[arrays[0].length][arrays[0][0].length];
         for (int i = 0; i < taskCount; i++) {
             int finalI = i;
             executor.execute(() -> {
-                for (int j : partitionedArrayIndex.get(finalI)) {
+                for (int j : partitionedArrayIndex[finalI]) {
                     for (int k = 0; k < arrays[0][0].length; k++) {
                         double positionSum = 0; //additive identity
                         for (double[][] array : arrays) {
@@ -344,12 +344,12 @@ public class PopulationCalculator {
     //Computes firstArray_(i,j) - secondArray_(i,j) for all (i,j)
     public double[][] subtractArrays(double[][] firstArray, double[][] secondArray){
         CountDownLatch latch = new CountDownLatch(taskCount);
-        Map<Integer, List<Integer>> partitionedArrayIndex = MultithreadingUtils.orderedPartitionList(IntStream.range(0, firstArray.length).boxed().collect(Collectors.toList()), taskCount);
+        int[][] partitionedArrayIndex = MultithreadingUtils.orderedPartitionArray(IntStream.range(0, firstArray.length).toArray(), taskCount);
         double[][] output = new double[firstArray.length][firstArray[0].length];
         for (int i = 0; i < taskCount; i++) {
             int finalI = i;
             executor.execute(() -> {
-                for (int j : partitionedArrayIndex.get(finalI)) {
+                for (int j : partitionedArrayIndex[finalI]) {
                     for (int k = 0; k < firstArray[0].length; k++) {
                         output[j][k] = firstArray[j][k] - secondArray[j][k];
                     }
@@ -381,12 +381,12 @@ public class PopulationCalculator {
     //Computes product firstArray_(i) for all i
     public double[][] multiplyArrays(double[][]... arrays){
         CountDownLatch latch = new CountDownLatch(taskCount);
-        Map<Integer, List<Integer>> partitionedArrayIndex = MultithreadingUtils.orderedPartitionList(IntStream.range(0, arrays[0].length).boxed().collect(Collectors.toList()), taskCount);
+        int[][] partitionedArrayIndex = MultithreadingUtils.orderedPartitionArray(IntStream.range(0, arrays[0].length).toArray(), taskCount);
         double[][] output = new double[arrays[0].length][arrays[0][0].length];
         for (int i = 0; i < taskCount; i++) {
             int finalI = i;
             executor.execute(() -> {
-                for (int j : partitionedArrayIndex.get(finalI)) {
+                for (int j : partitionedArrayIndex[finalI]) {
                     for (int k = 0; k < arrays[0][0].length; k++) {
                         double positionProduct = 1; //multiplicative identity
                         for (double[][] array : arrays) {
@@ -418,12 +418,12 @@ public class PopulationCalculator {
     //Computes firstArray_(i,j) / secondArray_(i,j) for all (i,j)
     public double[][] divideArrays(double[][] firstArray, double[][] secondArray){
         CountDownLatch latch = new CountDownLatch(taskCount);
-        Map<Integer, List<Integer>> partitionedArrayIndex = MultithreadingUtils.orderedPartitionList(IntStream.range(0, firstArray.length).boxed().collect(Collectors.toList()), taskCount);
+        int[][] partitionedArrayIndex = MultithreadingUtils.orderedPartitionArray(IntStream.range(0, firstArray.length).toArray(), taskCount);
         double[][] output = new double[firstArray.length][firstArray[0].length];
         for (int i = 0; i < taskCount; i++) {
             int finalI = i;
             executor.execute(() -> {
-                for (int j : partitionedArrayIndex.get(finalI)) {
+                for (int j : partitionedArrayIndex[finalI]) {
                     for (int k = 0; k < firstArray[0].length; k++) {
                         output[j][k] = firstArray[j][k] / secondArray[j][k];
                     }
@@ -453,7 +453,7 @@ public class PopulationCalculator {
     //Creates 2d array of c^(ax+by+k)
     public double[][] exponentiateArray(double c, String compositeFunction, String lowerBoundX, String upperBoundX, int xCount, double lowerBoundY, double upperBoundY, int yCount){
         CountDownLatch latch = new CountDownLatch(taskCount);
-        Map<Integer, List<Integer>> partitionedYCount = MultithreadingUtils.orderedPartitionList(IntStream.range(0, yCount).boxed().collect(Collectors.toList()), taskCount);
+        int[][] partitionedYCount = MultithreadingUtils.orderedPartitionArray(IntStream.range(0, yCount).toArray(), taskCount);
         double[][] outputArray = new double[xCount][yCount];
         double[] compositeFunctionCoefficients = parseCoefficients(compositeFunction); //ax + by + c to [a, b, c]
         double[] lowerBoundXCoefficients = parseBound(lowerBoundX);
@@ -461,7 +461,7 @@ public class PopulationCalculator {
         for (int i = 0; i < taskCount; i++) {
             int finalI = i;
             executor.execute(() -> {
-                for (int j : partitionedYCount.get(finalI)) {
+                for (int j : partitionedYCount[finalI]) {
                     double y = lowerBoundY + (upperBoundY - lowerBoundY) * j / ((double) yCount - 1);
                     double lowerX = lowerBoundXCoefficients[0] * y + lowerBoundXCoefficients[1];
                     double upperX = upperBoundXCoefficients[0] * y + upperBoundXCoefficients[1];
@@ -494,14 +494,14 @@ public class PopulationCalculator {
     //Computes age weights using sex-specific mortality in format year -> (age -> ageWeights based on xCount and yCount)
     public double[][] estimateMigrationAgeWeights(int age, double[] sexSpecificMortality, String lowerBoundX, String upperBoundX, int xCount, double lowerBoundY, double upperBoundY, int yCount) {
         CountDownLatch latch = new CountDownLatch(taskCount);
-        Map<Integer, List<Integer>> partitionedYCount = MultithreadingUtils.orderedPartitionList(IntStream.range(0, yCount).boxed().collect(Collectors.toList()), taskCount);
+        int[][] partitionedYCount = MultithreadingUtils.orderedPartitionArray(IntStream.range(0, yCount).toArray(), taskCount);
         double[][] ageWeights = new double[xCount][yCount];
         double[] lowerBoundXCoefficients = parseBound(lowerBoundX);
         double[] upperBoundXCoefficients = parseBound(upperBoundX);
         for (int i = 0; i < taskCount; i++) {
             int finalI = i;
             executor.execute(() -> {
-                for (int j : partitionedYCount.get(finalI)) {
+                for (int j : partitionedYCount[finalI]) {
                     double y = lowerBoundY + (upperBoundY - lowerBoundY) * j / ((double) yCount - 1);
                     double lowerX = lowerBoundXCoefficients[0] * y + lowerBoundXCoefficients[1];
                     double upperX = upperBoundXCoefficients[0] * y + upperBoundXCoefficients[1];

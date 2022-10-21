@@ -14,12 +14,12 @@ public abstract class PopulationProjector {
         populationCalculator = new PopulationCalculator(threadCount, taskCount);
     }
 
-    public static double projectDeaths(int age, int year, double atRiskPopulation, Map<Integer, double[]> sexSpecificMortality) {
-        return atRiskPopulation * sexSpecificMortality.get(year)[age];
+    public static double projectDeaths(int age, double atRiskPopulation, double[] sexSpecificMortality) {
+        return atRiskPopulation * sexSpecificMortality[age];
     }
 
-    public static double projectMigration(int age, int year, double atRiskPopulation, Map<Integer, double[]> sexSpecificMigration) {
-        return atRiskPopulation * sexSpecificMigration.get(year)[age];
+    public static double projectMigration(int age, double atRiskPopulation, double[] sexSpecificMigration) {
+        return atRiskPopulation * sexSpecificMigration[age];
     }
 
     public double projectBirths(int year, double[] femalePyramid) {

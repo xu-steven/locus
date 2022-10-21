@@ -110,12 +110,12 @@ public class RuralUrbanPopulationProjector extends PopulationProjector{
     public double projectOtherCohortPopulation(int age, int year, double currentYearPopulation, Map<Integer, double[]> sexSpecificMortality, Map<Integer, double[]> sexSpecificMigration) {
         double nextYearPopulation;
         if (projectionParameters.getMigrationFormat() == 0) { //absolute migration
-            nextYearPopulation = (currentYearPopulation - 0.5 * projectDeaths(age, year, currentYearPopulation, sexSpecificMortality)
+            nextYearPopulation = (currentYearPopulation - 0.5 * projectDeaths(age, currentYearPopulation, sexSpecificMortality.get(year))
                     + 0.5 * sexSpecificMigration.get(year)[age] + 0.5 * sexSpecificMigration.get(year + 1)[age + 1])
                     / (1 + 0.5 * sexSpecificMortality.get(year + 1)[age + 1]);
         } else { //migration rates
-            nextYearPopulation = (currentYearPopulation - 0.5 * projectDeaths(age, year, currentYearPopulation, sexSpecificMortality)
-                    + 0.5 * projectMigration(age, year, currentYearPopulation, sexSpecificMigration))
+            nextYearPopulation = (currentYearPopulation - 0.5 * projectDeaths(age, currentYearPopulation, sexSpecificMortality.get(year))
+                    + 0.5 * projectMigration(age, currentYearPopulation, sexSpecificMigration.get(year)))
                     / (1 + 0.5 * sexSpecificMortality.get(year + 1)[age + 1] - 0.5 * sexSpecificMigration.get(year + 1)[age + 1]);
         }
         return nextYearPopulation;
@@ -125,18 +125,18 @@ public class RuralUrbanPopulationProjector extends PopulationProjector{
     public double projectOldestCohortPopulation(int oldestCohortAge, int year, double currentYearSecondOldestCohortPopulation, double currentYearOldestCohortPopulation, Map<Integer, double[]> sexSpecificMortality, Map<Integer, double[]> sexSpecificMigration) {
         double nextYearOldestCohortPopulation;
         if (projectionParameters.getMigrationFormat() == 0) { //absolute migration
-            nextYearOldestCohortPopulation = (currentYearSecondOldestCohortPopulation - 0.5 * projectDeaths(oldestCohortAge - 1, year, currentYearSecondOldestCohortPopulation, sexSpecificMortality)
+            nextYearOldestCohortPopulation = (currentYearSecondOldestCohortPopulation - 0.5 * projectDeaths(oldestCohortAge - 1, currentYearSecondOldestCohortPopulation, sexSpecificMortality.get(year))
                     + 0.5 * sexSpecificMigration.get(year)[oldestCohortAge - 1] + 0.5 * sexSpecificMigration.get(year + 1)[oldestCohortAge])
                     / (1 + 0.5 * sexSpecificMortality.get(year + 1)[oldestCohortAge]);
-            nextYearOldestCohortPopulation += (currentYearOldestCohortPopulation - 0.5 * projectDeaths(oldestCohortAge, year, currentYearOldestCohortPopulation, sexSpecificMortality)
+            nextYearOldestCohortPopulation += (currentYearOldestCohortPopulation - 0.5 * projectDeaths(oldestCohortAge, currentYearOldestCohortPopulation, sexSpecificMortality.get(year))
                     + 0.5 * sexSpecificMigration.get(year)[oldestCohortAge])
                     / (1 + 0.5 * sexSpecificMortality.get(year + 1)[oldestCohortAge]);
         } else { //migration rates
-            nextYearOldestCohortPopulation = (currentYearSecondOldestCohortPopulation - 0.5 * projectDeaths(oldestCohortAge - 1, year, currentYearSecondOldestCohortPopulation, sexSpecificMortality)
-                    + 0.5 * projectMigration(oldestCohortAge - 1, year, currentYearSecondOldestCohortPopulation, sexSpecificMigration))
+            nextYearOldestCohortPopulation = (currentYearSecondOldestCohortPopulation - 0.5 * projectDeaths(oldestCohortAge - 1, currentYearSecondOldestCohortPopulation, sexSpecificMortality.get(year))
+                    + 0.5 * projectMigration(oldestCohortAge - 1, currentYearSecondOldestCohortPopulation, sexSpecificMigration.get(year)))
                     / (1 + 0.5 * sexSpecificMortality.get(year + 1)[oldestCohortAge] - 0.5 * sexSpecificMigration.get(year + 1)[oldestCohortAge]);
-            nextYearOldestCohortPopulation += (currentYearOldestCohortPopulation - 0.5 * projectDeaths(oldestCohortAge, year, currentYearOldestCohortPopulation, sexSpecificMortality)
-                    + 0.5 * projectMigration(oldestCohortAge, year, currentYearOldestCohortPopulation, sexSpecificMigration))
+            nextYearOldestCohortPopulation += (currentYearOldestCohortPopulation - 0.5 * projectDeaths(oldestCohortAge, currentYearOldestCohortPopulation, sexSpecificMortality.get(year))
+                    + 0.5 * projectMigration(oldestCohortAge, currentYearOldestCohortPopulation, sexSpecificMigration.get(year)))
                     / (1 + 0.5 * sexSpecificMortality.get(year + 1)[oldestCohortAge] - 0.5 * sexSpecificMigration.get(year + 1)[oldestCohortAge]);
         }
         return nextYearOldestCohortPopulation;
@@ -148,12 +148,12 @@ public class RuralUrbanPopulationProjector extends PopulationProjector{
         double nextYearAgeOnePopulation;
         if (projectionParameters.getMigrationFormat() == 0) { //absolute migration
             nextYearAgeOnePopulation = 0.5 * (currentYearBirths + nextYearBirths
-                    - projectDeaths(0, year, currentYearPopulation, sexSpecificMortality) * (1 - sexSpecificInfantSeparationFactor.get(year))
+                    - projectDeaths(0, currentYearPopulation, sexSpecificMortality.get(year)) * (1 - sexSpecificInfantSeparationFactor.get(year))
                     + sexSpecificMigration.get(year + 1)[0])
                     / (1 + 0.5 * sexSpecificMortality.get(year + 1)[0] * (1 - sexSpecificInfantSeparationFactor.get(year + 1)));
         } else { //migration rates
             nextYearAgeOnePopulation = 0.5 * (currentYearBirths + nextYearBirths
-                    - projectDeaths(0, year, currentYearPopulation, sexSpecificMortality) * (1 - sexSpecificInfantSeparationFactor.get(year)))
+                    - projectDeaths(0, currentYearPopulation, sexSpecificMortality.get(year)) * (1 - sexSpecificInfantSeparationFactor.get(year)))
                     / (1 + 0.5 * sexSpecificMortality.get(year + 1)[0] * (1 - sexSpecificInfantSeparationFactor.get(year + 1)) - 0.5 * sexSpecificMigration.get(year + 1)[0]);
         }
         return nextYearAgeOnePopulation;
@@ -165,16 +165,16 @@ public class RuralUrbanPopulationProjector extends PopulationProjector{
         double nextYearAgeOnePopulation;
         if (projectionParameters.getMigrationFormat() == 0) { //absolute migration
             nextYearAgeOnePopulation = (currentYearAgeZeroPopulation
-                    - 0.5 * projectDeaths(0, year, currentYearAgeZeroPopulation, sexSpecificMortality) * sexSpecificInfantSeparationFactor.get(year)
-                    - 0.5 * projectDeaths(0, year + 1, nextYearAgeZeroPopulation, sexSpecificMortality) * sexSpecificInfantSeparationFactor.get(year + 1)
+                    - 0.5 * projectDeaths(0, currentYearAgeZeroPopulation, sexSpecificMortality.get(year)) * sexSpecificInfantSeparationFactor.get(year)
+                    - 0.5 * projectDeaths(0, nextYearAgeZeroPopulation, sexSpecificMortality.get(year + 1)) * sexSpecificInfantSeparationFactor.get(year + 1)
                     + 0.5 * sexSpecificMigration.get(year)[0]
                     + 0.5 * sexSpecificMigration.get(year + 1)[1])
                     / (1 + 0.5 * sexSpecificMortality.get(year + 1)[1]);
         } else { //migration rates
             nextYearAgeOnePopulation = (currentYearAgeZeroPopulation
-                    - 0.5 * projectDeaths(0, year, currentYearAgeZeroPopulation, sexSpecificMortality) * sexSpecificInfantSeparationFactor.get(year)
-                    - 0.5 * projectDeaths(0, year + 1, nextYearAgeZeroPopulation, sexSpecificMortality) * sexSpecificInfantSeparationFactor.get(year + 1)
-                    + 0.5 * projectMigration(0, year, currentYearAgeZeroPopulation, sexSpecificMigration))
+                    - 0.5 * projectDeaths(0, currentYearAgeZeroPopulation, sexSpecificMortality.get(year)) * sexSpecificInfantSeparationFactor.get(year)
+                    - 0.5 * projectDeaths(0, nextYearAgeZeroPopulation, sexSpecificMortality.get(year + 1)) * sexSpecificInfantSeparationFactor.get(year + 1)
+                    + 0.5 * projectMigration(0, currentYearAgeZeroPopulation, sexSpecificMigration.get(year)))
                     / (1 + 0.5 * sexSpecificMortality.get(year + 1)[1] - 0.5 * sexSpecificMigration.get(year + 1)[1]);
         }
         return nextYearAgeOnePopulation;
