@@ -90,23 +90,15 @@ public class DirectPopulationProjector extends PopulationProjector{
         double[] nextYearFemalePyramid = new double[currentFemalePyramid.length];
 
         //Compute male cohorts aged 2 through maxCohortAge - 1
-        for (int age = 0; age < oldestPyramidCohortAge - 1; age ++) {
-            if (age == 0) {
-                continue;
-            } else {
-                nextYearMalePyramid[age + 1] = projectOtherCohortPopulationWithMigrationCount(age, year, currentMalePyramid[age], projectionParameters.getMaleMortality(), projectionParameters.getMaleMigration());
-            }
+        for (int age = 1; age < oldestPyramidCohortAge - 1; age ++) {
+            nextYearMalePyramid[age + 1] = projectOtherCohortPopulationWithMigrationCount(age, year, currentMalePyramid[age], projectionParameters.getMaleMortality(), projectionParameters.getMaleMigration());
         }
         //Add in remaining max age cohort that continues to survive
         nextYearMalePyramid[oldestPyramidCohortAge] = projectOldestCohortPopulationWithMigrationCount(oldestPyramidCohortAge, year, currentMalePyramid[oldestPyramidCohortAge - 1], currentMalePyramid[oldestPyramidCohortAge], projectionParameters.getMaleMortality(), projectionParameters.getMaleMigration());
 
         //Compute female cohorts aged 2 through maxCohortAge - 1 as well as preliminary maxCohortAge
-        for (int age = 0; age < oldestPyramidCohortAge - 1; age ++) {
-            if (age == 0) {
-                continue;
-            } else {
+        for (int age = 1; age < oldestPyramidCohortAge - 1; age ++) {
                 nextYearFemalePyramid[age + 1] = projectOtherCohortPopulationWithMigrationCount(age, year, currentFemalePyramid[age], projectionParameters.getFemaleMortality(), projectionParameters.getFemaleMigration());
-            }
         }
         //Add in remaining max age cohort that continues to survive
         nextYearFemalePyramid[oldestPyramidCohortAge] = projectOldestCohortPopulationWithMigrationCount(oldestPyramidCohortAge, year, currentFemalePyramid[oldestPyramidCohortAge - 1], currentFemalePyramid[oldestPyramidCohortAge], projectionParameters.getFemaleMortality(), projectionParameters.getFemaleMigration());
@@ -141,23 +133,15 @@ public class DirectPopulationProjector extends PopulationProjector{
         double[] nextYearFemalePyramid = new double[currentFemalePyramid.length];
 
         //Compute male cohorts aged 2 through maxCohortAge - 1 as well as preliminary maxCohortAge
-        for (int age = 0; age < oldestPyramidCohortAge - 1; age ++) {
-            if (age == 0) {
-                continue;
-            } else {
-                nextYearMalePyramid[age + 1] = projectOtherCohortPopulationWithMigrationCount(age, year, currentMalePyramid[age], projectionParameters.getMaleMortality(), projectionParameters.getMaleMigration());
-            }
+        for (int age = 1; age < oldestPyramidCohortAge - 1; age ++) {
+            nextYearMalePyramid[age + 1] = projectOtherCohortPopulationWithMigrationCount(age, year, currentMalePyramid[age], projectionParameters.getMaleMortality(), projectionParameters.getMaleMigration());
         }
         //Add in remaining max age cohort that continues to survive
         nextYearMalePyramid[oldestPyramidCohortAge] = projectOldestCohortPopulationWithMigrationCount(oldestPyramidCohortAge, year, currentMalePyramid[oldestPyramidCohortAge - 1], currentMalePyramid[oldestPyramidCohortAge], projectionParameters.getMaleMortality(), projectionParameters.getMaleMigration());
 
         //Compute female cohorts aged 2 through maxCohortAge - 1 as well as preliminary maxCohortAge
-        for (int age = 0; age < oldestPyramidCohortAge - 1; age ++) {
-            if (age == 0) {
-                continue;
-            } else {
+        for (int age = 1; age < oldestPyramidCohortAge - 1; age ++) {
                 nextYearFemalePyramid[age + 1] = projectOtherCohortPopulationWithMigrationCount(age, year, currentFemalePyramid[age], projectionParameters.getFemaleMortality(), projectionParameters.getFemaleMigration());
-            }
         }
         //Add in remaining max age cohort that continues to survive
         nextYearFemalePyramid[oldestPyramidCohortAge] = projectOldestCohortPopulationWithMigrationCount(oldestPyramidCohortAge, year, currentFemalePyramid[oldestPyramidCohortAge - 1], currentFemalePyramid[oldestPyramidCohortAge], projectionParameters.getFemaleMortality(), projectionParameters.getFemaleMigration());
