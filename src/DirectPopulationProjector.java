@@ -26,7 +26,7 @@ public class DirectPopulationProjector extends PopulationProjector{
         String fertilityLocation = "M:\\Optimization Project\\demographic projections\\alberta_fertility.csv";
         String migrationLocation = "M:\\Optimization Project\\demographic projections\\alberta_migration.csv";
         DirectPopulationProjector projector = new DirectPopulationProjector(mortalityLocation, infantMortalityLocation, fertilityLocation, migrationLocation, "Total migrants",
-                Population.determineOldestPyramidCohortAge(ageAndSexGroups), 200000, 2000, 3000, 6, 6);
+                Population.determineOldestPyramidCohortAge(ageAndSexGroups), 200000, 20, 30, 6, 6);
 
         //In final program, this will be input into projector
         Population initialPopulation = new Population(2000, ageAndSexGroups, populationByAgeAndSexGroup,

@@ -507,7 +507,7 @@ public class PopulationCalculator {
                     double upperX = upperBoundXCoefficients[0] * y + upperBoundXCoefficients[1];
                     for (int k = 0; k < xCount; k++) {
                         double x = lowerX + (upperX - lowerX) * k / ((double) xCount - 1);
-                        ageWeights[k][j] = Math.pow(sexSpecificMortality[age], x);
+                        ageWeights[k][j] = Math.pow(1 - sexSpecificMortality[age], x);
                     }
                 }
                 latch.countDown();
