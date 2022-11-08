@@ -37,8 +37,6 @@ public class DirectPopulationProjector extends PopulationProjector{
                 projector.getProjectionParameters().getMaleMortality(), projector.getProjectionParameters().getFemaleMortality(),
                 projector.getProjectionParameters().getMaleMigration(), projector.getProjectionParameters().getFemaleMigration(), projector.getProjectionParameters().getMigrationFormat(),
                 projector.getProjectionParameters().getMaleInfantSeparationFactor(), projector.getProjectionParameters().getFemaleInfantSeparationFactor());
-        //System.out.println("Male pyramid " + initialPopulation.getMalePyramid());
-        //System.out.println("Female pyramid " + initialPopulation.getFemalePyramid());
 
         //Testing functions in calculator
         String compositeFunction = "2y + x";
@@ -47,18 +45,15 @@ public class DirectPopulationProjector extends PopulationProjector{
         double lowerBoundY = 0;
         double upperBoundY = 1;
         double[][] infantMortality = projector.getPopulationCalculator().mapToTwoDimensionalArray(projector.getProjectionParameters().getMaleInfantCumulativeMortality().get(2000), compositeFunction, lowerBoundX, upperBoundX, projector.xCount, lowerBoundY, upperBoundY, projector.yCount);
-        //System.out.println(infantMortality[999][999]);
         double[] singleMortalityArray = projector.getPopulationCalculator().mapToArray(projector.getProjectionParameters().getMaleInfantCumulativeMortality().get(2000), "3 - 2x", 0, 1, projector.singleXCount);
         System.out.println(projector.getPopulationCalculator().simpsonIntegral(singleMortalityArray, 0, 1, projector.singleXCount));
         System.out.println(projector.getPopulationCalculator().doubleSimpsonIntegral(infantMortality, lowerBoundX, upperBoundX, projector.xCount, lowerBoundY, upperBoundY, projector.yCount));
 
-        System.out.println("Year zero male pyramid " + Arrays.toString(initialPopulation.getMalePyramid()));
         System.out.println("Start projection.");
-        Population yearOnePopulation = projector.projectNextYearPopulationWithMigrationCount(initialPopulation);
-        Population yearTwoPopulation = projector.projectNextYearPopulationWithMigrationCount(initialPopulation, yearOnePopulation);
-        //System.out.println("Year zero male pyramid " + initialPopulation.getMalePyramid());
-        //System.out.println("Year one male pyramid " + yearOnePopulation.getMalePyramid());
-        //System.out.println("Year two male pyramid " + yearTwoPopulation.getMalePyramid());
+        Map<Integer, Population> projectedPopulations = projector.projectPopulation(initialPopulation, 2000, 2002);
+        Population yearOnePopulation = projectedPopulations.get(2001);
+        Population yearTwoPopulation = projectedPopulations.get(2002);
+        System.out.println("Year zero male pyramid " + Arrays.toString(projectedPopulations.get(2000).getMalePyramid()));
         System.out.println("Year one male pyramid " + Arrays.toString(yearOnePopulation.getMalePyramid()));
         System.out.println("Year two male pyramid " + Arrays.toString(yearTwoPopulation.getMalePyramid()));
 
