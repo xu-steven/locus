@@ -25,9 +25,9 @@ public class SearchSpace {
     private List<List<Integer>> permanentCentersByLevel; //Sites are represented by Integer
 
     //Non-configurable permanent center class variables
+    private int[] permanentCentersCountByLevel;
     private int[][] minPermanentPositionByLevelAndOrigin; //minimum existing centers that must be maintained
     private double[][] minPermanentCostByLevelAndOrigin; //minimum cost
-    private int[] permanentCentersCountByLevel;
 
     public SearchSpace(int[] minNewCentersByLevel, int[] maxNewCentersByLevel, double[] minimumCasesByLevel, double[] servicedProportionByLevel, List<List<Integer>> levelSequences, int azimuthClassCount,
                        String censusFileLocation, String graphLocation, String azimuthLocation, String haversineLocation,
@@ -76,14 +76,15 @@ public class SearchSpace {
         this.sortedNeighbors = SimAnnealingNeighbor.sortNeighbors(FileUtils.getInnerAzimuthArrayFromCSV(azimuthLocation, originCount, potentialSitesCount), FileUtils.getInnerDoubleArrayFromCSV(haversineLocation, originCount, potentialSitesCount), azimuthClassCount, taskCount, executor);
 
         //Determine permanent centers by level with sites incremented by potential sites count
-        this.permanentCentersByLevel = ArrayOperations.incrementList(permanentCentersByLevel, potentialSitesCount);
+        List<List<Integer>> adjustedPermanentCentersByLevel = checkPermanentCentersLevelRelations(permanentCentersByLevel);
+        this.permanentCentersByLevel = ArrayOperations.incrementList(adjustedPermanentCentersByLevel, potentialSitesCount); //check and enforce consistency with level relations
 
         //Determine remaining permanent center variables
         permanentCentersCountByLevel = new int[this.getCenterLevels()];
         for (int i = 0; i < this.getCenterLevels(); i++) {
-            permanentCentersCountByLevel[i] = permanentCentersByLevel.get(i).size();
+            permanentCentersCountByLevel[i] = adjustedPermanentCentersByLevel.get(i).size();
         }
-        PositionsAndCostsByLevelAndOrigin minPermanentCenterInfo = getMinimumCenterInfo(permanentGraphArray, permanentCentersByLevel);
+        PositionsAndCostsByLevelAndOrigin minPermanentCenterInfo = getMinimumCenterInfo(permanentGraphArray, adjustedPermanentCentersByLevel);
         minPermanentPositionByLevelAndOrigin = minPermanentCenterInfo.getPositionsByLevelAndOrigin();
         minPermanentCostByLevelAndOrigin = minPermanentCenterInfo.getCostsByLevelAndOrigin();
     }
@@ -216,6 +217,24 @@ public class SearchSpace {
         }
 
         return new PositionsAndCostsByLevelAndOrigin(minCenterPositionByLevelAndOrigin, minCostsByLevelAndOrigin);
+    }
+
+    //Adjusts permanent centers to satisfy level relations if not already satisfied.
+    public List<List<Integer>> checkPermanentCentersLevelRelations(List<List<Integer>> permanentCentersByLevel) {
+        List<List<Integer>> adjustedPermanentCentersByLevel = new ArrayList<>();
+        for (int level = 0; level < permanentCentersByLevel.size(); level++) {
+            ArrayList<Integer> adjustedPermanentCenters = new ArrayList<>(permanentCentersByLevel.get(level));
+            for (int sublevel : sublevelsByLevel[level]) {
+                for (Integer permanentCenter : permanentCentersByLevel.get(sublevel)) {
+                    if (!permanentCentersByLevel.get(level).contains(permanentCenter)) {
+                        System.out.println("Warning: level relations and permanent centers inconsistent. Center " + permanentCenter + " from sublevel " + sublevel + " is not in level " + level + ".");
+                        adjustedPermanentCenters.add(permanentCenter);
+                    }
+                }
+            }
+            adjustedPermanentCentersByLevel.add(adjustedPermanentCenters);
+        }
+        return adjustedPermanentCentersByLevel;
     }
 
     public int[] getMinNewCentersByLevel() {
