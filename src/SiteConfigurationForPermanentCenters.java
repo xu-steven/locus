@@ -30,7 +30,7 @@ public class SiteConfigurationForPermanentCenters {
         //Compute new parameters
         CostMapAndPositions updatedResult = shiftSiteCost(level, newSites, adjustedPosition, newSites.get(adjustedPosition), searchParameters.getMinPermanentPositionByLevelAndOrigin(),
                 searchParameters.getPermanentCentersCountByLevel(), searchParameters.getMinPermanentPositionByLevelAndOrigin(), searchParameters.getMinPermanentCostByLevelAndOrigin(),
-                searchParameters.getMinimumCasesByLevel(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
+                searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
         double newCost = CostCalculator.computeCost(updatedResult.getMinimumCostMap(), minimumCases) * servicedProportion;
         int[] newMinimumPositionsByOrigin = updatedResult.getPositions();
 
@@ -66,7 +66,7 @@ public class SiteConfigurationForPermanentCenters {
         //Compute new parameters
         CostMapAndPositions updatedResult = removeSiteCost(level, newSites, removalPosition, searchParameters.getMinPermanentPositionByLevelAndOrigin(),
                 searchParameters.getPermanentCentersCountByLevel(), searchParameters.getMinPermanentPositionByLevelAndOrigin(), searchParameters.getMinPermanentCostByLevelAndOrigin(),
-                searchParameters.getMinimumCasesByLevel(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
+                searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
         double newCost = CostCalculator.computeCost(updatedResult.getMinimumCostMap(), minimumCases) * servicedProportion;
         int[] newMinimumPositionsByOrigin = updatedResult.getPositions();
 
@@ -75,7 +75,7 @@ public class SiteConfigurationForPermanentCenters {
 
     //For higher levels
     public static CostMapAndPositions initialCost(int level, List<Integer> sites, int[] permanentCentersCountByLevel, int[][] minPermanentPositionByLevelAndOrigin, double[][] minPermanentCostByLevelAndOrigin,
-                                           double[] minimumCasesByLevel, int originCount, double[] caseCountByOrigin, double[][] graphArray,
+                                           int originCount, double[] caseCountByOrigin, double[][] graphArray,
                                            int taskCount, int[][] partitionedOrigins, ExecutorService executor) {
         int siteCount = sites.size();
         if (siteCount == 0) {
@@ -131,7 +131,7 @@ public class SiteConfigurationForPermanentCenters {
     //For higher levels
     public static CostMapAndPositions shiftSiteCost(int level, List<Integer> sites, int movedPosition, Integer newSite, int[][] oldMinimumCostPositionByLevelAndOrigin,
                                              int[] permanentCentersCountByLevel, int[][] minPermanentPositionByLevelAndOrigin, double[][] minPermanentCostByLevelAndOrigin,
-                                             double[] minimumCasesByLevel, int originCount, double[] caseCountByOrigin, double[][] graphArray,
+                                             int originCount, double[] caseCountByOrigin, double[][] graphArray,
                                              int taskCount, int[][] partitionedOrigins, ExecutorService executor) {
         int siteCount = sites.size();
         if (siteCount == 0) {
@@ -207,7 +207,7 @@ public class SiteConfigurationForPermanentCenters {
         Integer newSite = sites.get(newPosition);
         //If there were originally no sites
         if (siteCount == 1) {
-            return SiteConfiguration.initialCost(sites, minimumCasesByLevel[level], originCount, caseCountByOrigin, graphArray, taskCount, partitionedOrigins, executor);
+            return SiteConfiguration.initialCost(sites, originCount, caseCountByOrigin, graphArray, taskCount, partitionedOrigins, executor);
         }
         //If there were some sites
         CountDownLatch latch = new CountDownLatch(taskCount);
@@ -258,7 +258,7 @@ public class SiteConfigurationForPermanentCenters {
     //For higher levels
     public static CostMapAndPositions removeSiteCost(int level, List<Integer> sites, int removedPosition, int[][] oldMinimumCostPositionByLevelAndOrigin,
                                               int[] permanentCentersCountByLevel, int[][] minPermanentPositionByLevelAndOrigin, double[][] minPermanentCostByLevelAndOrigin,
-                                              double[] minimumCasesByLevel, int originCount, double[] caseCountByOrigin, double[][] graphArray,
+                                              int originCount, double[] caseCountByOrigin, double[][] graphArray,
                                               int taskCount, int[][] partitionedOrigins, ExecutorService executor) {
         int siteCount = sites.size();
         if (siteCount == 0) {

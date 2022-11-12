@@ -11,12 +11,16 @@ public class SearchSpace {
     private final int[][] sublevelsByLevel;
     private final int[][] superlevelsByLevel;
 
+    //Time-variable properties [time][] or [time][][]
+    private final double[] caseCountByOrigin;
+    private final double[] timepointWeights;
+
     //Non-configurable class variables
     private final double minimumCases;// = 10000;
     private final int centerLevels;
+    private final int timepointCount;
     private final int originCount;
     private int potentialSitesCount;// = graphArray.get(0).size() - 1;
-    private final double[] caseCountByOrigin;
     private final double[][] graphArray;// = parseCSV(graphLocation);
     private final int[][] partitionedOrigins; //Origins are represented by int
     private final List<List<Integer>> sortedNeighbors;// = SimAnnealingNeighbor.sortNeighbors(azimuthArray, haversineArray);
@@ -45,10 +49,15 @@ public class SearchSpace {
         this.centerLevels = minimumCasesByLevel.length;
         this.potentialSitesCount = FileUtils.getSitesCount(graphLocation);
         this.originCount = FileUtils.getOriginCount(graphLocation);
-        this.caseCountByOrigin = FileUtils.getCaseCountsFromCSV(censusFileLocation, "Population", originCount);
         this.graphArray = FileUtils.getInnerDoubleArrayFromCSV(graphLocation, originCount, potentialSitesCount);
         this.partitionedOrigins = MultithreadingUtils.orderedPartitionArray(IntStream.range(0, originCount).toArray(), taskCount);
         this.sortedNeighbors = SimAnnealingNeighbor.sortNeighbors(FileUtils.getInnerAzimuthArrayFromCSV(azimuthLocation, originCount, potentialSitesCount), FileUtils.getInnerDoubleArrayFromCSV(haversineLocation, originCount, potentialSitesCount), azimuthClassCount, taskCount, executor);
+
+        //Time-dependent variables
+        this.caseCountByOrigin = flattenTwoDimensionalArray(FileUtils.getCaseCountsFromCSV(censusFileLocation, "Cases", originCount));
+        this.timepointCount = caseCountByOrigin.length;
+        this.timepointWeights = new double[timepointCount];
+        Arrays.fill(timepointWeights, 1.0);
     }
 
     //When there are permanent centers to put in graphArray
@@ -68,12 +77,17 @@ public class SearchSpace {
         this.centerLevels = minimumCasesByLevel.length;
         this.originCount = FileUtils.getOriginCount(potentialGraphLocation);
         this.potentialSitesCount = FileUtils.getSitesCount(potentialGraphLocation);
-        this.caseCountByOrigin = FileUtils.getCaseCountsFromCSV(censusFileLocation, "Population", originCount);
         double[][] permanentGraphArray = FileUtils.getInnerDoubleArrayFromCSV(permanentGraphLocation, originCount, FileUtils.getSitesCount(permanentGraphLocation));
         double[][] potentialGraphArray = FileUtils.getInnerDoubleArrayFromCSV(potentialGraphLocation, originCount, potentialSitesCount);
         this.graphArray = ArrayOperations.mergeDoubleArrays(potentialGraphArray, permanentGraphArray);
         partitionedOrigins = MultithreadingUtils.orderedPartitionArray(IntStream.range(0, originCount).toArray(), taskCount);
         this.sortedNeighbors = SimAnnealingNeighbor.sortNeighbors(FileUtils.getInnerAzimuthArrayFromCSV(azimuthLocation, originCount, potentialSitesCount), FileUtils.getInnerDoubleArrayFromCSV(haversineLocation, originCount, potentialSitesCount), azimuthClassCount, taskCount, executor);
+
+        //Time-dependent variables
+        this.caseCountByOrigin = flattenTwoDimensionalArray(FileUtils.getCaseCountsFromCSV(censusFileLocation, "Cases", originCount));
+        this.timepointCount = caseCountByOrigin.length;
+        this.timepointWeights = new double[timepointCount];
+        Arrays.fill(timepointWeights, 1.0);
 
         //Determine permanent centers by level with sites incremented by potential sites count
         List<List<Integer>> adjustedPermanentCentersByLevel = checkPermanentCentersLevelRelations(permanentCentersByLevel);
@@ -235,6 +249,24 @@ public class SearchSpace {
             adjustedPermanentCentersByLevel.add(adjustedPermanentCenters);
         }
         return adjustedPermanentCentersByLevel;
+    }
+
+    //Flattens two dimensional array into one dimensional array for speed
+    private double[] flattenTwoDimensionalArray(double[][] twoDimensionalArray) {
+        int dimensionOneSize = twoDimensionalArray.length;
+        int dimensionTwoSize = twoDimensionalArray[0].length;
+        double[] flattenedArray = new double[dimensionOneSize * dimensionTwoSize];
+        for (int dimensionOnePosition = 0; dimensionOnePosition < dimensionOneSize; dimensionOnePosition++) {
+            for (int dimensionTwoPosition = 0; dimensionTwoPosition < dimensionTwoSize; dimensionTwoPosition++) {
+                flattenedArray[dimensionOnePosition * dimensionTwoSize + dimensionTwoPosition] = twoDimensionalArray[dimensionOnePosition][dimensionTwoPosition];
+            }
+        }
+        return flattenedArray;
+    }
+
+    //Get case count given timepoint and origin
+    public double getCaseCount(int timepoint, int origin) {
+        return caseCountByOrigin[timepoint * originCount + origin];
     }
 
     public int[] getMinNewCentersByLevel() {

@@ -48,7 +48,7 @@ public class SimAnnealingWithPermanentCenters extends SimAnnealingSearch{
         LeveledSiteConfigurationForPermanentCenters minimumSolution = null;
         //development start
         long runtime = 0;
-        for (int i = 0; i < 1; i++) {//dev
+        for (int i = 0; i < 20; i++) {//dev
             long startTime = System.currentTimeMillis();
             LeveledSiteConfigurationForPermanentCenters solution = leveledOptimizeCenters(searchParameters.getMinNewCentersByLevel(), searchParameters.getMaxNewCentersByLevel(), 6);
             System.out.println("Iteration cost is " + solution.getCost() + " on centers " + solution.getSitesByLevel());
@@ -65,6 +65,7 @@ public class SimAnnealingWithPermanentCenters extends SimAnnealingSearch{
         LeveledSiteConfigurationForPermanentCenters.DecomposedLeveledSites decomposedSites = minimumSolution.decomposeSites(searchParameters.getPermanentCentersCountByLevel(), searchParameters.getPotentialSitesCount());
         System.out.println("Minimum cost " + minimumSolution.getCost() + " at permanent sites " + decomposedSites.getPermanentSitesByLevel() + " and expanded permanent sites " + decomposedSites.getExpandedSitesByLevel() + " and new sites " + decomposedSites.getNewSitesByLevel() + ".");
         executor.shutdown();
+        System.out.println("Total runtime " + runtime);
         return;
     }
 

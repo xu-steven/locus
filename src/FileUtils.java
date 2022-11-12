@@ -140,21 +140,26 @@ public final class FileUtils {
     }
 
     //Extract case counts from CSV with column heading
-    public static double[] getCaseCountsFromCSV(String fileLocation, String caseCountColumnHeading, int originCount) {
+    public static double[][] getCaseCountsFromCSV(String fileLocation, String caseCountColumnHeading, int originCount) {
         System.out.println("Importing case counts into memory.");
         BufferedReader reader;
         String currentLine;
-        double[] caseCounts = new double[originCount];
+        List<Integer> caseCountHeadingIndices;
+        double[][] caseCounts = new double[0][];
         try {
+            //Get case count indices
             reader = new BufferedReader(new FileReader(fileLocation));
-            int counter = -1;
-            int caseCountHeadingIndex = -1;
+            currentLine = reader.readLine();
+            String[] values = currentLine.split(",");
+            caseCountHeadingIndices = findColumnIndices(Arrays.asList(values), caseCountColumnHeading);
+
+            //Fill out array with case counts
+            int counter = 0;
+            caseCounts = new double[caseCountHeadingIndices.size()][originCount];
             while ((currentLine = reader.readLine()) != null) {
-                String[] values = currentLine.split(",");
-                if (counter == -1) {
-                    caseCountHeadingIndex = findColumnIndex(Arrays.asList(values), caseCountColumnHeading);
-                } else {
-                    caseCounts[counter] = Double.valueOf(values[caseCountHeadingIndex]);
+                values = currentLine.split(",");
+                for (int timepoint = 0; timepoint < caseCountHeadingIndices.size(); timepoint++) {
+                    caseCounts[timepoint][counter] = Double.valueOf(values[caseCountHeadingIndices.get(timepoint)]);
                 }
                 counter += 1;
             }
@@ -250,6 +255,21 @@ public final class FileUtils {
             throw new Exception(s+" was not found.");
         }
         return finalCount;
+    }
+
+    //Finds index position of heading of interest from list of headings
+    public static List<Integer> findColumnIndices(List<String> l, String s) throws Exception {
+        List<Integer> indices = new ArrayList<>();
+        for (int counter = 0; counter < l.size(); ++counter) {
+            if (s.contains(l.get(counter))) {
+                indices.add(counter);
+                break;
+            }
+        }
+        if (indices.size() == 0) {
+            throw new Exception(s+" was not found.");
+        }
+        return indices;
     }
 
     //Convert census ID to row number in census
