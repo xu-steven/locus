@@ -21,7 +21,8 @@ public class SearchSpace {
     private final int timepointCount;
     private final int originCount;
     private int potentialSitesCount;// = graphArray.get(0).size() - 1;
-    private final double[][] graphArray;// = parseCSV(graphLocation);
+    private int totalSitesCount;
+    private final double[] graphArray;// = parseCSV(graphLocation);
     private final int[][] partitionedOrigins; //Origins are represented by int
     private final List<List<Integer>> sortedNeighbors;// = SimAnnealingNeighbor.sortNeighbors(azimuthArray, haversineArray);
 
@@ -49,7 +50,7 @@ public class SearchSpace {
         this.centerLevels = minimumCasesByLevel.length;
         this.potentialSitesCount = FileUtils.getSitesCount(graphLocation);
         this.originCount = FileUtils.getOriginCount(graphLocation);
-        this.graphArray = FileUtils.getInnerDoubleArrayFromCSV(graphLocation, originCount, potentialSitesCount);
+        this.graphArray = flattenTwoDimensionalArray(FileUtils.getInnerDoubleArrayFromCSV(graphLocation, originCount, potentialSitesCount));
         this.partitionedOrigins = MultithreadingUtils.orderedPartitionArray(IntStream.range(0, originCount).toArray(), taskCount);
         this.sortedNeighbors = SimAnnealingNeighbor.sortNeighbors(FileUtils.getInnerAzimuthArrayFromCSV(azimuthLocation, originCount, potentialSitesCount), FileUtils.getInnerDoubleArrayFromCSV(haversineLocation, originCount, potentialSitesCount), azimuthClassCount, taskCount, executor);
 
@@ -77,9 +78,11 @@ public class SearchSpace {
         this.centerLevels = minimumCasesByLevel.length;
         this.originCount = FileUtils.getOriginCount(potentialGraphLocation);
         this.potentialSitesCount = FileUtils.getSitesCount(potentialGraphLocation);
-        double[][] permanentGraphArray = FileUtils.getInnerDoubleArrayFromCSV(permanentGraphLocation, originCount, FileUtils.getSitesCount(permanentGraphLocation));
+        int permanentSitesCount = FileUtils.getSitesCount(permanentGraphLocation);
+        this.totalSitesCount = this.potentialSitesCount + permanentSitesCount;
+        double[][] permanentGraphArray = FileUtils.getInnerDoubleArrayFromCSV(permanentGraphLocation, originCount, permanentSitesCount);
         double[][] potentialGraphArray = FileUtils.getInnerDoubleArrayFromCSV(potentialGraphLocation, originCount, potentialSitesCount);
-        this.graphArray = ArrayOperations.mergeDoubleArrays(potentialGraphArray, permanentGraphArray);
+        this.graphArray = flattenTwoDimensionalArray(ArrayOperations.mergeDoubleArrays(potentialGraphArray, permanentGraphArray));
         partitionedOrigins = MultithreadingUtils.orderedPartitionArray(IntStream.range(0, originCount).toArray(), taskCount);
         this.sortedNeighbors = SimAnnealingNeighbor.sortNeighbors(FileUtils.getInnerAzimuthArrayFromCSV(azimuthLocation, originCount, potentialSitesCount), FileUtils.getInnerDoubleArrayFromCSV(haversineLocation, originCount, potentialSitesCount), azimuthClassCount, taskCount, executor);
 
@@ -269,6 +272,12 @@ public class SearchSpace {
         return caseCountByOrigin[timepoint * originCount + origin];
     }
 
+    //Get edge length on directed graph
+    //Can revert to return graphArray[origin, destination] and eliminate flattening if origin * destination exceeds 2.147 billion
+    public double getEdgeLength(int origin, int destination) {
+        return graphArray[origin * totalSitesCount + destination];
+    }
+
     public int[] getMinNewCentersByLevel() {
         return minNewCentersByLevel;
     }
@@ -313,7 +322,7 @@ public class SearchSpace {
         return caseCountByOrigin;
     }
 
-    public double[][] getGraphArray() {
+    public double[] getGraphArray() {
         return graphArray;
     }
 
