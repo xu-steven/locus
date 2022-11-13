@@ -28,7 +28,7 @@ public class SimAnnealingWithoutPermanentCenters extends SimAnnealingSearch{
         double[] minimumCasesByLevel = {(double) 10000, (double) 1000000, (double) 2000000};
         double[] servicedProportionByLevel = {1.0, 0.0, 0.0};
         int[] minimumCenterCountByLevel = {2, 0, 1};
-        int[] maximumCenterCountByLevel = {6, 6, 6};
+        int[] maximumCenterCountByLevel = {6, 0, 6};
         List<List<Integer>> levelSequences = new ArrayList<>();
         levelSequences.add(Arrays.asList(0, 1));
         levelSequences.add(Arrays.asList(0, 2));
@@ -44,7 +44,7 @@ public class SimAnnealingWithoutPermanentCenters extends SimAnnealingSearch{
         //This can be multithreaded with each thread working on a different number n.
         double minimumCost = Double.POSITIVE_INFINITY;
         List<List<Integer>> minimumSites = new ArrayList<>();
-        SiteConfiguration solutionWithOneLevel = optimizeNCenters(6, 6);
+        //SiteConfiguration solutionWithOneLevel = optimizeNCenters(6, 6);
         //development start
         long runtime = 0;
         for (int i = 0; i < 20; i++) {//dev

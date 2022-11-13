@@ -49,16 +49,18 @@ public class SearchSpace {
         this.minimumCases = minimumCasesByLevel[0];
         this.centerLevels = minimumCasesByLevel.length;
         this.potentialSitesCount = FileUtils.getSitesCount(graphLocation);
+        this.totalSitesCount = potentialSitesCount;
         this.originCount = FileUtils.getOriginCount(graphLocation);
         this.graphArray = flattenTwoDimensionalArray(FileUtils.getInnerDoubleArrayFromCSV(graphLocation, originCount, potentialSitesCount));
         this.partitionedOrigins = MultithreadingUtils.orderedPartitionArray(IntStream.range(0, originCount).toArray(), taskCount);
         this.sortedNeighbors = SimAnnealingNeighbor.sortNeighbors(FileUtils.getInnerAzimuthArrayFromCSV(azimuthLocation, originCount, potentialSitesCount), FileUtils.getInnerDoubleArrayFromCSV(haversineLocation, originCount, potentialSitesCount), azimuthClassCount, taskCount, executor);
 
         //Time-dependent variables
-        this.caseCountByOrigin = flattenTwoDimensionalArray(FileUtils.getCaseCountsFromCSV(censusFileLocation, "Cases", originCount));
-        this.timepointCount = caseCountByOrigin.length;
+        double[][] unflattenedCaseCountByOrigin = FileUtils.getCaseCountsFromCSV(censusFileLocation, "Cases", originCount);
+        this.caseCountByOrigin = flattenTwoDimensionalArray(unflattenedCaseCountByOrigin);
+        this.timepointCount = unflattenedCaseCountByOrigin.length;
         this.timepointWeights = new double[timepointCount];
-        Arrays.fill(timepointWeights, 1.0);
+        Arrays.fill(timepointWeights, 1 / (double) timepointCount);
     }
 
     //When there are permanent centers to put in graphArray
@@ -83,14 +85,15 @@ public class SearchSpace {
         double[][] permanentGraphArray = FileUtils.getInnerDoubleArrayFromCSV(permanentGraphLocation, originCount, permanentSitesCount);
         double[][] potentialGraphArray = FileUtils.getInnerDoubleArrayFromCSV(potentialGraphLocation, originCount, potentialSitesCount);
         this.graphArray = flattenTwoDimensionalArray(ArrayOperations.mergeDoubleArrays(potentialGraphArray, permanentGraphArray));
-        partitionedOrigins = MultithreadingUtils.orderedPartitionArray(IntStream.range(0, originCount).toArray(), taskCount);
+        this.partitionedOrigins = MultithreadingUtils.orderedPartitionArray(IntStream.range(0, originCount).toArray(), taskCount);
         this.sortedNeighbors = SimAnnealingNeighbor.sortNeighbors(FileUtils.getInnerAzimuthArrayFromCSV(azimuthLocation, originCount, potentialSitesCount), FileUtils.getInnerDoubleArrayFromCSV(haversineLocation, originCount, potentialSitesCount), azimuthClassCount, taskCount, executor);
 
         //Time-dependent variables
-        this.caseCountByOrigin = flattenTwoDimensionalArray(FileUtils.getCaseCountsFromCSV(censusFileLocation, "Cases", originCount));
-        this.timepointCount = caseCountByOrigin.length;
+        double[][] unflattenedCaseCountByOrigin = FileUtils.getCaseCountsFromCSV(censusFileLocation, "Cases", originCount);
+        this.caseCountByOrigin = flattenTwoDimensionalArray(unflattenedCaseCountByOrigin);
+        this.timepointCount = unflattenedCaseCountByOrigin.length;
         this.timepointWeights = new double[timepointCount];
-        Arrays.fill(timepointWeights, 1.0);
+        Arrays.fill(timepointWeights, 1 / (double) timepointCount);
 
         //Determine permanent centers by level with sites incremented by potential sites count
         List<List<Integer>> adjustedPermanentCentersByLevel = checkPermanentCentersLevelRelations(permanentCentersByLevel);
@@ -310,6 +313,10 @@ public class SearchSpace {
         return superlevelsByLevel;
     }
 
+    public int getTimepointCount() {
+        return timepointCount;
+    }
+
     public int getOriginCount() {
         return originCount;
     }
@@ -322,8 +329,8 @@ public class SearchSpace {
         return caseCountByOrigin;
     }
 
-    public double[] getGraphArray() {
-        return graphArray;
+    public double[] getTimepointWeights() {
+        return timepointWeights;
     }
 
     public int getPotentialSitesCount() {

@@ -261,9 +261,8 @@ public final class FileUtils {
     public static List<Integer> findColumnIndices(List<String> l, String s) throws Exception {
         List<Integer> indices = new ArrayList<>();
         for (int counter = 0; counter < l.size(); ++counter) {
-            if (s.contains(l.get(counter))) {
+            if (l.get(counter).contains(s)) {
                 indices.add(counter);
-                break;
             }
         }
         if (indices.size() == 0) {
