@@ -46,19 +46,16 @@ public class SimAnnealingWithoutPermanentCenters extends SimAnnealingSearch{
         List<List<Integer>> minimumSites = new ArrayList<>();
         //SiteConfiguration solutionWithOneLevel = optimizeNCenters(6, 6);
         //development start
-        long runtime = 0;
+        double runtime = 0;
         for (int i = 0; i < 20; i++) {//dev
             long startTime = System.currentTimeMillis();
             LeveledSiteConfiguration solutionWithNCenters = leveledOptimizeCenters(searchParameters.getMinNewCentersByLevel(), searchParameters.getMaxNewCentersByLevel(), 6);
             System.out.println("Final cost is " + solutionWithNCenters.getCost() + " on centers " + solutionWithNCenters.getSitesByLevel());
-            long endTime = System.currentTimeMillis();
+            double endTime = System.currentTimeMillis();
             runtime += (endTime - startTime);
         }
-        System.out.println("Run time on 20 iterations was " + (runtime / 1000) + "s");
+        System.out.println("Run time on 20 iterations was " + (runtime / (double) 1000) + "s");
         //development end
-        LeveledSiteConfiguration solutionWithNCenters = leveledOptimizeCenters(searchParameters.getMinNewCentersByLevel(), searchParameters.getMaxNewCentersByLevel(), 6);
-        minimumCost = solutionWithNCenters.getCost();
-        minimumSites = solutionWithNCenters.getSitesByLevel();
         executor.shutdown();
         return;
     }

@@ -65,7 +65,7 @@ public class SimAnnealingWithPermanentCenters extends SimAnnealingSearch{
         LeveledSiteConfigurationForPermanentCenters.DecomposedLeveledSites decomposedSites = minimumSolution.decomposeSites(searchParameters.getPermanentCentersCountByLevel(), searchParameters.getPotentialSitesCount());
         System.out.println("Minimum cost " + minimumSolution.getCost() + " at permanent sites " + decomposedSites.getPermanentSitesByLevel() + " and expanded permanent sites " + decomposedSites.getExpandedSitesByLevel() + " and new sites " + decomposedSites.getNewSitesByLevel() + ".");
         executor.shutdown();
-        System.out.println("Total runtime " + runtime);
+        System.out.println("Total runtime " + (runtime / (long) 1000) + " seconds");
         return;
     }
 
