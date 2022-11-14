@@ -22,7 +22,7 @@ public class SiteConfiguration {
         sites = new ArrayList<>(pickNRandomFromList(potentialSites, random.nextInt(maximumCenterCount - minimumCenterCount + 1) + minimumCenterCount, random));
 
         //Compute initial cost and list of the closest of current positions for each originating population center
-        CostMapAndPositions initialCostAndPositions = initialCost(sites, searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters, taskCount, searchParameters.getPartitionedOrigins(), executor);
+        CostMapAndPositions initialCostAndPositions = initialCost(sites, searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getTotalSitesCount(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
         cost = CostCalculator.computeCost(initialCostAndPositions.getCasesAndCostMap(), searchParameters.getMinimumCases(), searchParameters.getTimepointWeights());
         minimumPositionsByOrigin = initialCostAndPositions.getPositions();
     }
@@ -36,7 +36,7 @@ public class SiteConfiguration {
         newSites.set(positionToShift, newSite);
 
         //Compute cost of new positions and update list of the closest of current positions for each population center
-        CostMapAndPositions updatedResult = shiftSiteCost(newSites, positionToShift, newSite, minimumPositionsByOrigin, searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters, taskCount, searchParameters.getPartitionedOrigins(), executor);
+        CostMapAndPositions updatedResult = shiftSiteCost(newSites, positionToShift, newSite, minimumPositionsByOrigin, searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getTotalSitesCount(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
         double newCost = CostCalculator.computeCost(updatedResult.getCasesAndCostMap(), searchParameters.getMinimumCases(), searchParameters.getTimepointWeights());
 
         //Decide whether to accept new positions
@@ -54,7 +54,7 @@ public class SiteConfiguration {
         newSites.set(positionToShift, newSite);
 
         //Compute new parameters
-        CostMapAndPositions updatedResult = shiftSiteCost(newSites, positionToShift, newSite, minimumPositionsByOrigin, searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters, taskCount, searchParameters.getPartitionedOrigins(), executor);
+        CostMapAndPositions updatedResult = shiftSiteCost(newSites, positionToShift, newSite, minimumPositionsByOrigin, searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getTotalSitesCount(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
         double newCost = CostCalculator.computeCost(updatedResult.getCasesAndCostMap(), minimumCases, searchParameters.getTimepointWeights()) * servicedProportion;
 
         //Decide whether to accept new positions
@@ -72,7 +72,7 @@ public class SiteConfiguration {
         newSites.add(newSite);
 
         //Compute parameters
-        CostMapAndPositions updatedResult = addSiteCost(newSites, minimumPositionsByOrigin, searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters, taskCount, searchParameters.getPartitionedOrigins(), executor);
+        CostMapAndPositions updatedResult = addSiteCost(newSites, minimumPositionsByOrigin, searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getTotalSitesCount(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
         double newCost = CostCalculator.computeCost(updatedResult.getCasesAndCostMap(), minimumCases, searchParameters.getTimepointWeights()) * servicedProportion;
 
         //Decide whether to accept new positions
@@ -90,7 +90,7 @@ public class SiteConfiguration {
         newSites.remove(removalPosition);
 
         //Compute new parameters
-        CostMapAndPositions updatedResult = removeSiteCost(newSites, removalPosition, minimumPositionsByOrigin, searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters, taskCount, searchParameters.getPartitionedOrigins(), executor);
+        CostMapAndPositions updatedResult = removeSiteCost(newSites, removalPosition, minimumPositionsByOrigin, searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getTotalSitesCount(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
         double newCost = CostCalculator.computeCost(updatedResult.getCasesAndCostMap(), minimumCases, searchParameters.getTimepointWeights()) * servicedProportion;
 
         //Decide whether to accept new positions
@@ -103,7 +103,7 @@ public class SiteConfiguration {
 
     //Variation of totalCost to save compute resources. For initial sites.
     //Cost function of configuration with given cancer center positions, graph, expected case count. Technically does not optimize for case where one permits travel to further cancer center to lower cost.
-    public static CostMapAndPositions initialCost(List<Integer> sites, int timepointCount, int originCount, double[] caseCountByOrigin, SearchSpace searchParameters,
+    public static CostMapAndPositions initialCost(List<Integer> sites, int timepointCount, int originCount, double[] caseCountByOrigin, int totalSitesCount, double[] graphArray,
                                            int taskCount, int[][] partitionedOrigins, ExecutorService executor) {
         int siteCount = sites.size();
         if (siteCount == 0) {
@@ -119,16 +119,16 @@ public class SiteConfiguration {
                 CasesAndCostMap partitionMinimumCostMap = new CasesAndCostMap(timepointCount, siteCount);
                 for (int j : partitionedOrigins[finalI]) {
                     int minimumCostPosition = 0;
-                    double minimumCostUnadjusted = searchParameters.getEdgeLength(j, sites.get(0)); //Closest center travel cost, not adjusted for population or cancer center scaling
+                    double minimumCostUnadjusted = SearchSpace.getEdgeLength(j, sites.get(0), totalSitesCount, graphArray); //Closest center travel cost, not adjusted for population or cancer center scaling
                     for (int k = 1; k < siteCount; ++k) {
-                        double currentCostUnadjusted = searchParameters.getEdgeLength(j, sites.get(k));
+                        double currentCostUnadjusted = SearchSpace.getEdgeLength(j, sites.get(k), totalSitesCount, graphArray);
                         if (currentCostUnadjusted < minimumCostUnadjusted) {
                             minimumCostPosition = k;
                             minimumCostUnadjusted = currentCostUnadjusted;
                         }
                     }
                     minimumCostPositionsByOrigin[j] = minimumCostPosition;
-                    partitionMinimumCostMap.updateCasesAndCost(minimumCostPosition, minimumCostUnadjusted, j, searchParameters);
+                    partitionMinimumCostMap.updateCasesAndCost(minimumCostPosition, minimumCostUnadjusted, j, originCount, caseCountByOrigin);
                 }
                 partitionedMinimumCostMap[finalI] = partitionMinimumCostMap;
                 latch.countDown();
@@ -147,8 +147,8 @@ public class SiteConfiguration {
     //Variation of totalCost to save compute resources. For subsequent sites.
     //Input movedPosition is index from [0, 1, 2, ..., n-1] for n centers that was shifted to a new site; newSite is actual indexed position of new site; oldMinimumCostPositionByOrigin is list of the lowest travel cost centers for each population center using previous iteration sites prior to shift.
     //Cost function of configuration with given cancer center positions, graph, expected case count. Technically does not optimize for case where one permits travel to further cancer center to lower cost.
-    public static CostMapAndPositions shiftSiteCost(List<Integer> sites, int movedPosition, Integer newSite, int[] oldMinimumCostPositionByOrigin, int timepointCount, int originCount, double[] caseCountByOrigin, SearchSpace searchParameters,
-                                             int taskCount, int[][] partitionedOrigins, ExecutorService executor) {
+    public static CostMapAndPositions shiftSiteCost(List<Integer> sites, int movedPosition, Integer newSite, int[] oldMinimumCostPositionByOrigin, int timepointCount, int originCount, double[] caseCountByOrigin, int totalSitesCount, double[] graphArray,
+                                                    int taskCount, int[][] partitionedOrigins, ExecutorService executor) {
         int siteCount = sites.size();
         if (siteCount == 0) {
             return new CostMapAndPositions(null, null);
@@ -165,17 +165,17 @@ public class SiteConfiguration {
                     double minimumCostUnadjusted;
                     int oldMinimumCostPosition = oldMinimumCostPositionByOrigin[j];
                     if (movedPosition == oldMinimumCostPosition) {
-                        minimumCostUnadjusted = searchParameters.getEdgeLength(j, sites.get(0)); //Closest center travel cost, not adjusted for population or cancer center scaling
+                        minimumCostUnadjusted = SearchSpace.getEdgeLength(j, sites.get(0), totalSitesCount, graphArray); //Closest center travel cost, not adjusted for population or cancer center scaling
                         for (int k = 1; k < siteCount; ++k) {
-                            double currentCostUnadjusted = searchParameters.getEdgeLength(j, sites.get(k));
+                            double currentCostUnadjusted = SearchSpace.getEdgeLength(j, sites.get(k), totalSitesCount, graphArray);
                             if (currentCostUnadjusted < minimumCostUnadjusted) {
                                 minimumCostPosition = k;
                                 minimumCostUnadjusted = currentCostUnadjusted;
                             }
                         }
                     } else {
-                        double oldMinimumCost = searchParameters.getEdgeLength(j, sites.get(oldMinimumCostPosition));
-                        double newPositionCost = searchParameters.getEdgeLength(j, newSite);
+                        double oldMinimumCost = SearchSpace.getEdgeLength(j, sites.get(oldMinimumCostPosition), totalSitesCount, graphArray);
+                        double newPositionCost = SearchSpace.getEdgeLength(j, newSite, totalSitesCount, graphArray);
                         if (newPositionCost < oldMinimumCost) {
                             minimumCostPosition = movedPosition;
                             minimumCostUnadjusted = newPositionCost;
@@ -185,7 +185,7 @@ public class SiteConfiguration {
                         }
                     }
                     minimumCostPositionsByOrigin[j] = minimumCostPosition;
-                    partitionMinimumCostMap.updateCasesAndCost(minimumCostPosition, minimumCostUnadjusted, j, searchParameters);
+                    partitionMinimumCostMap.updateCasesAndCost(minimumCostPosition, minimumCostUnadjusted, j, originCount, caseCountByOrigin);
                 }
                 partitionedMinimumCostMap[finalI] = partitionMinimumCostMap;
                 latch.countDown();
@@ -203,14 +203,14 @@ public class SiteConfiguration {
     //Variation of totalCost to save compute resources. For added sites at the end of list.
     //Input movedPosition is index from [0, 1, 2, ..., n-1] for n centers that was shifted to a new site; newSite is actual indexed position of new site; oldMinimumCostPositionByOrigin is list of the lowest travel cost centers for each population center using previous iteration sites prior to shift.
     //Cost function of configuration with given cancer center positions, graph, expected case count. Technically does not optimize for case where one permits travel to further cancer center to lower cost.
-    public static CostMapAndPositions addSiteCost(List<Integer> sites, int[] oldMinimumCostPositionByOrigin, int timepointCount, int originCount, double[] caseCountByOrigin, SearchSpace searchParameters,
+    public static CostMapAndPositions addSiteCost(List<Integer> sites, int[] oldMinimumCostPositionByOrigin, int timepointCount, int originCount, double[] caseCountByOrigin, int totalSitesCount, double[] graphArray,
                                            int taskCount, int[][] partitionedOrigins, ExecutorService executor) {
         int siteCount = sites.size();
         int newPosition = siteCount - 1;
         Integer newSite = sites.get(newPosition);
         //If there were originally no sites
         if (siteCount == 1) {
-            return initialCost(sites, timepointCount, originCount, caseCountByOrigin, searchParameters, taskCount, partitionedOrigins, executor);
+            return initialCost(sites, timepointCount, originCount, caseCountByOrigin, totalSitesCount, graphArray, taskCount, partitionedOrigins, executor);
         }
         //If there were some sites
         CountDownLatch latch = new CountDownLatch(taskCount);
@@ -224,8 +224,8 @@ public class SiteConfiguration {
                     int minimumCostPosition;
                     double minimumCostUnadjusted; //Closest center travel cost, not adjusted for population or cancer center scaling
                     int oldMinimumCostPosition = oldMinimumCostPositionByOrigin[j];
-                    double oldMinimumCost = searchParameters.getEdgeLength(j, sites.get(oldMinimumCostPosition));
-                    double newPositionCost = searchParameters.getEdgeLength(j, newSite);
+                    double oldMinimumCost = SearchSpace.getEdgeLength(j, sites.get(oldMinimumCostPosition), totalSitesCount, graphArray);
+                    double newPositionCost = SearchSpace.getEdgeLength(j, newSite, totalSitesCount, graphArray);
                     if (newPositionCost < oldMinimumCost) {
                         minimumCostPosition = newPosition;
                         minimumCostUnadjusted = newPositionCost;
@@ -234,7 +234,7 @@ public class SiteConfiguration {
                         minimumCostUnadjusted = oldMinimumCost;
                     }
                     minimumCostPositionsByOrigin[j] = minimumCostPosition;
-                    partitionMinimumCostMap.updateCasesAndCost(minimumCostPosition, minimumCostUnadjusted, j, searchParameters);
+                    partitionMinimumCostMap.updateCasesAndCost(minimumCostPosition, minimumCostUnadjusted, j, originCount, caseCountByOrigin);
                 }
                 partitionedMinimumCostMap[finalI] = partitionMinimumCostMap;
                 latch.countDown();
@@ -252,7 +252,7 @@ public class SiteConfiguration {
     //Variation of totalCost to save compute resources. For subsequent sites.
     //Input movedPosition is index from [0, 1, 2, ..., n-1] for n centers that was shifted to a new site; newSite is actual indexed position of new site; oldMinimumCostPositionByOrigin is list of the lowest travel cost centers for each population center using previous iteration sites prior to shift.
     //Cost function of configuration with given cancer center positions, graph, expected case count. Technically does not optimize for case where one permits travel to further cancer center to lower cost.
-    public static CostMapAndPositions removeSiteCost(List<Integer> sites, int removedPosition, int[] oldMinimumCostPositionByOrigin, int timepointCount, int originCount, double[] caseCountByOrigin, SearchSpace searchParameters,
+    public static CostMapAndPositions removeSiteCost(List<Integer> sites, int removedPosition, int[] oldMinimumCostPositionByOrigin, int timepointCount, int originCount, double[] caseCountByOrigin, int totalSitesCount, double[] graphArray,
                                               int taskCount, int[][] partitionedOrigins, ExecutorService executor) {
         int siteCount = sites.size();
         if (siteCount == 0) {
@@ -271,9 +271,9 @@ public class SiteConfiguration {
                     double minimumCostUnadjusted;
                     int oldMinimumCostPosition = oldMinimumCostPositionByOrigin[j];
                     if (removedPosition == oldMinimumCostPosition) {
-                        minimumCostUnadjusted = searchParameters.getEdgeLength(j, sites.get(0)); //Closest center travel cost, not adjusted for population or cancer center scaling
+                        minimumCostUnadjusted = SearchSpace.getEdgeLength(j, sites.get(0), totalSitesCount, graphArray); //Closest center travel cost, not adjusted for population or cancer center scaling
                         for (int k = 1; k < siteCount; ++k) {
-                            double currentCostUnadjusted = searchParameters.getEdgeLength(j, sites.get(k));
+                            double currentCostUnadjusted = SearchSpace.getEdgeLength(j, sites.get(k), totalSitesCount, graphArray);
                             if (currentCostUnadjusted < minimumCostUnadjusted) {
                                 minimumCostPosition = k;
                                 minimumCostUnadjusted = currentCostUnadjusted;
@@ -285,10 +285,10 @@ public class SiteConfiguration {
                         } else {
                             minimumCostPosition = oldMinimumCostPosition;
                         }
-                        minimumCostUnadjusted = searchParameters.getEdgeLength(j, sites.get(minimumCostPosition));
+                        minimumCostUnadjusted = SearchSpace.getEdgeLength(j, sites.get(minimumCostPosition), totalSitesCount, graphArray);
                     }
                     minimumCostPositionsByOrigin[j] = minimumCostPosition;
-                    partitionMinimumCostMap.updateCasesAndCost(minimumCostPosition, minimumCostUnadjusted, j, searchParameters);
+                    partitionMinimumCostMap.updateCasesAndCost(minimumCostPosition, minimumCostUnadjusted, j, originCount, caseCountByOrigin);
                 }
                 partitionedMinimumCostMap[finalI] = partitionMinimumCostMap;
                 latch.countDown();

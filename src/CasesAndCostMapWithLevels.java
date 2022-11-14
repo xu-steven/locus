@@ -1,3 +1,4 @@
+@Deprecated
 public class CasesAndCostMapWithLevels {
     private CasesAndCostMap[] casesAndCostMapWithTimeAndLevels;
 

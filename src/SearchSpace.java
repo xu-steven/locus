@@ -271,13 +271,13 @@ public class SearchSpace {
     }
 
     //Get case count given timepoint and origin
-    public double getCaseCount(int timepoint, int origin) {
+    public static double getCaseCount(int timepoint, int origin, int originCount, double[] caseCountByOrigin) {
         return caseCountByOrigin[timepoint * originCount + origin];
     }
 
     //Get edge length on directed graph
     //Can revert to return graphArray[origin, destination] and eliminate flattening if origin * destination exceeds 2.147 billion
-    public double getEdgeLength(int origin, int destination) {
+    public static double getEdgeLength(int origin, int destination, int totalSitesCount, double[] graphArray) {
         return graphArray[origin * totalSitesCount + destination];
     }
 
@@ -329,12 +329,20 @@ public class SearchSpace {
         return caseCountByOrigin;
     }
 
+    public double[] getGraphArray() {
+        return graphArray;
+    }
+
     public double[] getTimepointWeights() {
         return timepointWeights;
     }
 
     public int getPotentialSitesCount() {
         return potentialSitesCount;
+    }
+
+    public int getTotalSitesCount() {
+        return totalSitesCount;
     }
 
     public List<List<Integer>> getSortedNeighbors() {

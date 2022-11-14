@@ -51,7 +51,7 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
         costMapByLevel = new CasesAndCostMapWithLevels(searchParameters.getCenterLevels());
         minimumPositionsByLevelAndOrigin = new int[searchParameters.getCenterLevels()][searchParameters.getOriginCount()];
         for (int level = 0; level < searchParameters.getCenterLevels(); ++level) {
-            CostMapAndPositions initialResult = initialCost(sitesByLevel.get(level), searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters, taskCount, searchParameters.getPartitionedOrigins(), executor);
+            CostMapAndPositions initialResult = initialCost(sitesByLevel.get(level), searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getTotalSitesCount(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
             //dev
             double initialLevelCost = CostCalculator.computeLevelSpecificBaseCost(initialResult.getCasesAndCostMap(), searchParameters.getMinimumCasesByLevel()[level], searchParameters.getServicedProportionByLevel()[level], searchParameters.getTimepointWeights());
             cost += initialLevelCost;
@@ -74,7 +74,9 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
         newTargetLevelSites.set(positionToShift, newSite);
 
         //Compute cost of new positions and update list of the closest of current positions for each population center
-        CostMapAndPositions updatedResult = shiftSiteCost(newTargetLevelSites, positionToShift, newSite, minimumPositionsByLevelAndOrigin[level], searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters, taskCount, searchParameters.getPartitionedOrigins(), executor);
+        CostMapAndPositions updatedResult = shiftSiteCost(newTargetLevelSites, positionToShift, newSite, minimumPositionsByLevelAndOrigin[level],
+                searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getTotalSitesCount(), searchParameters.getGraphArray(),
+                taskCount, searchParameters.getPartitionedOrigins(), executor);
         double newTargetLevelBaseCost = CostCalculator.computeLevelSpecificBaseCost(updatedResult.getCasesAndCostMap(), searchParameters.getMinimumCasesByLevel()[level], searchParameters.getServicedProportionByLevel()[level], searchParameters.getTimepointWeights());
 
         //Ensure that new target level cost is not excessive compared to total configuration cost
@@ -96,7 +98,9 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
                 int[] updatedPositions = updatedArrayAndHistory.getUpdatedPositions();
                 for (int i = 0; i < searchParameters.getCenterLevels(); i++) {
                     if (updateHistory[i]) {
-                        updatedResult = shiftSiteCost(newSitesByLevel.get(i), updatedPositions[i], newSite, minimumPositionsByLevelAndOrigin[i], searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters, taskCount, searchParameters.getPartitionedOrigins(), executor);
+                        updatedResult = shiftSiteCost(newSitesByLevel.get(i), updatedPositions[i], newSite, minimumPositionsByLevelAndOrigin[i],
+                                searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getTotalSitesCount(), searchParameters.getGraphArray(),
+                                taskCount, searchParameters.getPartitionedOrigins(), executor);
                         double levelCost = CostCalculator.computeLevelSpecificBaseCost(updatedResult.getCasesAndCostMap(), searchParameters.getMinimumCasesByLevel()[i], searchParameters.getServicedProportionByLevel()[i], searchParameters.getTimepointWeights());
                         newCostByLevel[i] = levelCost;
                         newCostMapByLevel.setLevel(i, updatedResult.getCasesAndCostMap());
@@ -131,7 +135,9 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
         newTargetLevelSites.set(positionToShift, newSite);
 
         //Compute cost of new positions and update list of the closest of current positions for each population center
-        CostMapAndPositions updatedResult = shiftSiteCost(newTargetLevelSites, positionToShift, newSite, minimumPositionsByLevelAndOrigin[level], searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters, taskCount, searchParameters.getPartitionedOrigins(), executor);
+        CostMapAndPositions updatedResult = shiftSiteCost(newTargetLevelSites, positionToShift, newSite, minimumPositionsByLevelAndOrigin[level],
+                searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getTotalSitesCount(), searchParameters.getGraphArray(),
+                taskCount, searchParameters.getPartitionedOrigins(), executor);
         List<List<Integer>> newSitesByLevel  = new ArrayList<>(sitesByLevel);
         newSitesByLevel.set(level, newTargetLevelSites);
         CasesAndCostMapWithLevels newCostMapByLevel = new CasesAndCostMapWithLevels(costMapByLevel);
@@ -156,7 +162,9 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
         newTargetLevelSites.set(positionToShift, newSite);
 
         //Compute cost of new positions and update list of the closest of current positions for each population center
-        CostMapAndPositions updatedResult = shiftSiteCost(newTargetLevelSites, positionToShift, newSite, minimumPositionsByLevelAndOrigin[level], searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters, taskCount, searchParameters.getPartitionedOrigins(), executor);
+        CostMapAndPositions updatedResult = shiftSiteCost(newTargetLevelSites, positionToShift, newSite, minimumPositionsByLevelAndOrigin[level],
+                searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getTotalSitesCount(), searchParameters.getGraphArray(),
+                taskCount, searchParameters.getPartitionedOrigins(), executor);
         double newTargetLevelBaseCost = CostCalculator.computeLevelSpecificBaseCost(updatedResult.getCasesAndCostMap(), searchParameters.getMinimumCasesByLevel()[level], searchParameters.getServicedProportionByLevel()[level], searchParameters.getTimepointWeights());
 
         //Ensure that new target level cost is not excessive compared to total configuration cost
@@ -178,7 +186,9 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
                 int[] updatedPositions = updatedArrayAndHistory.getUpdatedPositions();
                 for (int i = 0; i < searchParameters.getCenterLevels(); i++) {
                     if (updateHistory[i]) {
-                        updatedResult = shiftSiteCost(newSitesByLevel.get(i), updatedPositions[i], newSite, minimumPositionsByLevelAndOrigin[i], searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters, taskCount, searchParameters.getPartitionedOrigins(), executor);
+                        updatedResult = shiftSiteCost(newSitesByLevel.get(i), updatedPositions[i], newSite, minimumPositionsByLevelAndOrigin[i],
+                                searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getTotalSitesCount(), searchParameters.getGraphArray(),
+                                taskCount, searchParameters.getPartitionedOrigins(), executor);
                         double levelCost = CostCalculator.computeLevelSpecificBaseCost(updatedResult.getCasesAndCostMap(), searchParameters.getMinimumCasesByLevel()[i], searchParameters.getServicedProportionByLevel()[i], searchParameters.getTimepointWeights());
                         newCostByLevel[i] = levelCost;
                         newCostMapByLevel.setLevel(i, updatedResult.getCasesAndCostMap());
@@ -210,7 +220,9 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
         newTargetLevelSites.add(newSite);
 
         //Compute new parameters
-        CostMapAndPositions updatedResult = addSiteCost(newTargetLevelSites, minimumPositionsByLevelAndOrigin[level], searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters, taskCount, searchParameters.getPartitionedOrigins(), executor);
+        CostMapAndPositions updatedResult = addSiteCost(newTargetLevelSites, minimumPositionsByLevelAndOrigin[level],
+                searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getTotalSitesCount(), searchParameters.getGraphArray(),
+                taskCount, searchParameters.getPartitionedOrigins(), executor);
         double newTargetLevelBaseCost = CostCalculator.computeLevelSpecificBaseCost(updatedResult.getCasesAndCostMap(), searchParameters.getMinimumCasesByLevel()[level], searchParameters.getServicedProportionByLevel()[level], searchParameters.getTimepointWeights());
 
         //Ensure that new target level cost is not excessive compared to total configuration cost
@@ -232,7 +244,9 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
                 boolean[] superlevelUpdateHistory = updatedArrayAndHistory.getUpdateHistory();
                 for (int i = 0; i < superlevels.length; i++) {
                     if (superlevelUpdateHistory[i]) {
-                        updatedResult = addSiteCost(newSitesByLevel.get(superlevels[i]), minimumPositionsByLevelAndOrigin[superlevels[i]], searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters, taskCount, searchParameters.getPartitionedOrigins(), executor);
+                        updatedResult = addSiteCost(newSitesByLevel.get(superlevels[i]), minimumPositionsByLevelAndOrigin[superlevels[i]],
+                                searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getTotalSitesCount(), searchParameters.getGraphArray(),
+                                taskCount, searchParameters.getPartitionedOrigins(), executor);
                         double levelCost = CostCalculator.computeLevelSpecificBaseCost(updatedResult.getCasesAndCostMap(), searchParameters.getMinimumCasesByLevel()[superlevels[i]], searchParameters.getServicedProportionByLevel()[superlevels[i]], searchParameters.getTimepointWeights());
                         newCostByLevel[superlevels[i]] = levelCost;
                         newCostMapByLevel.setLevel(superlevels[i], updatedResult.getCasesAndCostMap());
@@ -264,7 +278,9 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
         newTargetLevelSites.add(newSite);
 
         //Compute new parameters
-        CostMapAndPositions updatedResult = addSiteCost(newTargetLevelSites, minimumPositionsByLevelAndOrigin[level], searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters, taskCount, searchParameters.getPartitionedOrigins(), executor);
+        CostMapAndPositions updatedResult = addSiteCost(newTargetLevelSites, minimumPositionsByLevelAndOrigin[level],
+                searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getTotalSitesCount(), searchParameters.getGraphArray(),
+                taskCount, searchParameters.getPartitionedOrigins(), executor);
         List<List<Integer>> newSitesByLevel  = new ArrayList<>(sitesByLevel);
         newSitesByLevel.set(level, newTargetLevelSites);
         CasesAndCostMapWithLevels newCostMapByLevel = new CasesAndCostMapWithLevels(costMapByLevel);
@@ -289,7 +305,9 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
         newTargetLevelSites.remove(removalSite);
 
         //Compute new parameters
-        CostMapAndPositions updatedResult = removeSiteCost(newTargetLevelSites, removalPosition, minimumPositionsByLevelAndOrigin[level], searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters, taskCount, searchParameters.getPartitionedOrigins(), executor);
+        CostMapAndPositions updatedResult = removeSiteCost(newTargetLevelSites, removalPosition, minimumPositionsByLevelAndOrigin[level],
+                searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getTotalSitesCount(), searchParameters.getGraphArray(),
+                taskCount, searchParameters.getPartitionedOrigins(), executor);
         double newTargetLevelBaseCost = CostCalculator.computeLevelSpecificBaseCost(updatedResult.getCasesAndCostMap(), searchParameters.getMinimumCasesByLevel()[level], searchParameters.getServicedProportionByLevel()[level], searchParameters.getTimepointWeights());
         int[] newTargetLevelMinimumPositionsByOrigin = updatedResult.getPositions();
 
@@ -313,7 +331,9 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
                 int[] sublevelUpdatedPositions = updatedArrayAndHistory.getUpdatedPositions();
                 for (int i = 0; i < sublevels.length; i++) {
                     if (sublevelUpdateHistory[i]) {
-                        updatedResult = removeSiteCost(newSitesByLevel.get(sublevels[i]), sublevelUpdatedPositions[i], minimumPositionsByLevelAndOrigin[sublevels[i]], searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters, taskCount, searchParameters.getPartitionedOrigins(), executor);
+                        updatedResult = removeSiteCost(newSitesByLevel.get(sublevels[i]), sublevelUpdatedPositions[i], minimumPositionsByLevelAndOrigin[sublevels[i]],
+                                searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getTotalSitesCount(), searchParameters.getGraphArray(),
+                                taskCount, searchParameters.getPartitionedOrigins(), executor);
                         double levelCost = CostCalculator.computeLevelSpecificBaseCost(updatedResult.getCasesAndCostMap(), searchParameters.getMinimumCasesByLevel()[sublevels[i]], searchParameters.getServicedProportionByLevel()[sublevels[i]], searchParameters.getTimepointWeights());
                         newCostByLevel[sublevels[i]] = levelCost;
                         newCostMapByLevel.setLevel(sublevels[i], updatedResult.getCasesAndCostMap());
@@ -345,7 +365,9 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
         newTargetLevelSites.remove(removalPosition);
 
         //Compute new parameters
-        CostMapAndPositions updatedResult = removeSiteCost(newTargetLevelSites, removalPosition, minimumPositionsByLevelAndOrigin[level], searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters, taskCount, searchParameters.getPartitionedOrigins(), executor);
+        CostMapAndPositions updatedResult = removeSiteCost(newTargetLevelSites, removalPosition, minimumPositionsByLevelAndOrigin[level],
+                searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getTotalSitesCount(), searchParameters.getGraphArray(),
+                taskCount, searchParameters.getPartitionedOrigins(), executor);
         List<List<Integer>> newSitesByLevel  = new ArrayList<>(sitesByLevel);
         newSitesByLevel.set(level, newTargetLevelSites);
         CasesAndCostMapWithLevels newCostMapByLevel = new CasesAndCostMapWithLevels(costMapByLevel);
