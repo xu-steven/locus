@@ -1,5 +1,5 @@
-public record CostMapAndPositions(CasesAndCostMapWithTime minimumCostMap, int[] minimumCostPositions) {
-    public CasesAndCostMapWithTime getCasesAndCostMap() {
+public record CostMapAndPositions(CasesAndCostMap minimumCostMap, int[] minimumCostPositions) {
+    public CasesAndCostMap getCasesAndCostMap() {
         return minimumCostMap;
     }
     public int[] getPositions() {

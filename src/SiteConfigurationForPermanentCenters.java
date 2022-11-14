@@ -79,16 +79,16 @@ public class SiteConfigurationForPermanentCenters {
                                            int taskCount, int[][] partitionedOrigins, ExecutorService executor) {
         int siteCount = sites.size();
         if (siteCount == 0) {
-            return new CostMapAndPositions(new CasesAndCostMapWithTime(), new int[originCount]); //No sites
+            return new CostMapAndPositions(new CasesAndCostMap(), new int[originCount]); //No sites
         }
 
         CountDownLatch latch = new CountDownLatch(taskCount);
         int[] minimumCostPositionsByOrigin = new int[originCount];
-        CasesAndCostMapWithTime[] partitionedMinimumCostMap = new CasesAndCostMapWithTime[taskCount];
+        CasesAndCostMap[] partitionedMinimumCostMap = new CasesAndCostMap[taskCount];
         for (int i = 0; i < taskCount; i++) {
             int finalI = i;
             executor.execute(() -> {
-                CasesAndCostMapWithTime partitionMinimumCostMap = new CasesAndCostMapWithTime(timepointCount, siteCount);
+                CasesAndCostMap partitionMinimumCostMap = new CasesAndCostMap(timepointCount, siteCount);
                 for (int j : partitionedOrigins[finalI]) {
                     int minimumCostPosition = -1;
                     double minimumCostUnadjusted = Double.POSITIVE_INFINITY; //Closest center travel cost, not adjusted for population or cancer center scaling
@@ -115,7 +115,7 @@ public class SiteConfigurationForPermanentCenters {
         } catch (InterruptedException e){
             throw new AssertionError("Unexpected interruption", e);
         }
-        CasesAndCostMapWithTime combinedMinimumCostMap = new CasesAndCostMapWithTime(partitionedMinimumCostMap, timepointCount, siteCount, taskCount);
+        CasesAndCostMap combinedMinimumCostMap = new CasesAndCostMap(partitionedMinimumCostMap, timepointCount, siteCount, taskCount);
         return new CostMapAndPositions(combinedMinimumCostMap, minimumCostPositionsByOrigin);
         //return new ConfigurationCostAndPositions(CostCalculator.computeCost(combinedMinimumCostMap, minimumCasesByLevel[level]), minimumCostPositionsByOrigin);
     }
@@ -127,16 +127,16 @@ public class SiteConfigurationForPermanentCenters {
                                              int taskCount, int[][] partitionedOrigins, ExecutorService executor) {
         int siteCount = sites.size();
         if (siteCount == 0) {
-            return new CostMapAndPositions(new CasesAndCostMapWithTime(), new int[originCount]);
+            return new CostMapAndPositions(new CasesAndCostMap(), new int[originCount]);
         }
 
         CountDownLatch latch = new CountDownLatch(taskCount);
         int[] minimumCostPositionsByOrigin = new int[originCount];
-        CasesAndCostMapWithTime[] partitionedMinimumCostMap = new CasesAndCostMapWithTime[taskCount];
+        CasesAndCostMap[] partitionedMinimumCostMap = new CasesAndCostMap[taskCount];
         for (int i = 0; i < taskCount; i++) {
             int finalI = i;
             executor.execute(() -> {
-                CasesAndCostMapWithTime partitionMinimumCostMap = new CasesAndCostMapWithTime(timepointCount, siteCount);
+                CasesAndCostMap partitionMinimumCostMap = new CasesAndCostMap(timepointCount, siteCount);
                 for (int j : partitionedOrigins[finalI]) {
                     int minimumCostPosition = -1;
                     double minimumCostUnadjusted;
@@ -177,7 +177,7 @@ public class SiteConfigurationForPermanentCenters {
         } catch (InterruptedException e){
             throw new AssertionError("Unexpected interruption", e);
         }
-        CasesAndCostMapWithTime combinedMinimumCostMap = new CasesAndCostMapWithTime(partitionedMinimumCostMap, timepointCount, siteCount, taskCount);
+        CasesAndCostMap combinedMinimumCostMap = new CasesAndCostMap(partitionedMinimumCostMap, timepointCount, siteCount, taskCount);
         return new CostMapAndPositions(combinedMinimumCostMap, minimumCostPositionsByOrigin);
         //return new ConfigurationCostAndPositions(CostCalculator.computeCost(combinedMinimumCostMap, minimumCasesByLevel[level]), minimumCostPositionsByOrigin);
     }
@@ -196,11 +196,11 @@ public class SiteConfigurationForPermanentCenters {
         //If there were some sites
         CountDownLatch latch = new CountDownLatch(taskCount);
         int[] minimumCostPositionsByOrigin = new int[originCount];
-        CasesAndCostMapWithTime[] partitionedMinimumCostMap = new CasesAndCostMapWithTime[taskCount];
+        CasesAndCostMap[] partitionedMinimumCostMap = new CasesAndCostMap[taskCount];
         for (int i = 0; i < taskCount; i++) {
             int finalI = i;
             executor.execute(() -> {
-                CasesAndCostMapWithTime partitionMinimumCostMap = new CasesAndCostMapWithTime(timepointCount, siteCount);
+                CasesAndCostMap partitionMinimumCostMap = new CasesAndCostMap(timepointCount, siteCount);
                 for (int j : partitionedOrigins[finalI]) {
                     int minimumCostPosition;
                     double minimumCostUnadjusted; //Closest center travel cost, not adjusted for population or cancer center scaling
@@ -226,7 +226,7 @@ public class SiteConfigurationForPermanentCenters {
         } catch (InterruptedException e){
             throw new AssertionError("Unexpected interruption", e);
         }
-        CasesAndCostMapWithTime combinedMinimumCostMap = new CasesAndCostMapWithTime(partitionedMinimumCostMap, timepointCount, siteCount, taskCount);
+        CasesAndCostMap combinedMinimumCostMap = new CasesAndCostMap(partitionedMinimumCostMap, timepointCount, siteCount, taskCount);
         return new CostMapAndPositions(combinedMinimumCostMap, minimumCostPositionsByOrigin);
         //return new ConfigurationCostAndPositions(CostCalculator.computeCost(combinedMinimumCostMap, minimumCasesByLevel[level]), minimumCostPositionsByOrigin);
     }
@@ -238,16 +238,16 @@ public class SiteConfigurationForPermanentCenters {
                                               int taskCount, int[][] partitionedOrigins, ExecutorService executor) {
         int siteCount = sites.size();
         if (siteCount == 0) {
-            return new CostMapAndPositions(new CasesAndCostMapWithTime(), new int[originCount]);
+            return new CostMapAndPositions(new CasesAndCostMap(), new int[originCount]);
         }
 
         CountDownLatch latch = new CountDownLatch(taskCount);
         int[] minimumCostPositionsByOrigin = new int[originCount];
-        CasesAndCostMapWithTime[] partitionedMinimumCostMap = new CasesAndCostMapWithTime[taskCount];
+        CasesAndCostMap[] partitionedMinimumCostMap = new CasesAndCostMap[taskCount];
         for (int i = 0; i < taskCount; i++) {
             int finalI = i;
             executor.execute(() -> {
-                CasesAndCostMapWithTime partitionMinimumCostMap = new CasesAndCostMapWithTime(timepointCount, siteCount);
+                CasesAndCostMap partitionMinimumCostMap = new CasesAndCostMap(timepointCount, siteCount);
                 for (int j : partitionedOrigins[finalI]) {
                     int minimumCostPosition = 0;
                     double minimumCostUnadjusted;
@@ -285,7 +285,7 @@ public class SiteConfigurationForPermanentCenters {
         } catch (InterruptedException e){
             throw new AssertionError("Unexpected interruption", e);
         }
-        CasesAndCostMapWithTime combinedMinimumCostMap = new CasesAndCostMapWithTime(partitionedMinimumCostMap, timepointCount, siteCount, taskCount);
+        CasesAndCostMap combinedMinimumCostMap = new CasesAndCostMap(partitionedMinimumCostMap, timepointCount, siteCount, taskCount);
         return new CostMapAndPositions(combinedMinimumCostMap, minimumCostPositionsByOrigin);
         //return new ConfigurationCostAndPositions(CostCalculator.computeCost(combinedMinimumCostMap, minimumCasesByLevel[level]), minimumCostPositionsByOrigin);
     }

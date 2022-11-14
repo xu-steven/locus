@@ -11,8 +11,8 @@ public class SearchSpace {
     private final int[][] sublevelsByLevel;
     private final int[][] superlevelsByLevel;
 
-    //Time-variable properties [time][] or [time][][]
-    private final double[] caseCountByOrigin;
+    //Time-variable properties
+    private final double[] caseCountByOrigin; //(timepoint, origin) -> caseCount, 1D array for speed
     private final double[] timepointWeights;
 
     //Non-configurable class variables

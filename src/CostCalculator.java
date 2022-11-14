@@ -12,7 +12,7 @@ public final class CostCalculator {
     }
 
     //Calculates cost from hashmap centre -> (cases, minimum travel cost). No levels.
-    public static double computeCost(CasesAndCostMapWithTime minimumCostMap, double minimumCases, double[] timepointWeights) {
+    public static double computeCost(CasesAndCostMap minimumCostMap, double minimumCases, double[] timepointWeights) {
         double totalCost = 0;
         for (int timepoint = 0; timepoint < minimumCostMap.getTimepointCount(); timepoint++) {
             for (int position = 0; position < minimumCostMap.getSiteCount(); position++) {
@@ -23,7 +23,7 @@ public final class CostCalculator {
     }
 
     //Calculates cost from hashmap centre -> (cases, minimum travel cost) for multiple levels
-    public static double computeCost(CasesAndCostMapWithTimeAndLevels minimumCostMapByLevel, List<List<Integer>> sitesByLevel, double[] minimumCasesByLevel, double[] servicedProportionByLevel, double[] timepointWeights) {
+    public static double computeCost(CasesAndCostMapWithLevels minimumCostMapByLevel, List<List<Integer>> sitesByLevel, double[] minimumCasesByLevel, double[] servicedProportionByLevel, double[] timepointWeights) {
         double totalCost = 0;
         for (int t = 0; t < timepointWeights.length; t++) {
             totalCost += computeTimeSpecificCost(minimumCostMapByLevel, sitesByLevel, minimumCasesByLevel, servicedProportionByLevel, t) * timepointWeights[t];
@@ -32,7 +32,7 @@ public final class CostCalculator {
     }
 
     //Compute cost for one specific timepoint
-    public static double computeTimeSpecificCost(CasesAndCostMapWithTimeAndLevels minimumCostMapByLevel, List<List<Integer>> sitesByLevel, double[] minimumCasesByLevel, double[] servicedProportionByLevel, int timepoint) {
+    public static double computeTimeSpecificCost(CasesAndCostMapWithLevels minimumCostMapByLevel, List<List<Integer>> sitesByLevel, double[] minimumCasesByLevel, double[] servicedProportionByLevel, int timepoint) {
         double totalCost = 0;
 
         //Compute costs specific to each timepoint and level
@@ -40,7 +40,7 @@ public final class CostCalculator {
             if (minimumCostMapByLevel.getLevel(level) == null) {
                 totalCost += 100000000.0 * servicedProportionByLevel[level];
             } else {
-                totalCost += computeTimeAndLevelSpecificBaseCost(minimumCostMapByLevel.getTimeAndLevelSpecificMap(level, timepoint), minimumCasesByLevel[level], servicedProportionByLevel[level]);
+                totalCost += computeTimeAndLevelSpecificBaseCost(minimumCostMapByLevel.getLevel(level), timepoint, minimumCasesByLevel[level], servicedProportionByLevel[level]);
             }
         }
 
@@ -51,23 +51,23 @@ public final class CostCalculator {
     }
 
     //Compute fixed costs for each level
-    public static double computeLevelSpecificBaseCost(CasesAndCostMapWithTime minimumCostMap, double minimumCases, double servicedProportion, double[] timepointWeights) {
+    public static double computeLevelSpecificBaseCost(CasesAndCostMap minimumCostMap, double minimumCases, double servicedProportion, double[] timepointWeights) {
         if (minimumCostMap == null) { //no sites
             return 100000000.0 * servicedProportion;
         } else {
             double totalCost = 0;
             for (int timepoint = 0; timepoint < minimumCostMap.getTimepointCount(); timepoint++) {
-                totalCost += computeTimeAndLevelSpecificBaseCost(minimumCostMap.getTimeSpecificMap(timepoint), minimumCases, servicedProportion) * timepointWeights[timepoint];
+                totalCost += computeTimeAndLevelSpecificBaseCost(minimumCostMap, timepoint, minimumCases, servicedProportion) * timepointWeights[timepoint];
             }
             return totalCost;
         }
     }
 
     //Compute fixed costs for each level
-    public static double computeTimeAndLevelSpecificBaseCost(CasesAndCost[] timeAndLevelSpecificMinimumCostMap, double minimumCases, double servicedProportion) {
+    public static double computeTimeAndLevelSpecificBaseCost(CasesAndCostMap minimumCostMap, int timepoint, double minimumCases, double servicedProportion) {
         double totalCost = 0;
-        for (int position = 0; position < timeAndLevelSpecificMinimumCostMap.length; position++) {
-            totalCost += levelSpecificCost(timeAndLevelSpecificMinimumCostMap[position].getCases(), timeAndLevelSpecificMinimumCostMap[position].getCost(), minimumCases);
+        for (int position = 0; position < minimumCostMap.getSiteCount(); position++) {
+            totalCost += levelSpecificCost(minimumCostMap.getCases(timepoint, position), minimumCostMap.getCost(timepoint, position), minimumCases);
         }
         return totalCost * servicedProportion;
     }
@@ -88,7 +88,7 @@ public final class CostCalculator {
     }
 
     //Takes into account all levels
-    public static double computeTimeSpecificVolumePenalty(CasesAndCostMapWithTimeAndLevels minimumCostMapByLevel, List<List<Integer>> sitesByLevel, int timepoint) {
+    public static double computeTimeSpecificVolumePenalty(CasesAndCostMapWithLevels minimumCostMapByLevel, List<List<Integer>> sitesByLevel, int timepoint) {
         //Adjust cost by center accounting for all services
         Set<Integer> allSites = new HashSet<>();
         for (int level = 0; level < sitesByLevel.size(); level++) {
@@ -103,7 +103,7 @@ public final class CostCalculator {
                 if (minimumCostMapByLevel.getLevel(level) == null) {
                     continue; //no sites in level
                 } else {
-                    for (int position = 0; position < minimumCostMapByLevel.getTimeAndLevelSpecificMap(level, timepoint).length; position++) {
+                    for (int position = 0; position < minimumCostMapByLevel.getLevel(level).getSiteCount(); position++) {
                         //System.out.println("Sites part 2 " + sitesByLevel + " and map " + Arrays.toString(minimumCostMapByLevel.getLevel(level).getTimeSpecificMap(timepoint)) + " for level " + level);
                         if (site == sitesByLevel.get(level).get(position)) {
                             allLevelCases += minimumCostMapByLevel.getCases(level, timepoint, position);
