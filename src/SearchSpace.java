@@ -24,6 +24,8 @@ public class SearchSpace {
     private int totalSitesCount;
     private final double[] graphArray;// = parseCSV(graphLocation);
     private final int[][] partitionedOrigins; //Origins are represented by int
+    private final int[] startingOrigins;
+    private final int[] endingOrigins;
     private final List<List<Integer>> sortedNeighbors;// = SimAnnealingNeighbor.sortNeighbors(azimuthArray, haversineArray);
 
     //Permanent centers by levels to maintain
@@ -53,6 +55,8 @@ public class SearchSpace {
         this.originCount = FileUtils.getOriginCount(graphLocation);
         this.graphArray = flattenTwoDimensionalArray(FileUtils.getInnerDoubleArrayFromCSV(graphLocation, originCount, potentialSitesCount));
         this.partitionedOrigins = MultithreadingUtils.orderedPartitionArray(IntStream.range(0, originCount).toArray(), taskCount);
+        this.startingOrigins = MultithreadingUtils.getTaskSpecificStartingOrigins(originCount, taskCount);
+        this.endingOrigins = MultithreadingUtils.getTaskSpecificEndingOrigins(originCount, taskCount);
         this.sortedNeighbors = SimAnnealingNeighbor.sortNeighbors(FileUtils.getInnerAzimuthArrayFromCSV(azimuthLocation, originCount, potentialSitesCount), FileUtils.getInnerDoubleArrayFromCSV(haversineLocation, originCount, potentialSitesCount), azimuthClassCount, taskCount, executor);
 
         //Time-dependent variables
@@ -86,6 +90,8 @@ public class SearchSpace {
         double[][] potentialGraphArray = FileUtils.getInnerDoubleArrayFromCSV(potentialGraphLocation, originCount, potentialSitesCount);
         this.graphArray = flattenTwoDimensionalArray(ArrayOperations.mergeDoubleArrays(potentialGraphArray, permanentGraphArray));
         this.partitionedOrigins = MultithreadingUtils.orderedPartitionArray(IntStream.range(0, originCount).toArray(), taskCount);
+        this.startingOrigins = MultithreadingUtils.getTaskSpecificStartingOrigins(originCount, taskCount);
+        this.endingOrigins = MultithreadingUtils.getTaskSpecificEndingOrigins(originCount, taskCount);
         this.sortedNeighbors = SimAnnealingNeighbor.sortNeighbors(FileUtils.getInnerAzimuthArrayFromCSV(azimuthLocation, originCount, potentialSitesCount), FileUtils.getInnerDoubleArrayFromCSV(haversineLocation, originCount, potentialSitesCount), azimuthClassCount, taskCount, executor);
 
         //Time-dependent variables
@@ -323,6 +329,14 @@ public class SearchSpace {
 
     public int[][] getPartitionedOrigins() {
         return partitionedOrigins;
+    }
+
+    public int[] getStartingOrigins() {
+        return startingOrigins;
+    }
+
+    public int[] getEndingOrigins() {
+        return endingOrigins;
     }
 
     public double[] getCaseCountByOrigin() {

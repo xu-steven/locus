@@ -30,7 +30,8 @@ public class SiteConfigurationForPermanentCenters {
         //Compute new parameters
         CostMapAndPositions updatedResult = shiftSiteCost(newSites, adjustedPosition, newSites.get(adjustedPosition), searchParameters.getMinPermanentPositionByLevelAndOrigin()[level],
                 searchParameters.getPermanentCentersCountByLevel()[level], searchParameters.getMinPermanentPositionByLevelAndOrigin()[level], searchParameters.getMinPermanentCostByLevelAndOrigin()[level],
-                searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getTotalSitesCount(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
+                searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getTotalSitesCount(), searchParameters.getGraphArray(),
+                taskCount, searchParameters.getStartingOrigins(), searchParameters.getEndingOrigins(), executor);
         double newCost = CostCalculator.computeCost(updatedResult.getCasesAndCostMap(), minimumCases, searchParameters.getTimepointWeights()) * servicedProportion;
         int[] newMinimumPositionsByOrigin = updatedResult.getPositions();
 
@@ -48,7 +49,8 @@ public class SiteConfigurationForPermanentCenters {
 
         //Compute parameters
         CostMapAndPositions updatedResult = addSiteCost(newSites, searchParameters.getMinPermanentPositionByLevelAndOrigin()[level],
-                searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getTotalSitesCount(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
+                searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getTotalSitesCount(), searchParameters.getGraphArray(),
+                taskCount, searchParameters.getStartingOrigins(), searchParameters.getEndingOrigins(), executor);
         double newCost = CostCalculator.computeCost(updatedResult.getCasesAndCostMap(), minimumCases, searchParameters.getTimepointWeights()) * servicedProportion;
         int[] newMinimumPositionsByOrigin = updatedResult.getPositions();
 
@@ -66,7 +68,8 @@ public class SiteConfigurationForPermanentCenters {
         //Compute new parameters
         CostMapAndPositions updatedResult = removeSiteCost(newSites, removalPosition, searchParameters.getMinPermanentPositionByLevelAndOrigin()[level],
                 searchParameters.getPermanentCentersCountByLevel()[level], searchParameters.getMinPermanentPositionByLevelAndOrigin()[level], searchParameters.getMinPermanentCostByLevelAndOrigin()[level],
-                searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getTotalSitesCount(), searchParameters.getGraphArray(), taskCount, searchParameters.getPartitionedOrigins(), executor);
+                searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getTotalSitesCount(), searchParameters.getGraphArray(),
+                taskCount, searchParameters.getStartingOrigins(), searchParameters.getEndingOrigins(), executor);
         double newCost = CostCalculator.computeCost(updatedResult.getCasesAndCostMap(), minimumCases, searchParameters.getTimepointWeights()) * servicedProportion;
         int[] newMinimumPositionsByOrigin = updatedResult.getPositions();
 
@@ -76,7 +79,7 @@ public class SiteConfigurationForPermanentCenters {
     //For higher levels
     public static CostMapAndPositions initialCost(List<Integer> sites, int permanentCentersCount, int[] minPermanentPositionByOrigin, double[] minPermanentCostByOrigin,
                                            int timepointCount, int originCount, double[] caseCountByOrigin, int totalSitesCount, double[] graphArray,
-                                           int taskCount, int[][] partitionedOrigins, ExecutorService executor) {
+                                           int taskCount, int[] startingOrigins, int[] endingOrigins, ExecutorService executor) {
         int siteCount = sites.size();
         if (siteCount == 0) {
             return new CostMapAndPositions(new CasesAndCostMap(), new int[originCount]); //No sites
@@ -89,7 +92,7 @@ public class SiteConfigurationForPermanentCenters {
             int finalI = i;
             executor.execute(() -> {
                 CasesAndCostMap partitionMinimumCostMap = new CasesAndCostMap(timepointCount, siteCount);
-                for (int j : partitionedOrigins[finalI]) {
+                for (int j = startingOrigins[finalI]; j < endingOrigins[finalI]; j++) {
                     int minimumCostPosition = -1;
                     double minimumCostUnadjusted = Double.POSITIVE_INFINITY; //Closest center travel cost, not adjusted for population or cancer center scaling
                     for (int k = permanentCentersCount; k < siteCount; ++k) {
@@ -124,7 +127,7 @@ public class SiteConfigurationForPermanentCenters {
     public static CostMapAndPositions shiftSiteCost(List<Integer> sites, int movedPosition, Integer newSite, int[] oldMinimumCostPositionByOrigin,
                                              int permanentCentersCount, int[] minPermanentPositionOrigin, double[] minPermanentCostAndOrigin,
                                              int timepointCount, int originCount, double[] caseCountByOrigin, int totalSitesCount, double[] graphArray,
-                                             int taskCount, int[][] partitionedOrigins, ExecutorService executor) {
+                                             int taskCount, int[] startingOrigins, int[] endingOrigins, ExecutorService executor) {
         int siteCount = sites.size();
         if (siteCount == 0) {
             return new CostMapAndPositions(new CasesAndCostMap(), new int[originCount]);
@@ -137,7 +140,7 @@ public class SiteConfigurationForPermanentCenters {
             int finalI = i;
             executor.execute(() -> {
                 CasesAndCostMap partitionMinimumCostMap = new CasesAndCostMap(timepointCount, siteCount);
-                for (int j : partitionedOrigins[finalI]) {
+                for (int j = startingOrigins[finalI]; j < endingOrigins[finalI]; j++) {
                     int minimumCostPosition = -1;
                     double minimumCostUnadjusted;
                     int oldMinimumCostPosition = oldMinimumCostPositionByOrigin[j];
@@ -185,13 +188,13 @@ public class SiteConfigurationForPermanentCenters {
     //Using initialCost from site configuration as originally no sites implies that there were no permanent centers
     public static CostMapAndPositions addSiteCost(List<Integer> sites, int[] oldMinimumCostPositionByOrigin,
                                            int timepointCount, int originCount, double[] caseCountByOrigin, int totalSitesCount, double[] graphArray,
-                                           int taskCount, int[][] partitionedOrigins, ExecutorService executor) {
+                                           int taskCount, int[] startingOrigins, int[] endingOrigins, ExecutorService executor) {
         int siteCount = sites.size();
         int newPosition = siteCount - 1;
         Integer newSite = sites.get(newPosition);
         //If there were originally no sites
         if (siteCount == 1) {
-            return SiteConfiguration.initialCost(sites, timepointCount, originCount, caseCountByOrigin, totalSitesCount, graphArray, taskCount, partitionedOrigins, executor);
+            return SiteConfiguration.initialCost(sites, timepointCount, originCount, caseCountByOrigin, totalSitesCount, graphArray, taskCount, startingOrigins, endingOrigins, executor);
         }
         //If there were some sites
         CountDownLatch latch = new CountDownLatch(taskCount);
@@ -201,7 +204,7 @@ public class SiteConfigurationForPermanentCenters {
             int finalI = i;
             executor.execute(() -> {
                 CasesAndCostMap partitionMinimumCostMap = new CasesAndCostMap(timepointCount, siteCount);
-                for (int j : partitionedOrigins[finalI]) {
+                for (int j = startingOrigins[finalI]; j < endingOrigins[finalI]; j++) {
                     int minimumCostPosition;
                     double minimumCostUnadjusted; //Closest center travel cost, not adjusted for population or cancer center scaling
                     int oldMinimumCostPosition = oldMinimumCostPositionByOrigin[j];
@@ -235,7 +238,7 @@ public class SiteConfigurationForPermanentCenters {
     public static CostMapAndPositions removeSiteCost(List<Integer> sites, int removedPosition, int[] oldMinimumCostPositionByOrigin,
                                               int permanentCentersCount, int[] minPermanentPositionByOrigin, double[] minPermanentCostByOrigin,
                                               int timepointCount, int originCount, double[] caseCountByOrigin, int totalSitesCount, double[] graphArray,
-                                              int taskCount, int[][] partitionedOrigins, ExecutorService executor) {
+                                              int taskCount, int[] startingOrigins, int[] endingOrigins, ExecutorService executor) {
         int siteCount = sites.size();
         if (siteCount == 0) {
             return new CostMapAndPositions(new CasesAndCostMap(), new int[originCount]);
@@ -248,7 +251,7 @@ public class SiteConfigurationForPermanentCenters {
             int finalI = i;
             executor.execute(() -> {
                 CasesAndCostMap partitionMinimumCostMap = new CasesAndCostMap(timepointCount, siteCount);
-                for (int j : partitionedOrigins[finalI]) {
+                for (int j = startingOrigins[finalI]; j < endingOrigins[finalI]; j++) {
                     int minimumCostPosition = 0;
                     double minimumCostUnadjusted;
                     int oldMinimumCostPosition = oldMinimumCostPositionByOrigin[j];

@@ -50,6 +50,34 @@ public final class MultithreadingUtils {
         return partitionedList;
     }
 
+    //Get starting origin based on task count
+    public static int[] getTaskSpecificStartingOrigins(int originCount, int taskCount) {
+        int minimumTaskSize = (int) Math.floor(originCount/taskCount);
+        int numberOfLongerTasks = originCount - minimumTaskSize * taskCount;
+        int[] lowerOrigins = new int[taskCount];
+        for (int i = 0; i < numberOfLongerTasks; i++) {
+            lowerOrigins[i] = (minimumTaskSize + 1) * i;
+        }
+        for (int i = numberOfLongerTasks; i < taskCount; i++) {
+            lowerOrigins[i] = numberOfLongerTasks + minimumTaskSize * i;
+        }
+        return lowerOrigins;
+    }
+
+    //Get finishing origin (exclusive) based on task count
+    public static int[] getTaskSpecificEndingOrigins(int originCount, int taskCount) {
+        int minimumTaskSize = (int) Math.floor(originCount/taskCount);
+        int numberOfLongerTasks = originCount - minimumTaskSize * taskCount;
+        int[] upperOrigins = new int [taskCount];
+        for (int i = 0; i < numberOfLongerTasks; i++) {
+            upperOrigins[i] = (minimumTaskSize + 1) * (i + 1);
+        }
+        for (int i = numberOfLongerTasks; i < taskCount; i++) {
+            upperOrigins[i] = numberOfLongerTasks + minimumTaskSize * (i + 1);
+        }
+        return upperOrigins;
+    }
+
     @Deprecated
     //Combining partitioned outputs
     public static PositionsAndMap combinePartitionedOutput (Map<Integer, PositionsAndMap> partitionedOutput, Integer siteCount, Integer taskCount) {
