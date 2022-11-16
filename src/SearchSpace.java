@@ -12,7 +12,7 @@ public class SearchSpace {
     private final int[][] superlevelsByLevel;
 
     //Time-variable properties
-    private final double[] caseCountByOrigin; //(timepoint, origin) -> caseCount, 1D array for speed
+    private final CaseCounts caseCountByOrigin; //(timepoint, origin) -> caseCount, 1D array for speed
     private final double[] timepointWeights;
 
     //Non-configurable class variables
@@ -22,7 +22,7 @@ public class SearchSpace {
     private final int originCount;
     private int potentialSitesCount;// = graphArray.get(0).size() - 1;
     private int totalSitesCount;
-    private final double[] graphArray;// = parseCSV(graphLocation);
+    private final Graph graphArray;// = parseCSV(graphLocation);
     private final int[][] partitionedOrigins; //Origins are represented by int
     private final int[] startingOrigins;
     private final int[] endingOrigins;
@@ -53,16 +53,16 @@ public class SearchSpace {
         this.potentialSitesCount = FileUtils.getSitesCount(graphLocation);
         this.totalSitesCount = potentialSitesCount;
         this.originCount = FileUtils.getOriginCount(graphLocation);
-        this.graphArray = flattenTwoDimensionalArray(FileUtils.getInnerDoubleArrayFromCSV(graphLocation, originCount, potentialSitesCount));
+        this.graphArray = new Graph(FileUtils.getInnerDoubleArrayFromCSV(graphLocation, originCount, potentialSitesCount));
         this.partitionedOrigins = MultithreadingUtils.orderedPartitionArray(IntStream.range(0, originCount).toArray(), taskCount);
         this.startingOrigins = MultithreadingUtils.getTaskSpecificStartingOrigins(originCount, taskCount);
         this.endingOrigins = MultithreadingUtils.getTaskSpecificEndingOrigins(originCount, taskCount);
         this.sortedNeighbors = SimAnnealingNeighbor.sortNeighbors(FileUtils.getInnerAzimuthArrayFromCSV(azimuthLocation, originCount, potentialSitesCount), FileUtils.getInnerDoubleArrayFromCSV(haversineLocation, originCount, potentialSitesCount), azimuthClassCount, taskCount, executor);
 
         //Time-dependent variables
-        double[][] unflattenedCaseCountByOrigin = FileUtils.getCaseCountsFromCSV(censusFileLocation, "Cases", originCount);
-        this.caseCountByOrigin = flattenTwoDimensionalArray(unflattenedCaseCountByOrigin);
-        this.timepointCount = unflattenedCaseCountByOrigin.length;
+        double[][] caseCountByTimeAndOrigin = FileUtils.getCaseCountsFromCSV(censusFileLocation, "Cases", originCount);
+        this.caseCountByOrigin = new CaseCounts(caseCountByTimeAndOrigin);
+        this.timepointCount = caseCountByTimeAndOrigin.length;
         this.timepointWeights = new double[timepointCount];
         Arrays.fill(timepointWeights, 1 / (double) timepointCount);
     }
@@ -88,16 +88,16 @@ public class SearchSpace {
         this.totalSitesCount = this.potentialSitesCount + permanentSitesCount;
         double[][] permanentGraphArray = FileUtils.getInnerDoubleArrayFromCSV(permanentGraphLocation, originCount, permanentSitesCount);
         double[][] potentialGraphArray = FileUtils.getInnerDoubleArrayFromCSV(potentialGraphLocation, originCount, potentialSitesCount);
-        this.graphArray = flattenTwoDimensionalArray(ArrayOperations.mergeDoubleArrays(potentialGraphArray, permanentGraphArray));
+        this.graphArray = new Graph(ArrayOperations.mergeDoubleArrays(potentialGraphArray, permanentGraphArray));
         this.partitionedOrigins = MultithreadingUtils.orderedPartitionArray(IntStream.range(0, originCount).toArray(), taskCount);
         this.startingOrigins = MultithreadingUtils.getTaskSpecificStartingOrigins(originCount, taskCount);
         this.endingOrigins = MultithreadingUtils.getTaskSpecificEndingOrigins(originCount, taskCount);
         this.sortedNeighbors = SimAnnealingNeighbor.sortNeighbors(FileUtils.getInnerAzimuthArrayFromCSV(azimuthLocation, originCount, potentialSitesCount), FileUtils.getInnerDoubleArrayFromCSV(haversineLocation, originCount, potentialSitesCount), azimuthClassCount, taskCount, executor);
 
         //Time-dependent variables
-        double[][] unflattenedCaseCountByOrigin = FileUtils.getCaseCountsFromCSV(censusFileLocation, "Cases", originCount);
-        this.caseCountByOrigin = flattenTwoDimensionalArray(unflattenedCaseCountByOrigin);
-        this.timepointCount = unflattenedCaseCountByOrigin.length;
+        double[][] caseCountByTimeAndOrigin = FileUtils.getCaseCountsFromCSV(censusFileLocation, "Cases", originCount);
+        this.caseCountByOrigin = new CaseCounts(caseCountByTimeAndOrigin);
+        this.timepointCount = caseCountByTimeAndOrigin.length;
         this.timepointWeights = new double[timepointCount];
         Arrays.fill(timepointWeights, 1 / (double) timepointCount);
 
@@ -263,30 +263,6 @@ public class SearchSpace {
         return adjustedPermanentCentersByLevel;
     }
 
-    //Flattens two dimensional array into one dimensional array for speed
-    private double[] flattenTwoDimensionalArray(double[][] twoDimensionalArray) {
-        int dimensionOneSize = twoDimensionalArray.length;
-        int dimensionTwoSize = twoDimensionalArray[0].length;
-        double[] flattenedArray = new double[dimensionOneSize * dimensionTwoSize];
-        for (int dimensionOnePosition = 0; dimensionOnePosition < dimensionOneSize; dimensionOnePosition++) {
-            for (int dimensionTwoPosition = 0; dimensionTwoPosition < dimensionTwoSize; dimensionTwoPosition++) {
-                flattenedArray[dimensionOnePosition * dimensionTwoSize + dimensionTwoPosition] = twoDimensionalArray[dimensionOnePosition][dimensionTwoPosition];
-            }
-        }
-        return flattenedArray;
-    }
-
-    //Get case count given timepoint and origin
-    public static double getCaseCount(int timepoint, int origin, int originCount, double[] caseCountByOrigin) {
-        return caseCountByOrigin[timepoint * originCount + origin];
-    }
-
-    //Get edge length on directed graph
-    //Can revert to return graphArray[origin, destination] and eliminate flattening if origin * destination exceeds 2.147 billion
-    public static double getEdgeLength(int origin, int destination, int totalSitesCount, double[] graphArray) {
-        return graphArray[origin * totalSitesCount + destination];
-    }
-
     public int[] getMinNewCentersByLevel() {
         return minNewCentersByLevel;
     }
@@ -339,11 +315,11 @@ public class SearchSpace {
         return endingOrigins;
     }
 
-    public double[] getCaseCountByOrigin() {
+    public CaseCounts getCaseCountByOrigin() {
         return caseCountByOrigin;
     }
 
-    public double[] getGraphArray() {
+    public Graph getGraphArray() {
         return graphArray;
     }
 

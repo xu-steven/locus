@@ -67,4 +67,18 @@ public class ArrayOperations {
             sum += doubleArray[i];
         return sum;
     }
+
+    //Flattens two dimensional array into one dimensional array for speed
+    @Deprecated
+    private double[] flattenTwoDimensionalArray(double[][] twoDimensionalArray) {
+        int dimensionOneSize = twoDimensionalArray.length;
+        int dimensionTwoSize = twoDimensionalArray[0].length;
+        double[] flattenedArray = new double[dimensionOneSize * dimensionTwoSize];
+        for (int dimensionOnePosition = 0; dimensionOnePosition < dimensionOneSize; dimensionOnePosition++) {
+            for (int dimensionTwoPosition = 0; dimensionTwoPosition < dimensionTwoSize; dimensionTwoPosition++) {
+                flattenedArray[dimensionOnePosition * dimensionTwoSize + dimensionTwoPosition] = twoDimensionalArray[dimensionOnePosition][dimensionTwoPosition];
+            }
+        }
+        return flattenedArray;
+    }
 }
