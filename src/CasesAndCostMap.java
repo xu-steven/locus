@@ -41,9 +41,9 @@ public class CasesAndCostMap {
         this.casesAndCostMapWithTime = new CasesAndCost[0];
     }
 
-    public void updateCasesAndCost(int minimumCostPosition, double minimumTravelCost, int origin, int originCount, CaseCounts caseCountByOrigin) {
+    public void updateCasesAndCost(int minimumCostPosition, double minimumTravelCost, int origin, CaseCounts caseCountByOrigin) {
         for (int timepoint = 0; timepoint < timepointCount; timepoint++) {
-            double currentCaseCount = caseCountByOrigin.getCaseCount(timepoint, origin, originCount);
+            double currentCaseCount = caseCountByOrigin.getCaseCount(timepoint, origin);
             double centerCaseCount = getCases(timepoint, minimumCostPosition) + currentCaseCount; //Add new case count to total case count at center
             double centerCost = getCost(timepoint, minimumCostPosition) + (minimumTravelCost * currentCaseCount); //Add new travel cost multiplied by case count to total travel cost at center
             CasesAndCost minimumCasesCost = new CasesAndCost(centerCaseCount, centerCost);
