@@ -1,4 +1,7 @@
 import java.util.*;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 
 public final class CostCalculator {
     //Calculates cost from hashmap centre -> (cases, minimum travel cost)
@@ -29,6 +32,35 @@ public final class CostCalculator {
             totalCost += computeTimeSpecificCost(minimumCostMapByLevel, sitesByLevel, minimumCasesByLevel, servicedProportionByLevel, t) * timepointWeights[t];
         }
         return totalCost;
+    }
+
+    //Multithreaded compute cost when there are numerous time points
+    public static double computeCost(CasesAndCostMap[] minimumCostMapByLevel, List<List<Integer>> sitesByLevel, double[] minimumCasesByLevel, double[] servicedProportionByLevel, int timepointCount, double[] timepointWeights, ExecutorService executor) {
+        if (timepointWeights.length == 1) {
+            return computeTimeSpecificCost(minimumCostMapByLevel, sitesByLevel, minimumCasesByLevel, servicedProportionByLevel, 0);
+        } else if (timepointWeights.length < 6) {
+            double totalCost = 0;
+            for (int t = 0; t < timepointWeights.length; t++) {
+                totalCost += computeTimeSpecificCost(minimumCostMapByLevel, sitesByLevel, minimumCasesByLevel, servicedProportionByLevel, t) * timepointWeights[t];
+            }
+            return totalCost;
+        } else {
+            CountDownLatch latch = new CountDownLatch(timepointWeights.length);
+            double[] costByTimepoint = new double[timepointWeights.length];
+            for (int t = 0; t < timepointWeights.length; t++) {
+                int finalT = t;
+                executor.execute(() -> {
+                    costByTimepoint[finalT] += computeTimeSpecificCost(minimumCostMapByLevel, sitesByLevel, minimumCasesByLevel, servicedProportionByLevel, finalT) * timepointWeights[finalT];
+                    latch.countDown();
+                });
+            }
+            try {
+                latch.await();
+            } catch (InterruptedException e) {
+                throw new AssertionError("Unexpected interruption", e);
+            }
+            return ArrayOperations.sumDoubleArray(costByTimepoint);
+        }
     }
 
     //Compute cost for one specific timepoint

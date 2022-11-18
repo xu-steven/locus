@@ -1,40 +1,37 @@
 import java.util.*;
 import java.util.concurrent.ExecutorService;
-import java.util.stream.IntStream;
 
 public class SearchSpace {
     //New center properties
-    private final int minNewCentersByLevel[]; //Usually 1.
-    private final int maxNewCentersByLevel[]; //Maximum number of cancer centers to try
-    private final double[] minimumCasesByLevel; //list in ascending order minimum cases for increasingly tertiary cancer center services
-    private final double[] servicedProportionByLevel; //list in ascending order
-    private final int[][] sublevelsByLevel;
-    private final int[][] superlevelsByLevel;
+    private static int minNewCentersByLevel[]; //Usually 1.
+    private static int maxNewCentersByLevel[]; //Maximum number of cancer centers to try
+    private static double[] minimumCasesByLevel; //list in ascending order minimum cases for increasingly tertiary cancer center services
+    private static double[] servicedProportionByLevel; //list in ascending order
+    private static int[][] sublevelsByLevel;
+    private static int[][] superlevelsByLevel;
 
-    //Time-variable properties
-    private final CaseCounts caseCountByOrigin; //(timepoint, origin) -> caseCount, 1D array for speed
-    private final double[] timepointWeights;
+    //Time-dependent variables
+    private static CaseCounts[] caseCountsByLevel; //Leveled array of (timepoint, origin) -> caseCount, 1D array for speed.
+    private static double[] timepointWeights;
 
     //Non-configurable class variables
-    private final double minimumCases;// = 10000;
-    private final int centerLevels;
-    private final int timepointCount;
-    private final int originCount;
-    private int potentialSitesCount;// = graphArray.get(0).size() - 1;
-    private int totalSitesCount;
-    private final Graph graphArray;// = parseCSV(graphLocation);
-    private final int[][] partitionedOrigins; //Origins are represented by int
-    private final int[] startingOrigins;
+    private static double minimumCases;// = 10000; //Collapse into minimumCasesByLevel at end
+    private static int centerLevels;
+    private static int timepointCount;
+    private static int originCount;
+    private static int potentialSitesCount;// = graphArray.get(0).size() - 1;
+    private static Graph graphArray;// = parseCSV(graphLocation);
+    private final int[] startingOrigins; //originally private final int[][] partitionedOrigins; //Origins are represented by int
     private final int[] endingOrigins;
-    private final List<List<Integer>> sortedNeighbors;// = SimAnnealingNeighbor.sortNeighbors(azimuthArray, haversineArray);
+    private static List<List<Integer>> sortedNeighbors;// = SimAnnealingNeighbor.sortNeighbors(azimuthArray, haversineArray);
 
     //Permanent centers by levels to maintain
-    private List<List<Integer>> permanentCentersByLevel; //Sites are represented by Integer
+    private static List<List<Integer>> permanentCentersByLevel; //Sites are represented by Integer
 
     //Non-configurable permanent center class variables
-    private int[] permanentCentersCountByLevel;
-    private int[][] minPermanentPositionByLevelAndOrigin; //minimum existing centers that must be maintained
-    private double[][] minPermanentCostByLevelAndOrigin; //minimum cost
+    private static int[] permanentCentersCountByLevel;
+    private static int[][] minPermanentPositionByLevelAndOrigin; //minimum existing centers that must be maintained
+    private static double[][] minPermanentCostByLevelAndOrigin; //minimum cost
 
     public SearchSpace(int[] minNewCentersByLevel, int[] maxNewCentersByLevel, double[] minimumCasesByLevel, double[] servicedProportionByLevel, List<List<Integer>> levelSequences, int azimuthClassCount,
                        String censusFileLocation, String graphLocation, String azimuthLocation, String haversineLocation,
@@ -51,17 +48,16 @@ public class SearchSpace {
         this.minimumCases = minimumCasesByLevel[0];
         this.centerLevels = minimumCasesByLevel.length;
         this.potentialSitesCount = FileUtils.getSitesCount(graphLocation);
-        this.totalSitesCount = potentialSitesCount;
         this.originCount = FileUtils.getOriginCount(graphLocation);
         this.graphArray = new Graph(FileUtils.getInnerDoubleArrayFromCSV(graphLocation, originCount, potentialSitesCount));
-        this.partitionedOrigins = MultithreadingUtils.orderedPartitionArray(IntStream.range(0, originCount).toArray(), taskCount);
-        this.startingOrigins = MultithreadingUtils.getTaskSpecificStartingOrigins(originCount, taskCount);
+        this.startingOrigins = MultithreadingUtils.getTaskSpecificStartingOrigins(originCount, taskCount); //originally this.partitionedOrigins = MultithreadingUtils.orderedPartitionArray(IntStream.range(0, originCount).toArray(), taskCount);
         this.endingOrigins = MultithreadingUtils.getTaskSpecificEndingOrigins(originCount, taskCount);
         this.sortedNeighbors = SimAnnealingNeighbor.sortNeighbors(FileUtils.getInnerAzimuthArrayFromCSV(azimuthLocation, originCount, potentialSitesCount), FileUtils.getInnerDoubleArrayFromCSV(haversineLocation, originCount, potentialSitesCount), azimuthClassCount, taskCount, executor);
 
         //Time-dependent variables
         double[][] caseCountByTimeAndOrigin = FileUtils.getCaseCountsFromCSV(censusFileLocation, "Cases", originCount);
-        this.caseCountByOrigin = new CaseCounts(caseCountByTimeAndOrigin);
+        this.caseCountsByLevel = new CaseCounts[centerLevels];
+        Arrays.fill(caseCountsByLevel, new CaseCounts(caseCountByTimeAndOrigin));
         this.timepointCount = caseCountByTimeAndOrigin.length;
         this.timepointWeights = new double[timepointCount];
         Arrays.fill(timepointWeights, 1 / (double) timepointCount);
@@ -85,18 +81,17 @@ public class SearchSpace {
         this.originCount = FileUtils.getOriginCount(potentialGraphLocation);
         this.potentialSitesCount = FileUtils.getSitesCount(potentialGraphLocation);
         int permanentSitesCount = FileUtils.getSitesCount(permanentGraphLocation);
-        this.totalSitesCount = this.potentialSitesCount + permanentSitesCount;
         double[][] permanentGraphArray = FileUtils.getInnerDoubleArrayFromCSV(permanentGraphLocation, originCount, permanentSitesCount);
         double[][] potentialGraphArray = FileUtils.getInnerDoubleArrayFromCSV(potentialGraphLocation, originCount, potentialSitesCount);
         this.graphArray = new Graph(ArrayOperations.mergeDoubleArrays(potentialGraphArray, permanentGraphArray));
-        this.partitionedOrigins = MultithreadingUtils.orderedPartitionArray(IntStream.range(0, originCount).toArray(), taskCount);
-        this.startingOrigins = MultithreadingUtils.getTaskSpecificStartingOrigins(originCount, taskCount);
+        this.startingOrigins = MultithreadingUtils.getTaskSpecificStartingOrigins(originCount, taskCount); //originally this.partitionedOrigins = MultithreadingUtils.orderedPartitionArray(IntStream.range(0, originCount).toArray(), taskCount);
         this.endingOrigins = MultithreadingUtils.getTaskSpecificEndingOrigins(originCount, taskCount);
         this.sortedNeighbors = SimAnnealingNeighbor.sortNeighbors(FileUtils.getInnerAzimuthArrayFromCSV(azimuthLocation, originCount, potentialSitesCount), FileUtils.getInnerDoubleArrayFromCSV(haversineLocation, originCount, potentialSitesCount), azimuthClassCount, taskCount, executor);
 
         //Time-dependent variables
         double[][] caseCountByTimeAndOrigin = FileUtils.getCaseCountsFromCSV(censusFileLocation, "Cases", originCount);
-        this.caseCountByOrigin = new CaseCounts(caseCountByTimeAndOrigin);
+        this.caseCountsByLevel = new CaseCounts[centerLevels];
+        Arrays.fill(caseCountsByLevel, new CaseCounts(caseCountByTimeAndOrigin));
         this.timepointCount = caseCountByTimeAndOrigin.length;
         this.timepointWeights = new double[timepointCount];
         Arrays.fill(timepointWeights, 1 / (double) timepointCount);
@@ -263,48 +258,44 @@ public class SearchSpace {
         return adjustedPermanentCentersByLevel;
     }
 
-    public int[] getMinNewCentersByLevel() {
+    public static int[] getMinNewCentersByLevel() {
         return minNewCentersByLevel;
     }
 
-    public int[] getMaxNewCentersByLevel() {
+    public static int[] getMaxNewCentersByLevel() {
         return maxNewCentersByLevel;
     }
 
-    public double[] getMinimumCasesByLevel() {
+    public static double[] getMinimumCasesByLevel() {
         return minimumCasesByLevel;
     }
 
-    public double[] getServicedProportionByLevel() {
+    public static double[] getServicedProportionByLevel() {
         return servicedProportionByLevel;
     }
 
-    public double getMinimumCases() {
+    public static double getMinimumCases() {
         return minimumCases;
     }
 
-    public int getCenterLevels() {
+    public static int getCenterLevels() {
         return centerLevels;
     }
 
-    public int[][] getSublevelsByLevel() {
+    public static int[][] getSublevelsByLevel() {
         return sublevelsByLevel;
     }
 
-    public int[][] getSuperlevelsByLevel() {
+    public static int[][] getSuperlevelsByLevel() {
         return superlevelsByLevel;
     }
 
-    public int getTimepointCount() {
+    public static int getTimepointCount() {
         return timepointCount;
     }
 
-    public int getOriginCount() {
+    public static int getOriginCount() {
         return originCount;
-    }
-
-    public int[][] getPartitionedOrigins() {
-        return partitionedOrigins;
     }
 
     public int[] getStartingOrigins() {
@@ -315,43 +306,39 @@ public class SearchSpace {
         return endingOrigins;
     }
 
-    public CaseCounts getCaseCountByOrigin() {
-        return caseCountByOrigin;
+    public static CaseCounts[] getCaseCountsByLevel() {
+        return caseCountsByLevel;
     }
 
-    public Graph getGraphArray() {
+    public static Graph getGraphArray() {
         return graphArray;
     }
 
-    public double[] getTimepointWeights() {
+    public static double[] getTimepointWeights() {
         return timepointWeights;
     }
 
-    public int getPotentialSitesCount() {
+    public static int getPotentialSitesCount() {
         return potentialSitesCount;
     }
 
-    public int getTotalSitesCount() {
-        return totalSitesCount;
-    }
-
-    public List<List<Integer>> getSortedNeighbors() {
+    public static List<List<Integer>> getSortedNeighbors() {
         return sortedNeighbors;
     }
 
-    public List<List<Integer>> getPermanentCentersByLevel() {
+    public static List<List<Integer>> getPermanentCentersByLevel() {
         return permanentCentersByLevel;
     }
 
-    public int[][] getMinPermanentPositionByLevelAndOrigin() {
+    public static int[][] getMinPermanentPositionByLevelAndOrigin() {
         return minPermanentPositionByLevelAndOrigin;
     }
 
-    public double[][] getMinPermanentCostByLevelAndOrigin() {
+    public static double[][] getMinPermanentCostByLevelAndOrigin() {
         return minPermanentCostByLevelAndOrigin;
     }
 
-    public int[] getPermanentCentersCountByLevel() {
+    public static int[] getPermanentCentersCountByLevel() {
         return permanentCentersCountByLevel;
     }
 

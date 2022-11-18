@@ -22,7 +22,7 @@ public class SiteConfiguration {
         sites = new ArrayList<>(pickNRandomFromList(potentialSites, random.nextInt(maximumCenterCount - minimumCenterCount + 1) + minimumCenterCount, random));
 
         //Compute initial cost and list of the closest of current positions for each originating population center
-        CostMapAndPositions initialCostAndPositions = initialCost(sites, searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(),
+        CostMapAndPositions initialCostAndPositions = initialCost(sites, searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountsByLevel()[0], searchParameters.getGraphArray(),
                 taskCount, searchParameters.getStartingOrigins(), searchParameters.getEndingOrigins(), executor);
         cost = CostCalculator.computeCost(initialCostAndPositions.getCasesAndCostMap(), searchParameters.getMinimumCases(), searchParameters.getTimepointWeights());
         minimumPositionsByOrigin = initialCostAndPositions.getPositions();
@@ -37,7 +37,7 @@ public class SiteConfiguration {
         newSites.set(positionToShift, newSite);
 
         //Compute cost of new positions and update list of the closest of current positions for each population center
-        CostMapAndPositions updatedResult = shiftSiteCost(newSites, positionToShift, newSite, minimumPositionsByOrigin, searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(),
+        CostMapAndPositions updatedResult = shiftSiteCost(newSites, positionToShift, newSite, minimumPositionsByOrigin, searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountsByLevel()[0], searchParameters.getGraphArray(),
                 taskCount, searchParameters.getStartingOrigins(), searchParameters.getEndingOrigins(), executor);
         double newCost = CostCalculator.computeCost(updatedResult.getCasesAndCostMap(), searchParameters.getMinimumCases(), searchParameters.getTimepointWeights());
 
@@ -56,7 +56,7 @@ public class SiteConfiguration {
         newSites.set(positionToShift, newSite);
 
         //Compute new parameters
-        CostMapAndPositions updatedResult = shiftSiteCost(newSites, positionToShift, newSite, minimumPositionsByOrigin, searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(),
+        CostMapAndPositions updatedResult = shiftSiteCost(newSites, positionToShift, newSite, minimumPositionsByOrigin, searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountsByLevel()[0], searchParameters.getGraphArray(),
                 taskCount, searchParameters.getStartingOrigins(), searchParameters.getEndingOrigins(), executor);
         double newCost = CostCalculator.computeCost(updatedResult.getCasesAndCostMap(), minimumCases, searchParameters.getTimepointWeights()) * servicedProportion;
 
@@ -75,7 +75,7 @@ public class SiteConfiguration {
         newSites.add(newSite);
 
         //Compute parameters
-        CostMapAndPositions updatedResult = addSiteCost(newSites, minimumPositionsByOrigin, searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(),
+        CostMapAndPositions updatedResult = addSiteCost(newSites, minimumPositionsByOrigin, searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountsByLevel()[0], searchParameters.getGraphArray(),
                 taskCount, searchParameters.getStartingOrigins(), searchParameters.getEndingOrigins(), executor);
         double newCost = CostCalculator.computeCost(updatedResult.getCasesAndCostMap(), minimumCases, searchParameters.getTimepointWeights()) * servicedProportion;
 
@@ -94,7 +94,7 @@ public class SiteConfiguration {
         newSites.remove(removalPosition);
 
         //Compute new parameters
-        CostMapAndPositions updatedResult = removeSiteCost(newSites, removalPosition, minimumPositionsByOrigin, searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(),
+        CostMapAndPositions updatedResult = removeSiteCost(newSites, removalPosition, minimumPositionsByOrigin, searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountsByLevel()[0], searchParameters.getGraphArray(),
                 taskCount, searchParameters.getStartingOrigins(), searchParameters.getEndingOrigins(), executor);
         double newCost = CostCalculator.computeCost(updatedResult.getCasesAndCostMap(), minimumCases, searchParameters.getTimepointWeights()) * servicedProportion;
 

@@ -18,7 +18,7 @@ public class SiteConfigurationForPermanentCenters {
     }
 
     //Multithreaded variant of shiftToPotentialSite
-    public SiteConfigurationForPermanentCenters shiftSite(int level, List<Integer> potentialSites, double servicedProportion, double minimumCases, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
+    public SiteConfigurationForPermanentCenters tryShiftSite(int level, List<Integer> potentialSites, double servicedProportion, double minimumCases, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
         //Randomly shift a site to one of potential sites
         List<Integer> newSites = new ArrayList<>(sites);
         List<Integer> unusedSites = new ArrayList<>(potentialSites);
@@ -30,7 +30,7 @@ public class SiteConfigurationForPermanentCenters {
         //Compute new parameters
         CostMapAndPositions updatedResult = shiftSiteCost(newSites, adjustedPosition, newSites.get(adjustedPosition), searchParameters.getMinPermanentPositionByLevelAndOrigin()[level],
                 searchParameters.getPermanentCentersCountByLevel()[level], searchParameters.getMinPermanentPositionByLevelAndOrigin()[level], searchParameters.getMinPermanentCostByLevelAndOrigin()[level],
-                searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(),
+                searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountsByLevel()[level], searchParameters.getGraphArray(),
                 taskCount, searchParameters.getStartingOrigins(), searchParameters.getEndingOrigins(), executor);
         double newCost = CostCalculator.computeCost(updatedResult.getCasesAndCostMap(), minimumCases, searchParameters.getTimepointWeights()) * servicedProportion;
         int[] newMinimumPositionsByOrigin = updatedResult.getPositions();
@@ -39,7 +39,7 @@ public class SiteConfigurationForPermanentCenters {
     }
 
     //Add a site to current configuration without regard for different levels
-    public SiteConfigurationForPermanentCenters addSite(int level, List<Integer> potentialSites, double servicedProportion, double minimumCases, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
+    public SiteConfigurationForPermanentCenters tryAddSite(int level, List<Integer> potentialSites, double servicedProportion, double minimumCases, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
         //Add site
         List<Integer> newSites = new ArrayList<>(sites);
         List<Integer> unusedSites = new ArrayList<>(potentialSites);
@@ -49,7 +49,7 @@ public class SiteConfigurationForPermanentCenters {
 
         //Compute parameters
         CostMapAndPositions updatedResult = addSiteCost(newSites, searchParameters.getMinPermanentPositionByLevelAndOrigin()[level],
-                searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(),
+                searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountsByLevel()[level], searchParameters.getGraphArray(),
                 taskCount, searchParameters.getStartingOrigins(), searchParameters.getEndingOrigins(), executor);
         double newCost = CostCalculator.computeCost(updatedResult.getCasesAndCostMap(), minimumCases, searchParameters.getTimepointWeights()) * servicedProportion;
         int[] newMinimumPositionsByOrigin = updatedResult.getPositions();
@@ -58,7 +58,7 @@ public class SiteConfigurationForPermanentCenters {
     }
 
     //Multithreaded removeSite variant
-    public SiteConfigurationForPermanentCenters removeSite(int level, double servicedProportion, double minimumCases, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
+    public SiteConfigurationForPermanentCenters tryRemoveSite(int level, double servicedProportion, double minimumCases, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
         //Remove site
         List<Integer> newSites = new ArrayList<>(sites);
         Random random = new Random();
@@ -68,7 +68,7 @@ public class SiteConfigurationForPermanentCenters {
         //Compute new parameters
         CostMapAndPositions updatedResult = removeSiteCost(newSites, removalPosition, searchParameters.getMinPermanentPositionByLevelAndOrigin()[level],
                 searchParameters.getPermanentCentersCountByLevel()[level], searchParameters.getMinPermanentPositionByLevelAndOrigin()[level], searchParameters.getMinPermanentCostByLevelAndOrigin()[level],
-                searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountByOrigin(), searchParameters.getGraphArray(),
+                searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountsByLevel()[level], searchParameters.getGraphArray(),
                 taskCount, searchParameters.getStartingOrigins(), searchParameters.getEndingOrigins(), executor);
         double newCost = CostCalculator.computeCost(updatedResult.getCasesAndCostMap(), minimumCases, searchParameters.getTimepointWeights()) * servicedProportion;
         int[] newMinimumPositionsByOrigin = updatedResult.getPositions();
