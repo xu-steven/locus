@@ -16,16 +16,16 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
     }
 
     //Generates initial configuration
-    public LeveledSiteConfiguration(int[] minimumCenterCountByLevel, int[] maximumCenterCountByLevel, List<Integer> potentialSites, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
+    public LeveledSiteConfiguration(List<Integer> potentialSites, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
         //Generate initial site configuration
         Random random = new Random();
-        List<Integer> candidateInitialSites = new ArrayList<>(pickNRandomFromList(potentialSites, Arrays.stream(maximumCenterCountByLevel).max().getAsInt(), random));
+        List<Integer> candidateInitialSites = new ArrayList<>(pickNRandomFromList(potentialSites, Arrays.stream(searchParameters.getMaxNewCentersByLevel()).max().getAsInt(), random));
 
         //Create site configuration for each level
         sitesByLevel = new ArrayList<>();
         for (int i = 0; i < searchParameters.getCenterLevels(); i++) {
             //Initialize level
-            int initialSiteCount = random.nextInt(maximumCenterCountByLevel[i] - minimumCenterCountByLevel[i] + 1) + minimumCenterCountByLevel[i];
+            int initialSiteCount = random.nextInt(searchParameters.getMaxNewCentersByLevel()[i] - searchParameters.getMinNewCentersByLevel()[i] + 1) + searchParameters.getMinNewCentersByLevel()[i];
             List<Integer> initialSites = new ArrayList<>(candidateInitialSites.subList(0, initialSiteCount));
             sitesByLevel.add(initialSites);
         }
@@ -40,7 +40,7 @@ public class LeveledSiteConfiguration extends SiteConfiguration {
                     }
                 }
                 //Check to ensure superlevel site count is permissible, i.e. did not overload by adding sublevel
-                if (sitesByLevel.get(superlevel).size() > maximumCenterCountByLevel[superlevel]) {
+                if (sitesByLevel.get(superlevel).size() > searchParameters.getMaxNewCentersByLevel()[superlevel]) {
                     System.out.println("Overloaded superlevel " + superlevel + " of new level " + i);
                 }
             }

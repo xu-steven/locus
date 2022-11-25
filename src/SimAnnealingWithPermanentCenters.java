@@ -7,7 +7,7 @@ public class SimAnnealingWithPermanentCenters extends SimAnnealingSearch{
 
     public SimAnnealingWithPermanentCenters() {
         //Simulated annealing configuration
-        initialTemp = 10000;
+        initialTemp = 1000000;
         finalTemp = 10;
         coolingRate = 0.9995;
         finalNeighborhoodSize = -1; //Determining finalNeighborhoodSize based on number of centers to optimize if -1
@@ -27,8 +27,8 @@ public class SimAnnealingWithPermanentCenters extends SimAnnealingSearch{
         //Search space parameters
         double[] minimumCasesByLevel = {(double) 10000, (double) 1000000, (double) 2000000};
         double[] servicedProportionByLevel = {0.7, 0.2, 0.1};
-        int[] minimumNewCenterCountByLevel = {2, 2, 1};
-        int[] maximumNewCenterCountByLevel = {2, 2, 1};
+        int[] minimumNewCenterCountByLevel = {2, 1, 1};
+        int[] maximumNewCenterCountByLevel = {2, 5, 5};
         List<List<Integer>> permanentCentersByLevel = new ArrayList<>();
         permanentCentersByLevel.add(Arrays.asList(0, 1, 2, 3)); //level 0
         permanentCentersByLevel.add(Arrays.asList()); //level 1
@@ -85,7 +85,7 @@ public class SimAnnealingWithPermanentCenters extends SimAnnealingSearch{
         double targetLevelThresholdProbability = targetLevelThresholdProbability();
 
         //Create initial configuration
-        LeveledSiteConfigurationForPermanentCenters currentSiteConfiguration = new LeveledSiteConfigurationForPermanentCenters(minimumNewCenterCountByLevel, maximumNewCenterCountByLevel, allPotentialSites, searchParameters, taskCount, executor);
+        LeveledSiteConfigurationForPermanentCenters currentSiteConfiguration = new LeveledSiteConfigurationForPermanentCenters(allPotentialSites, searchParameters, taskCount, executor);
         double currentCost = currentSiteConfiguration.getCost();
 
         System.out.println("Initial cost " + currentCost + " with details " + Arrays.toString(currentSiteConfiguration.getCostByLevel()) + " at sites " + currentSiteConfiguration.getSitesByLevel()); //Initial cost from random placement.
@@ -102,8 +102,8 @@ public class SimAnnealingWithPermanentCenters extends SimAnnealingSearch{
                 int neighborhoodSize = 0;
                 for (int position = searchParameters.getPermanentCentersCountByLevel()[level]; position < currentCenterCount; ++position) {
                     List<Integer> restrictedShiftSites = currentSiteConfiguration.getRestrictedShiftableSuperlevelSites(level, searchParameters.getCenterLevels(), position,
-                            searchParameters.getPermanentCentersByLevel(), searchParameters.getSuperlevelsByLevel(), searchParameters.getSublevelsByLevel(), searchParameters.getMaxNewCentersByLevel(), searchParameters.getPermanentCentersCountByLevel()); //restrictedShiftSites are null if
-                    if ((Math.random() < 0.5 || searchParameters.getSuperlevelsByLevel()[level].length == 0 ) && restrictedShiftSites == null) { //try to shift to a neighbor
+                            searchParameters.getPermanentCentersByLevel(), searchParameters.getSuperlevelsByLevel(), searchParameters.getSublevelsByLevel(), searchParameters.getMaxNewCentersByLevel(), searchParameters.getPermanentCentersCountByLevel()); //restrictedShiftSites are null if there are no restrictions
+                    if ((Math.random() < 0.5 || searchParameters.getSuperlevelsByLevel()[level].length == 0 ) && restrictedShiftSites == null) { //try to shift to a neighbor, cannot have restriction while shifting (OK to add new site to superlevels)
                         if (neighborhoodSize == 0) {
                             neighborhoodSize = SimAnnealingNeighbor.getNeighborhoodSize(currentCenterCount, searchParameters.getPotentialSitesCount(), localFinalNeighborhoodSizeByLevel[level], simAnnealingIteration, finalNeighborhoodSizeIteration);
                         }
@@ -136,42 +136,42 @@ public class SimAnnealingWithPermanentCenters extends SimAnnealingSearch{
                 }
             }
 
-            //Try adding or removing one of current sites for each level
-            for (int level = 0; level < searchParameters.getCenterLevels(); level++) {
-                int currentCenterCount = currentSiteConfiguration.getSitesCount(level);
-                double adjustmentType = Math.random();
-                if (adjustmentType < 0.5 && currentCenterCount < maximumNewCenterCountByLevel[level] + searchParameters.getPermanentCentersCountByLevel()[level]) { //attempt to add unrestricted site unless number of sites is already maximal
-                    if (searchParameters.getSuperlevelsByLevel()[level].length == 0) {
-                        currentSiteConfiguration.tryAddSiteWithoutSuperlevels(level, pickRandomAddableSite(currentSiteConfiguration.getSites(level), allPotentialSites, random), searchParameters, temp, taskCount, executor);
-                    } else if (adjustmentType < 0.3) {
-                        List<Integer> restrictedAddableSuperlevelSites = currentSiteConfiguration.getRestrictedAddableSuperlevelSites(level, searchParameters.getSuperlevelsByLevel()[level], searchParameters.getMaxNewCentersByLevel(), searchParameters.getPermanentCentersCountByLevel());
-                        if (restrictedAddableSuperlevelSites == null) { //not maximal, will add random site
-                            currentSiteConfiguration.tryAddSite(level, pickRandomSite(allPotentialSites, random), searchParameters, temp, targetLevelThresholdProbability, taskCount, executor);
-                        } else if (restrictedAddableSuperlevelSites.size() > 0) { //there are restrictions on adding sites to some superlevel but an available site exists
-                            currentSiteConfiguration.tryAddSite(level, pickRandomSite(restrictedAddableSuperlevelSites, random), searchParameters, temp, targetLevelThresholdProbability, taskCount, executor);
-                        }
-                    } else {
-                        List<Integer> restrictedAddableSuperlevelSites = currentSiteConfiguration.getRestrictedAddableSuperlevelSites(level, searchParameters.getSuperlevelsByLevel()[level], searchParameters.getMaxNewCentersByLevel(), searchParameters.getPermanentCentersCountByLevel());
-                        if (restrictedAddableSuperlevelSites == null) { //if there are no restrictions on adding sites
-                            List<Integer> unusedSuperlevelSites = currentSiteConfiguration.getRandomSuperlevelUnusedSites(level, searchParameters.getSuperlevelsByLevel()[level]);
-                            LeveledSiteConfigurationForPermanentCenters newSiteConfiguration;
-                            if (unusedSuperlevelSites.size() > 0) { //there is a superlevel site not in current level
-                                currentSiteConfiguration.tryAddSite(level, pickRandomSite(unusedSuperlevelSites, random), searchParameters, temp, targetLevelThresholdProbability, taskCount, executor);
-                            } else { //all superlevels equal to current level, to add random site
-                                currentSiteConfiguration.tryAddSite(level, pickRandomSite(allPotentialSites, random), searchParameters, temp, targetLevelThresholdProbability, taskCount, executor);
+            if (Math.random() < 1) {
+                //Try adding or removing one of current sites for each level
+                for (int level = 0; level < searchParameters.getCenterLevels(); level++) {
+                    int currentCenterCount = currentSiteConfiguration.getSitesCount(level);
+                    double adjustmentType = Math.random();
+                    if ((adjustmentType < 0.5 || currentCenterCount == minimumNewCenterCountByLevel[level] + searchParameters.getPermanentCentersCountByLevel()[level]) && currentCenterCount < maximumNewCenterCountByLevel[level] + searchParameters.getPermanentCentersCountByLevel()[level]) { //attempt to add unrestricted site unless number of sites is already maximal
+                        if (searchParameters.getSuperlevelsByLevel()[level].length == 0) {
+                            currentSiteConfiguration.tryAddSiteWithoutSuperlevels(level, pickRandomAddableSite(currentSiteConfiguration.getSites(level), allPotentialSites, random), searchParameters, temp, taskCount, executor);
+                        } else if (adjustmentType < 0.3) {
+                            List<Integer> restrictedAddableSuperlevelSites = currentSiteConfiguration.getRestrictedAddableSuperlevelSites(level, searchParameters.getSuperlevelsByLevel()[level], searchParameters.getMaxNewCentersByLevel(), searchParameters.getPermanentCentersCountByLevel());
+                            if (restrictedAddableSuperlevelSites == null) { //not maximal, will add random site
+                                currentSiteConfiguration.tryAddSite(level, pickRandomAddableSite(currentSiteConfiguration.getSites(level), allPotentialSites, random), searchParameters, temp, targetLevelThresholdProbability, taskCount, executor);
+                            } else if (restrictedAddableSuperlevelSites.size() > 0) { //there are restrictions on adding sites to some superlevel but an available site exists
+                                currentSiteConfiguration.tryAddSite(level, pickRandomSite(restrictedAddableSuperlevelSites, random), searchParameters, temp, targetLevelThresholdProbability, taskCount, executor);
                             }
+                        } else {
+                            List<Integer> restrictedAddableSuperlevelSites = currentSiteConfiguration.getRestrictedAddableSuperlevelSites(level, searchParameters.getSuperlevelsByLevel()[level], searchParameters.getMaxNewCentersByLevel(), searchParameters.getPermanentCentersCountByLevel());
+                            if (restrictedAddableSuperlevelSites == null) { //if there are no restrictions on adding sites
+                                List<Integer> unusedSuperlevelSites = currentSiteConfiguration.getRandomSuperlevelUnusedSites(level, searchParameters.getSuperlevelsByLevel()[level]);
+                                if (unusedSuperlevelSites.size() > 0) { //there is a superlevel site not in current level
+                                    currentSiteConfiguration.tryAddSite(level, pickRandomSite(unusedSuperlevelSites, random), searchParameters, temp, targetLevelThresholdProbability, taskCount, executor);
+                                } else { //all superlevels equal to current level, to add random site
+                                    currentSiteConfiguration.tryAddSite(level, pickRandomAddableSite(currentSiteConfiguration.getSites(level), allPotentialSites, random), searchParameters, temp, targetLevelThresholdProbability, taskCount, executor);
+                                }
+                            } else if (restrictedAddableSuperlevelSites.size() > 0) { //there are restrictions on adding sites but an available site exists
+                                currentSiteConfiguration.tryAddSite(level, pickRandomSite(restrictedAddableSuperlevelSites, random), searchParameters, temp, targetLevelThresholdProbability, taskCount, executor);
+                            } //size == 0 implies that there are restricting superlevels and that their intersection is equal to the original sites, i.e. adding a site is not permissible
                         }
-                        else if (restrictedAddableSuperlevelSites.size() > 0) { //there are restrictions on adding sites but an available site exists
-                            currentSiteConfiguration.tryAddSite(level, pickRandomSite(restrictedAddableSuperlevelSites, random), searchParameters, temp, targetLevelThresholdProbability, taskCount, executor);
-                        } //size == 0 implies that there are restricting superlevels and that their intersection is equal to the original sites, i.e. adding a site is not permissible
-                    }
-                } else if (currentCenterCount > minimumNewCenterCountByLevel[level] + searchParameters.getPermanentCentersCountByLevel()[level]) { //try to remove site
-                    if (searchParameters.getSublevelsByLevel().length == 0) {
-                        currentSiteConfiguration.tryRemovePositionWithoutSublevels(level, random.nextInt(currentSiteConfiguration.getSitesCount(level)), searchParameters, temp, taskCount, executor);
-                    } else {
-                        List<Integer> candidateRemovalSites = currentSiteConfiguration.getCandidateRemovalSites(level, searchParameters.getSublevelsByLevel()[level], minimumNewCenterCountByLevel, searchParameters.getPermanentCentersCountByLevel());
-                        if (candidateRemovalSites.size() > 0) {
-                            currentSiteConfiguration.tryRemoveSite(level, pickRandomSite(candidateRemovalSites, random), searchParameters, temp, targetLevelThresholdProbability, taskCount, executor);
+                    } else if (currentCenterCount > minimumNewCenterCountByLevel[level] + searchParameters.getPermanentCentersCountByLevel()[level]) { //try to remove site
+                        if (searchParameters.getSublevelsByLevel().length == 0) {
+                            currentSiteConfiguration.tryRemovePositionWithoutSublevels(level, random.nextInt(currentSiteConfiguration.getSitesCount(level)), searchParameters, temp, taskCount, executor);
+                        } else {
+                            List<Integer> candidateRemovalSites = currentSiteConfiguration.getCandidateRemovalSites(level, searchParameters.getSublevelsByLevel()[level], minimumNewCenterCountByLevel, searchParameters.getPermanentCentersCountByLevel());
+                            if (candidateRemovalSites.size() > 0) {
+                                currentSiteConfiguration.tryRemoveSite(level, pickRandomSite(candidateRemovalSites, random), searchParameters, temp, targetLevelThresholdProbability, taskCount, executor);
+                            }
                         }
                     }
                 }

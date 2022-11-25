@@ -10,20 +10,21 @@ import java.util.stream.Collectors;
 public class Visualizer {
     private static List<List<String>> graphArray = FileUtils.parseCSV("M:\\Optimization Project\\alberta2016_graph.csv");
     private static List<List<String>> censusArray = FileUtils.parseCSV("M:\\Optimization Project\\alberta2016_origins.csv");
-    private static double minimumCases = 1000000;
+    private static double minimumCases = 10000;
 
     //Manually create overlay
     public static void main(String[] args) {
-        List<Integer> sites = Arrays.asList(2603, 337);
-        List<Integer> level2 = Arrays.asList(3253, 627);
-        List<Integer> level3 = Arrays.asList(627);
+        List<Integer> sites = Arrays.asList(5294, 2640, 3062, 3253, 704, 201);
+        //List<Integer> sites = Arrays.asList(5294, 1236, 3253, 201, 2640, 3062);
+        List<Integer> level2 = Arrays.asList(3062, 5294);
+        List<Integer> level3 = Arrays.asList(704, 2640);
         sites = sites.stream().map(x -> x + 1).collect(Collectors.toList());
         level2 = level2.stream().map(x -> x + 1).collect(Collectors.toList());
         level3 = level3.stream().map(x -> x + 1).collect(Collectors.toList());
         //System.out.println("Cost " + totalCost(sites, graphArray, censusArray));
-        double costSites = totalCost(sites, graphArray, censusArray) * 0.2;
-        double costSites2 = totalCost(level2, graphArray, censusArray) * 0.0;
-        double costSites3 = totalCost(level3, graphArray, censusArray) * 0.0;
+        double costSites = totalCost(sites, graphArray, censusArray) * 2.0;
+        double costSites2 = totalCost(level2, graphArray, censusArray) * 0.4;
+        double costSites3 = totalCost(level3, graphArray, censusArray) * 0.2;
         System.out.println("Cost " + (costSites + costSites2 + costSites3) + " with " + Arrays.asList(costSites, costSites2, costSites3));
         List<List<String>> candidateSites = FileUtils.parseCSV("M:\\Optimization Project\\alberta2016_origins.csv");
         String outputDirectory = "C:\\Projects\\Optimization Project\\output\\";
@@ -65,7 +66,7 @@ public class Visualizer {
         }
         int censusCaseIndex = -1;
         try {
-            censusCaseIndex = FileUtils.findColumnIndex(censusArray.get(0), "Population");
+            censusCaseIndex = FileUtils.findColumnIndex(censusArray.get(0), "Cases 2000");
         } catch (Exception e) {
             e.printStackTrace();
         }

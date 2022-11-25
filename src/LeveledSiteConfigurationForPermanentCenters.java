@@ -1,6 +1,7 @@
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class LeveledSiteConfigurationForPermanentCenters extends SiteConfigurationForPermanentCenters {
     //Developmental leveled configuration
@@ -16,37 +17,108 @@ public class LeveledSiteConfigurationForPermanentCenters extends SiteConfigurati
         this.minimumPositionsByLevelAndOrigin = minimumPositionsByLevelAndOrigin;
     }
 
-    public LeveledSiteConfigurationForPermanentCenters(int[] minimumNewCenterCountByLevel, int[] maximumNewCenterCountByLevel, List<Integer> potentialSites, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
+    public LeveledSiteConfigurationForPermanentCenters(List<Integer> potentialSites, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
         //Generate initial site configuration
         Random random = new Random();
-        List<Integer> candidateInitialSites = new ArrayList<>(pickNRandomFromList(potentialSites, Arrays.stream(maximumNewCenterCountByLevel).max().getAsInt(), random));
+        List<Integer> candidateInitialSites = new ArrayList<>(pickNRandomFromList(potentialSites, Arrays.stream(searchParameters.getMaxNewCentersByLevel()).max().getAsInt(), random));
 
-        //Create site configuration for each level
-        sitesByLevel = new ArrayList<>();
-        for (int i = 0; i < searchParameters.getCenterLevels(); i++) {
-            //Initialize level
-            int initialSiteCount = random.nextInt(maximumNewCenterCountByLevel[i] - minimumNewCenterCountByLevel[i] + 1) + minimumNewCenterCountByLevel[i];
-            List<Integer> initialSites = candidateInitialSites.subList(0, initialSiteCount);
-            sitesByLevel.add(initialSites);
+        //Start with permanent sites
+        sitesByLevel = new ArrayList<>(searchParameters.getCenterLevels());
+        for (List<Integer> levelSites : searchParameters.getPermanentCentersByLevel()) {
+            sitesByLevel.add(new ArrayList<>(levelSites));
         }
 
-        //Update site configurations to respect level relations
-        for (int i = 0; i < searchParameters.getCenterLevels(); i++) {
-            for (int superlevel : searchParameters.getSuperlevelsByLevel()[i]) {
-                for (Integer site : sitesByLevel.get(i)) {
-                    if (!sitesByLevel.get(superlevel).contains(site)) {
-                        sitesByLevel.get(superlevel).add(site);
+        //Add to minimum number of sites
+        boolean sufficientSites = false;
+        while (sufficientSites == false) {
+            for (int level = 0; level < searchParameters.getCenterLevels(); level++) {
+                if (sitesByLevel.get(level).size() < searchParameters.getMinNewCentersByLevel()[level] + searchParameters.getPermanentCentersCountByLevel()[level]) {
+                    if (searchParameters.getSuperlevelsByLevel()[level].length == 0) {
+                        List<Integer> candidateSitesToAdd = new ArrayList<>(candidateInitialSites);
+                        candidateSitesToAdd.removeAll(sitesByLevel.get(level));
+                        Integer site = candidateSitesToAdd.get(random.nextInt(candidateSitesToAdd.size()));
+                        sitesByLevel.get(level).add(site);
+                    } else {
+                        List<Integer> restrictedAddableSites = getRestrictedAddableSuperlevelSites(level, searchParameters.getSuperlevelsByLevel()[level], searchParameters.getMaxNewCentersByLevel(), searchParameters.getPermanentCentersCountByLevel());
+                        Integer site;
+                        if (restrictedAddableSites == null || restrictedAddableSites.size() == 0) {
+                            List<Integer> unusedSuperlevelSites = getRandomSuperlevelUnusedSites(level, searchParameters.getSuperlevelsByLevel()[level]);
+                            if (unusedSuperlevelSites.size() > 0) {
+                                site = unusedSuperlevelSites.get(random.nextInt(unusedSuperlevelSites.size()));
+
+                            } else {
+                                List<Integer> candidateSitesToAdd = new ArrayList<>(candidateInitialSites);
+                                candidateSitesToAdd.removeAll(sitesByLevel.get(level));
+                                site = candidateSitesToAdd.get(random.nextInt(candidateSitesToAdd.size()));
+                            }
+                        } else {
+                             site = restrictedAddableSites.get(random.nextInt(restrictedAddableSites.size()));
+                        }
+                        sitesByLevel.get(level).add(site);
+                        sitesByLevel = addToSitesArray(sitesByLevel, searchParameters.getSuperlevelsByLevel()[level], site).getUpdatedSitesArray();
+                    }
+                } else if (sitesByLevel.get(level).size() > searchParameters.getMaxNewCentersByLevel()[level] + searchParameters.getPermanentCentersCountByLevel()[level]) {
+                    int removableSiteCount = sitesByLevel.get(level).size() - searchParameters.getPermanentCentersCountByLevel()[level];
+                    int positionToRemove = searchParameters.getPermanentCentersCountByLevel()[level] + random.nextInt(removableSiteCount);
+                    Integer siteToRemove = sitesByLevel.get(level).get(positionToRemove);
+                    sitesByLevel.get(level).remove(positionToRemove);
+                    sitesByLevel = removeFromSitesArray(sitesByLevel, searchParameters.getSublevelsByLevel()[level], siteToRemove).getUpdatedSitesArray();
+                    //50% chance remove another site
+                    if (Math.random() < 0.5 && removableSiteCount > 1) {
+                        positionToRemove = searchParameters.getPermanentCentersCountByLevel()[level] + random.nextInt(removableSiteCount);
+                        siteToRemove = sitesByLevel.get(level).get(positionToRemove);
+                        sitesByLevel.get(level).remove(positionToRemove);
+                        sitesByLevel = removeFromSitesArray(sitesByLevel, searchParameters.getSublevelsByLevel()[level], siteToRemove).getUpdatedSitesArray();
                     }
                 }
-                //Check to ensure superlevel site count is permissible, i.e. did not overload by adding sublevel
-                if (sitesByLevel.get(superlevel).size() > maximumNewCenterCountByLevel[superlevel]) {
-                    System.out.println("Overloaded superlevel " + superlevel + " of new level " + i);
+            }
+            //Check if site counts meet constraints
+            sufficientSites = true;
+            for (int level = 0; level < searchParameters.getCenterLevels(); level++) {
+                if (sitesByLevel.get(level).size() < searchParameters.getMinNewCentersByLevel()[level] + searchParameters.getPermanentCentersCountByLevel()[level]
+                        || sitesByLevel.get(level).size() > searchParameters.getMaxNewCentersByLevel()[level] + searchParameters.getPermanentCentersCountByLevel()[level]) {
+                    sufficientSites = false;
                 }
             }
         }
 
-        //Add permanent sites
-        sitesByLevel = ArrayOperations.mergeIntegerLists(searchParameters.getPermanentCentersByLevel(), sitesByLevel);
+        //Try to add additional sites
+        List<Integer> randomSequence = IntStream.range(0, searchParameters.getCenterLevels()).boxed().collect(Collectors.toList());
+        for (int i = 0; i < randomSequence.size(); i++) {
+            int level = randomSequence.get(i);
+            int targetAdditionalSiteCount = random.nextInt(searchParameters.getMaxNewCentersByLevel()[level] - searchParameters.getMinNewCentersByLevel()[level] + 1) + searchParameters.getMinNewCentersByLevel()[level] - sitesByLevel.get(level).size() + searchParameters.getPermanentCentersCountByLevel()[level];
+            while (targetAdditionalSiteCount > 0) {
+                if (searchParameters.getSuperlevelsByLevel()[level].length == 0) {
+                    List<Integer> candidateSitesToAdd = new ArrayList<>(candidateInitialSites);
+                    candidateSitesToAdd.removeAll(sitesByLevel.get(level));
+                    Integer site = candidateSitesToAdd.get(random.nextInt(candidateSitesToAdd.size()));
+                    sitesByLevel.get(level).add(site);
+                    sitesByLevel = addToSitesArray(sitesByLevel, searchParameters.getSuperlevelsByLevel()[level], site).getUpdatedSitesArray();
+                } else {
+                    List<Integer> restrictedAddableSites = getRestrictedAddableSuperlevelSites(level, searchParameters.getSuperlevelsByLevel()[level], searchParameters.getMaxNewCentersByLevel(), searchParameters.getPermanentCentersCountByLevel());
+                    if (restrictedAddableSites == null) {
+                        List<Integer> unusedSuperlevelSites = getRandomSuperlevelUnusedSites(level, searchParameters.getSuperlevelsByLevel()[level]);
+                        Integer site;
+                        if (unusedSuperlevelSites.size() > 0) {
+                            site = unusedSuperlevelSites.get(random.nextInt(unusedSuperlevelSites.size()));
+                        } else {
+                            List<Integer> candidateSitesToAdd = new ArrayList<>(candidateInitialSites);
+                            candidateSitesToAdd.removeAll(sitesByLevel.get(level));
+                            site = candidateSitesToAdd.get(random.nextInt(candidateSitesToAdd.size()));
+                        }
+                        sitesByLevel.get(level).add(site);
+                        sitesByLevel = addToSitesArray(sitesByLevel, searchParameters.getSuperlevelsByLevel()[level], site).getUpdatedSitesArray();
+                    } else if (restrictedAddableSites.size() > 0) {
+                        Integer site = restrictedAddableSites.get(random.nextInt(restrictedAddableSites.size()));
+                        sitesByLevel.get(level).add(site);
+                        sitesByLevel = addToSitesArray(sitesByLevel, searchParameters.getSuperlevelsByLevel()[level], site).getUpdatedSitesArray();
+                    } else { //no possible sites to add for this level
+                        break;
+                    }
+                }
+                targetAdditionalSiteCount -= 1;
+            }
+        }
 
         //Compute initial cost
         costByLevel = new double[searchParameters.getCenterLevels()];
@@ -686,7 +758,7 @@ public class LeveledSiteConfigurationForPermanentCenters extends SiteConfigurati
         return candidateRemovalSites;
     }
 
-    //Restrictions exist for superlevels where site count is already maximal and site to shift is a permanent site. All shifted superlevels include those superlevels of sublevels that are shifted.
+    //Restrictions exist for superlevels where site count is already maximal and site to shift is a permanent site. All shifted superlevels include those superlevels of sublevels that are shifted. Returns null if there are no restrictions. Returns empty list if there are no permissible moves. Otherwise, returns list of permissible sites to which one can shift.
     public List<Integer> getRestrictedShiftableSuperlevelSites(int level, int totalLevels, int positionToShift, List<List<Integer>> permanentSitesByLevel, int[][] superlevelsByLevel, int[][] sublevelsByLevel, int[] maximumNewCenterCountByLevel, int[] permanentCentersCountByLevel) {
         Integer siteToShift = sitesByLevel.get(level).get(positionToShift);
 
@@ -774,7 +846,7 @@ public class LeveledSiteConfigurationForPermanentCenters extends SiteConfigurati
         //Remove existing sites
         if (restrictedShiftSites != null) {
             if (restrictedShiftSites.size() == sitesByLevel.get(level).size()) {
-                //candidate superlevel sites must gbe equal to already existing sites
+                //candidate superlevel sites must be equal to already existing sites
                 restrictedShiftSites = new ArrayList<>();
             } else {
                 //remove existing to obtain final sites
