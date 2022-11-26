@@ -14,17 +14,16 @@ public class Visualizer {
 
     //Manually create overlay
     public static void main(String[] args) {
-        List<Integer> sites = Arrays.asList(5294, 2640, 3062, 3253, 704, 201);
-        //List<Integer> sites = Arrays.asList(5294, 1236, 3253, 201, 2640, 3062);
-        List<Integer> level2 = Arrays.asList(3062, 5294);
-        List<Integer> level3 = Arrays.asList(704, 2640);
+        List<Integer> sites = replacePermanents(Arrays.asList(5344, 5345, 5346, 5347, 2052, 1985));
+        List<Integer> level2 = replacePermanents(Arrays.asList(5346, 1985));
+        List<Integer> level3 = replacePermanents(Arrays.asList(1985, 5346));
         sites = sites.stream().map(x -> x + 1).collect(Collectors.toList());
         level2 = level2.stream().map(x -> x + 1).collect(Collectors.toList());
         level3 = level3.stream().map(x -> x + 1).collect(Collectors.toList());
         //System.out.println("Cost " + totalCost(sites, graphArray, censusArray));
-        double costSites = totalCost(sites, graphArray, censusArray) * 2.0;
-        double costSites2 = totalCost(level2, graphArray, censusArray) * 0.4;
-        double costSites3 = totalCost(level3, graphArray, censusArray) * 0.2;
+        double costSites = totalCost(sites, graphArray, censusArray, 10000) * 0.7;
+        double costSites2 = totalCost(level2, graphArray, censusArray, 1000000) * 0.2;
+        double costSites3 = totalCost(level3, graphArray, censusArray, 2000000) * 0.1;
         System.out.println("Cost " + (costSites + costSites2 + costSites3) + " with " + Arrays.asList(costSites, costSites2, costSites3));
         List<List<String>> candidateSites = FileUtils.parseCSV("M:\\Optimization Project\\alberta2016_origins.csv");
         String outputDirectory = "C:\\Projects\\Optimization Project\\output\\";
@@ -58,7 +57,7 @@ public class Visualizer {
 
     //Below is unchanged from ExhaustiveSearch.
     //Cost function of configuration with given cancer center positions, graph, expected case count. Technically does not optimize for case where one permits travel to further cancer center to lower cost.
-    public static Double totalCost(List<Integer> positions, List<List<String>> graphArray, List<List<String>> censusArray) {
+    public static Double totalCost(List<Integer> positions, List<List<String>> graphArray, List<List<String>> censusArray, double minimumCases) {
         Map<Integer, List<Double>> minimumCostMap = new HashMap<>(); //Map from centre to (cases, minimum travel cost)
         List<Double> initialCasesCost = new ArrayList<>(Arrays.asList((double) 0, (double) 0));
         for (int i=0; i < positions.size(); ++i) {
@@ -87,22 +86,22 @@ public class Visualizer {
             minimumCostMap.put(minimumCostPosition, minimumCasesCost);
         }
         System.out.println(minimumCostMap); //development only
-        return computeCost(minimumCostMap);
+        return computeCost(minimumCostMap, minimumCases);
     }
 
     //Calculates cost from hashmap centre -> (cases, minimum travel cost)
-    private static Double computeCost(Map<Integer, List<Double>> minimumCostMap) {
+    private static Double computeCost(Map<Integer, List<Double>> minimumCostMap, double minimumCases) {
         double totalCost = 0;
         for (List<Double> centerCasesCost : minimumCostMap.values()) {
             double cases = centerCasesCost.get(0);
             double cost = centerCasesCost.get(1);
-            totalCost += caseAdjustedCost(cases, cost);
+            totalCost += caseAdjustedCost(cases, cost, minimumCases);
         }
         return totalCost;
     }
 
     //Cost penalty function depending on amount of cases seen at cancer center. Examples include additive constant (extra cost to administer each center) or multiplicative piecewise to prefer bigger centers.
-    private static double caseAdjustedCost(double cases, double cost) {
+    private static double caseAdjustedCost(double cases, double cost, double minimumCases) {
         if (cases == 0) {
             //System.out.println("A center had no cases in its catchment.");
             return 0;
@@ -114,5 +113,33 @@ public class Visualizer {
         } else {
             return cost;
         }
+    }
+
+    //Replace permanent centers with corresponding center, developmental use
+    private static List<Integer> replacePermanents(List<Integer> originalSites) {
+        for (int i = 0; i < originalSites.size(); i++) {
+            if (originalSites.get(i) == 5344) {
+                originalSites.set(i, 2640);
+            } else if (originalSites.get(i) == 5345) {
+                originalSites.set(i, 3062);
+            } else if (originalSites.get(i) == 5346) {
+                originalSites.set(i, 3253);
+            } else if (originalSites.get(i) == 5347) {
+                originalSites.set(i, 5294);
+            } else if (originalSites.get(i) >= 5291) {
+                Integer newSiteNumber = originalSites.get(i) + 4;
+                originalSites.set(i, newSiteNumber);
+            } else if (originalSites.get(i) >= 3251) {
+                Integer newSiteNumber = originalSites.get(i) + 3;
+                originalSites.set(i, newSiteNumber);
+            } else if (originalSites.get(i) >= 3061) {
+                Integer newSiteNumber = originalSites.get(i) + 2;
+                originalSites.set(i, newSiteNumber);
+            } else if (originalSites.get(i) >= 2640) {
+                Integer newSiteNumber = originalSites.get(i) + 1;
+                originalSites.set(i, newSiteNumber);
+            }
+        }
+        return originalSites;
     }
 }
