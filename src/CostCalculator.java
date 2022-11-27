@@ -50,7 +50,7 @@ public final class CostCalculator {
             for (int t = 0; t < timepointWeights.length; t++) {
                 int finalT = t;
                 executor.execute(() -> {
-                    costByTimepoint[finalT] += computeTimeSpecificCost(minimumCostMapByLevel, sitesByLevel, minimumCasesByLevel, servicedProportionByLevel, finalT) * timepointWeights[finalT];
+                    costByTimepoint[finalT] = computeTimeSpecificCost(minimumCostMapByLevel, sitesByLevel, minimumCasesByLevel, servicedProportionByLevel, finalT) * timepointWeights[finalT];
                     latch.countDown();
                 });
             }
