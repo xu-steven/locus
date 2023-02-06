@@ -143,7 +143,7 @@ public final class CostCalculator {
                     }
                 }
             }
-            if (allLevelCases > 10000) {
+            if (allLevelCases < 10000) {
                 volumePenalty += 0; //should be non-negative
             }
         }

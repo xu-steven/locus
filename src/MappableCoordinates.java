@@ -15,7 +15,7 @@ import java.util.Scanner;
 import static java.lang.Math.min;
 
 public class MappableCoordinates {
-    static String censusFileLocation = "M:\\Optimization Project\\alberta2016.csv";
+    static String censusFileLocation = "M:\\Optimization Project Alpha\\alberta2021_mappable.csv";
     static List<List<String>> censusArray = parseCSV(censusFileLocation);
     public static List<String> censusHeadings = censusArray.get(0);
 
