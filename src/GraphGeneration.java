@@ -1,15 +1,30 @@
 import com.jsoniter.JsonIterator;
 import com.jsoniter.any.Any;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.stream.IntStream;
 
 public class GraphGeneration extends InputGenerator{
+    //Final file location
     static String outputFileLocation;
+
+    //Starting origin (inclusive) and ending origin (not inclusive)
+    private static int startOrigin = 2;
+    private static int endOrigin = 18; //put 0 for censusArray.size();
+    private static int startPort = 8080;
+
+    //Thread count
+    private static int threadCount = 5;
+    private static ExecutorService executor = Executors.newFixedThreadPool(threadCount);
 
     public GraphGeneration(String censusFileLocation, String potentialCenterFileLocation) throws Exception {
         super(censusFileLocation, potentialCenterFileLocation);
@@ -22,7 +37,7 @@ public class GraphGeneration extends InputGenerator{
     }
 
     public static void main(String[] args) throws Exception {
-        new GraphGeneration("C:\\Projects\\Optimization Project\\alberta2016_origins.csv", "C:\\Projects\\Optimization Project\\alberta2016_permanent_sites.csv", "C:\\Projects\\Optimization Project\\alberta2016_potential_sites.csv");
+        new GraphGeneration("M:\\Optimization Project Alpha\\alberta2021_origins.csv", "M:\\Optimization Project Alpha\\alberta2021_potential_sites.csv");
         if (permanentCenterArray != null) {
             System.out.println("Generating graph from origins to permanent centers.");
             generateGraph(permanentCenterArray, permanentCenterLatIndex, permanentCenterLongIndex);
@@ -35,46 +50,78 @@ public class GraphGeneration extends InputGenerator{
 
     //Creates graph based on pair origins and destinations
     public static void generateGraph(List<List<String>> destinationArray, int destinationLatIndex, int destinationLongIndex) throws IOException {
-        List<List<String>> outputArray = new ArrayList<>();
-        List<String> nextRow = new ArrayList<>();
+        //Create a partitioned origin array
+        if (endOrigin == 0) endOrigin = censusArray.size();
+        int[] originsToGraph = IntStream.range(startOrigin, endOrigin).toArray();
+        int[][] partitionedOrigins = MultithreadingUtils.orderedPartitionArray(originsToGraph, threadCount);
 
-        nextRow.add("Origins (column) and destinations (row)");
-        nextRow.addAll(getDestinationNames(destinationArray));
-        outputArray.add(nextRow);
+        //Generate graph partitions
+        String[] partitionOutputLocations = new String[threadCount];
+        CountDownLatch latch = new CountDownLatch(threadCount);
+        for (int i = 0; i < threadCount; i++) {
+            int finalI = i;
+            executor.execute(() -> {
+                List<List<String>> outputArray = new ArrayList<>();
+                List<String> nextRow = new ArrayList<>();
 
-        for (int i = 1; i < censusArray.size(); ++i) {
-            nextRow = new ArrayList<>();
-            nextRow.add(censusArray.get(i).get(0));
-            for (int j = 1; j < destinationArray.size(); ++j) {
-                if (i == j) {
-                    nextRow.add("0");
-                    continue;
+                //Partition output file location
+                String partitionOutputLocation = outputFileLocation.replace(".csv", "_" + finalI + ".csv");
+                partitionOutputLocations[finalI] = partitionOutputLocation;
+
+                //Insert destination headings
+                nextRow.add("Origins (column) and destinations (row)");
+                nextRow.addAll(getDestinationNames(destinationArray));
+                outputArray.add(nextRow);
+
+                //Generate graph for each origin
+                for (int j : partitionedOrigins[finalI]) {
+                    nextRow = new ArrayList<>();
+                    nextRow.add(censusArray.get(j).get(0));
+                    for (int k = 1; k < destinationArray.size(); ++k) {
+                        if (j == k) {
+                            nextRow.add("0");
+                            continue;
+                        }
+                        List<Double> routeStatistics = getOrsRouteStatistics(Double.valueOf(censusArray.get(j).get(censusLatIndex)), Double.valueOf(censusArray.get(j).get(censusLongIndex)), Double.valueOf(destinationArray.get(k).get(destinationLatIndex)), Double.valueOf(destinationArray.get(k).get(destinationLongIndex)), startPort + finalI);
+                        if(routeStatistics.size() == 0) {
+                            System.out.println("Failed to obtain driving distance from " + censusArray.get(j).get(0) + " to " + destinationArray.get(k).get(0));
+                        } else {
+                            nextRow.add(String.valueOf(routeStatistics.get(1)));
+                        }
+                        if (k % 100 == 0) {
+                            System.out.println("Done column " + String.valueOf(k) + " in row " + String.valueOf(j) + ". There are a total of " + (censusArray.size() - 1) + " DAs.");
+                        }
+                    }
+                    outputArray.add(nextRow);
+                    if (j % 1 == 0) {
+                        System.out.println("Done row " + String.valueOf(j) + " of " + (censusArray.size() - 1));
+                        try {
+                            FileUtils.writeCSV(partitionOutputLocation, outputArray);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                        outputArray = new ArrayList<>();
+                    }
                 }
-                List<Double> routeStatistics = getOrsRouteStatistics(Double.valueOf(censusArray.get(i).get(censusLatIndex)), Double.valueOf(censusArray.get(i).get(censusLongIndex)), Double.valueOf(destinationArray.get(j).get(destinationLatIndex)), Double.valueOf(destinationArray.get(j).get(destinationLongIndex)));
-                if(routeStatistics.size() == 0) {
-                    System.out.println("Failed to obtain driving distance from " + censusArray.get(i).get(0) + " to " + destinationArray.get(j).get(0));
-                } else {
-                    nextRow.add(String.valueOf(routeStatistics.get(1)));
-                }
-                if (j % 100 == 0) {
-                    System.out.println("Done column " + String.valueOf(j) + " in row " + String.valueOf(i) + ". There are a total of " + censusArray.size() + " DAs.");
-                }
-            }
-            outputArray.add(nextRow);
-            if (i % 1 == 0) {
-                System.out.println("Done row " + String.valueOf(i) + " of " + censusArray.size());
-                FileUtils.writeCSV(outputFileLocation, outputArray);
-                outputArray = new ArrayList<>();
-            }
+                latch.countDown();
+            });
         }
+        try {
+            latch.await();
+        } catch (Exception e) {
+            throw new AssertionError("Latch await exception");
+        }
+
+        //Merge graph partitions to outputFileLocation
+        FileUtils.mergeCSV(outputFileLocation, partitionOutputLocations);
     }
 
     //Takes latitude and longitude of origin and destination, produces list of driving distance (in km) and time (in hours). Requires ORS backend.
-    public static List<Double> getOrsRouteStatistics(Double lat0, Double long0, Double lat1, Double long1) {
+    public static List<Double> getOrsRouteStatistics(Double lat0, Double long0, Double lat1, Double long1, int port) {
         List<Double> orsRouteStats = new ArrayList<>();
         for (int i=0; i<100; ++i) {
             try {
-                URL url = new URL("http://localhost:8080/ors/v2/directions/driving-car?start=" + long0 + "," + lat0 + "&end=" + long1 + "," + lat1);
+                URL url = new URL("http://localhost:" + String.valueOf(port) + "/ors/v2/directions/driving-car?start=" + long0 + "," + lat0 + "&end=" + long1 + "," + lat1);
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
                 conn.connect();
@@ -102,5 +149,4 @@ public class GraphGeneration extends InputGenerator{
         }
         return orsRouteStats;
     }
-
 }

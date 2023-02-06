@@ -1,7 +1,11 @@
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Scanner;
 
 public final class FileUtils {
     private FileUtils(){}
@@ -235,6 +239,42 @@ public final class FileUtils {
                 output.append("\n");
                 writer.write(output.toString());
             }
+            writer.flush();
+            writer.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    //Merge CSV files with same or no headings
+    public static void mergeCSV(String outputFileLocation, String[] inputFileLocations) {
+        BufferedReader reader;
+        BufferedWriter writer;
+        String firstFileLocation = inputFileLocations[0];
+        String[] headings;
+        try {
+            //Copy first file
+            Files.copy(Paths.get(firstFileLocation), Paths.get(outputFileLocation), StandardCopyOption.REPLACE_EXISTING);
+            reader = new BufferedReader(new FileReader(outputFileLocation));
+            writer = new BufferedWriter(new FileWriter(outputFileLocation, true));
+            headings = reader.readLine().split(",");
+
+            //Write subsequent files into the copy of first file
+            for (int i = 1; i < inputFileLocations.length; i++) {
+                reader = new BufferedReader(new FileReader(inputFileLocations[i]));
+                String line = reader.readLine();
+                //Write the first line if it is not identical to headings
+                if (!Arrays.equals(line.split(","), headings)) {
+                    writer.write(line);
+                    writer.newLine();
+                }
+                //Write next lines
+                while ((line = reader.readLine()) != null) {
+                    writer.write(line);
+                    writer.newLine();
+                }
+            }
+            reader.close();
             writer.flush();
             writer.close();
         } catch (Exception e) {
