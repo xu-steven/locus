@@ -50,7 +50,11 @@ public class Population {
                 for (int age : refinedAgeZeroGroups.keySet()) {
                     adjustedPyramid[age] = refinedAgeZeroGroups.get(age);
                 }
-            } else {
+            } else if (rawPyramid.get(ageBounds) == 0) {
+                for (int age = ageBounds.get(0); age <= ageBounds.get(1); age++) {
+                    adjustedPyramid[age] = 0;
+                }
+            } else{
                 Map<Integer, Double> refinedAgeGroups = refineAgeGroups(ageBounds, rawPyramid.get(ageBounds), mortality, migration, migrationFormat);
                 for (int age : refinedAgeGroups.keySet()) {
                     adjustedPyramid[age] = refinedAgeGroups.get(age);
@@ -230,7 +234,7 @@ public class Population {
     }
 
     public double getMalePopulation() {
-        int population = 0;
+        double population = 0;
         for (int age = 0; age <= oldestPyramidCohortAge; age++) {
             population += malePyramid[age];
         }
@@ -238,7 +242,7 @@ public class Population {
     }
 
     public double getFemalePopulation() {
-        int population = 0;
+        double population = 0;
         for (int age = 0; age <= oldestPyramidCohortAge; age++) {
             population += femalePyramid[age];
         }
@@ -246,7 +250,7 @@ public class Population {
     }
 
     public double getTotalPopulation() {
-        int population = 0;
+        double population = 0;
         for (int age = 0; age <= oldestPyramidCohortAge; age++) {
             population += malePyramid[age];
         }

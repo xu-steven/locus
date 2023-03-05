@@ -20,48 +20,51 @@ public class DirectPopulationProjector extends PopulationProjector{
 
     public static void main(String[] args) {
         //Demographics file
-        String demographicsLocation = "M:\\Optimization Project\\demographic projections\\test_alberta2016_demographics.csv";
+        String demographicsLocation = "M:\\Optimization Project Alpha\\demographic projections\\alberta2021_demographics.csv";
         List<String> ageAndSexGroups = FileUtils.getCSVHeadings(demographicsLocation);
         double[] populationByAgeAndSexGroup = FileUtils.getInnerDoubleArrayFromCSV(demographicsLocation, FileUtils.getOriginCount(demographicsLocation), FileUtils.getSitesCount(demographicsLocation))[0];
 
         //File locations
-        String mortalityLocation = "M:\\Optimization Project\\demographic projections\\alberta_mortality.csv";
-        String infantMortalityLocation = "M:\\Optimization Project\\demographic projections\\test_alberta_infant_mortality.csv";
-        String fertilityLocation = "M:\\Optimization Project\\demographic projections\\alberta_fertility.csv";
-        String migrationLocation = "M:\\Optimization Project\\demographic projections\\alberta_migration.csv";
+        String mortalityLocation = "M:\\Optimization Project Alpha\\demographic projections\\alberta_mortality.csv";
+        String infantMortalityLocation = "M:\\Optimization Project Alpha\\demographic projections\\alberta_infant_mortality.csv";
+        String fertilityLocation = "M:\\Optimization Project Alpha\\demographic projections\\alberta_fertility_cd1.csv";
+        String migrationLocation = "M:\\Optimization Project Alpha\\demographic projections\\alberta_migration_rate_cd1.csv";
         DirectPopulationProjector projector = new DirectPopulationProjector(mortalityLocation, infantMortalityLocation, fertilityLocation, migrationLocation, "Total migrants",
                 Population.determineOldestPyramidCohortAge(ageAndSexGroups), 2000, 30, 20, 6, 6);
 
         //In final program, this will be input into projector
-        Population initialPopulation = new Population(2000, ageAndSexGroups, populationByAgeAndSexGroup,
+        Population initialPopulation = new Population(2021, ageAndSexGroups, populationByAgeAndSexGroup,
                 projector.getProjectionParameters().getMaleMortality(), projector.getProjectionParameters().getFemaleMortality(),
                 projector.getProjectionParameters().getMaleMigration(), projector.getProjectionParameters().getFemaleMigration(), projector.getProjectionParameters().getMigrationFormat(),
                 projector.getProjectionParameters().getMaleInfantSeparationFactor(), projector.getProjectionParameters().getFemaleInfantSeparationFactor());
 
         //Testing functions in calculator
-        String compositeFunction = "2y + x";
-        String lowerBoundX = "0.2y";
-        String upperBoundX = "0.5y + 1";
-        double lowerBoundY = 0;
-        double upperBoundY = 1;
-        double[][] infantMortality = projector.getPopulationCalculator().mapToTwoDimensionalArray(projector.getProjectionParameters().getMaleInfantCumulativeMortality().get(2000), compositeFunction, lowerBoundX, upperBoundX, projector.xCount, lowerBoundY, upperBoundY, projector.yCount);
-        double[] singleMortalityArray = projector.getPopulationCalculator().mapToArray(projector.getProjectionParameters().getMaleInfantCumulativeMortality().get(2000), "3 - 2x", 0, 1, projector.singleXCount);
-        System.out.println(projector.getPopulationCalculator().simpsonIntegral(singleMortalityArray, 0, 1, projector.singleXCount));
-        System.out.println(projector.getPopulationCalculator().doubleSimpsonIntegral(infantMortality, lowerBoundX, upperBoundX, projector.xCount, lowerBoundY, upperBoundY, projector.yCount));
+        //String compositeFunction = "2y + x";
+        //String lowerBoundX = "0.2y";
+        //String upperBoundX = "0.5y + 1";
+        //double lowerBoundY = 0;
+        //double upperBoundY = 1;
+        //double[][] infantMortality = projector.getPopulationCalculator().mapToTwoDimensionalArray(projector.getProjectionParameters().getMaleInfantCumulativeMortality().get(2000), compositeFunction, lowerBoundX, upperBoundX, projector.xCount, lowerBoundY, upperBoundY, projector.yCount);
+        //double[] singleMortalityArray = projector.getPopulationCalculator().mapToArray(projector.getProjectionParameters().getMaleInfantCumulativeMortality().get(2000), "3 - 2x", 0, 1, projector.singleXCount);
+        //System.out.println(projector.getPopulationCalculator().simpsonIntegral(singleMortalityArray, 0, 1, projector.singleXCount));
+        //System.out.println(projector.getPopulationCalculator().doubleSimpsonIntegral(infantMortality, lowerBoundX, upperBoundX, projector.xCount, lowerBoundY, upperBoundY, projector.yCount));
 
         System.out.println("Start projection.");
-        Map<Integer, Population> projectedPopulations = projector.projectPopulation(initialPopulation, 2000, 2002);
-        Population yearOnePopulation = projectedPopulations.get(2001);
-        Population yearTwoPopulation = projectedPopulations.get(2002);
-        System.out.println("Year zero male pyramid " + Arrays.toString(projectedPopulations.get(2000).getMalePyramid()));
+        Map<Integer, Population> projectedPopulations = projector.projectPopulation(initialPopulation, 2033);
+        Population yearOnePopulation = projectedPopulations.get(2022);
+        Population yearTwoPopulation = projectedPopulations.get(2033);
+        System.out.println("Year zero male pyramid " + Arrays.toString(projectedPopulations.get(2021).getMalePyramid()));
         System.out.println("Year one male pyramid " + Arrays.toString(yearOnePopulation.getMalePyramid()));
         System.out.println("Year two male pyramid " + Arrays.toString(yearTwoPopulation.getMalePyramid()));
-
+        System.out.println("Year zero male population is " + initialPopulation.getMalePopulation());
+        System.out.println("Year one male population is " + yearOnePopulation.getMalePopulation());
+        System.out.println("Year two male population is " + yearTwoPopulation.getMalePopulation());
         projector.getPopulationCalculator().getExecutor().shutdown();
     }
 
     //Project population storing population of every year from initialYear to finalYear
-    public Map<Integer, Population> projectPopulation(Population initialPopulation, int initialYear, int finalYear) {
+    public Map<Integer, Population> projectPopulation(Population initialPopulation, int finalYear) {
+        int initialYear = initialPopulation.getYear();
         Map<Integer, Population> populationProjection = new HashMap<>();
         populationProjection.put(initialYear, initialPopulation);
         if (projectionParameters.getMigrationFormat() == 0) { //absolute migration

@@ -3,8 +3,8 @@ import java.util.concurrent.ExecutorService;
 
 public class SearchSpace {
     //New center properties
-    private static int minNewCentersByLevel[]; //Usually 1.
-    private static int maxNewCentersByLevel[]; //Maximum number of cancer centers to try
+    private static int[] minNewCentersByLevel; //Usually 1.
+    private static int[] maxNewCentersByLevel; //Maximum number of cancer centers to try
     private static double[] minimumCasesByLevel; //list in ascending order minimum cases for increasingly tertiary cancer center services
     private static double[] servicedProportionByLevel; //list in ascending order
     private static int[][] sublevelsByLevel;

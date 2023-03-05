@@ -30,19 +30,24 @@ public class PopulationParameters {
     private int migrationFormat; //0 if absolute migration numbers, 1 if rates per capita
 
     public PopulationParameters(String mortalityLocation, String infantMortalityLocation, String fertilityLocation, String migrationLocation, String migrationFormat, int oldestPyramidCohortAge) {
+        //Fertility rate parsing
         ParsedEventRates fertilityRates = parseAgeSexHeadingCSV(fertilityLocation, 1000);
         fertility = fertilityRates.getFemaleRate();
         oldestFertilityCohortAge = fertilityRates.getMaxCohortAge();
 
+        //Sex ratio at birth parsing
         sexRatioAtBirth = new HashMap<>();
         for (int year = 2000; year < 3000; year++) {
             sexRatioAtBirth.put(year, 1.05);
         }
+
+        //Infant cumulative mortality parsing
         ParsedCumulativeMortality infantCumulativeMortality = parseCumulativeInfantMortalityCSV(infantMortalityLocation, 1000);
         maleInfantCumulativeMortality = infantCumulativeMortality.getMaleCumulativeMortality();
         femaleInfantCumulativeMortality = infantCumulativeMortality.getFemaleCumulativeMortality();
-        maleInfantSeparationFactor = new HashMap<>();
 
+        //Infant separation factors
+        maleInfantSeparationFactor = new HashMap<>();
         for (int year = 2000; year < 3000; year++) {
             maleInfantSeparationFactor.put(year, 0.235);
         }
@@ -50,26 +55,16 @@ public class PopulationParameters {
         for (int year = 2000; year < 3000; year++) {
             femaleInfantSeparationFactor.put(year, 0.255);
         }
-        ParsedEventRates mortalityRates = parseYearHeadingCSV(mortalityLocation, 1.0);
+
+        //Mortality rate parsing
+        ParsedEventRates mortalityRates = parseYearHeadingCSV(mortalityLocation, 1000, oldestPyramidCohortAge);
         maleMortality = mortalityRates.getMaleRate();
         femaleMortality = mortalityRates.getFemaleRate();
-        int oldestMortalityCohortAge = mortalityRates.getMaxCohortAge();
-        if (oldestMortalityCohortAge < oldestPyramidCohortAge) {
-            for (int i = oldestMortalityCohortAge + 1; i <= oldestPyramidCohortAge; i++) {
-                maleMortality.put(i, maleMortality.get(oldestMortalityCohortAge));
-                femaleMortality.put(i, femaleMortality.get(oldestMortalityCohortAge));
-            }
-        }
-        ParsedEventRates migrationRates = parseAgeSexHeadingCSV(migrationLocation, 1.0);
+
+        //Migration rate parsing
+        ParsedEventRates migrationRates = parseAgeSexHeadingCSV(migrationLocation, 1000, oldestPyramidCohortAge);
         maleMigration = migrationRates.getMaleRate();
         femaleMigration = migrationRates.getFemaleRate();
-        int oldestMigrationCohortAge = migrationRates.getMaxCohortAge();
-        if (oldestMigrationCohortAge < oldestPyramidCohortAge) {
-            for (int i = oldestMigrationCohortAge + 1; i <= oldestPyramidCohortAge; i++) {
-                maleMigration.put(i, maleMigration.get(oldestMigrationCohortAge));
-                femaleMigration.put(i, femaleMigration.get(oldestMigrationCohortAge));
-            }
-        }
         if (migrationFormat.contains("Rate")) {
             this.migrationFormat = 1;
         } else {
@@ -134,6 +129,65 @@ public class PopulationParameters {
         return new ParsedEventRates(reformattedMaleData, reformattedFemaleData, maxAgeCohort);
     }
 
+    //When oldest pyramid cohort age surpasses maximum cohort age, fills remaining event rates with maximum cohort age event rate
+    public static ParsedEventRates parseYearHeadingCSV(String fileLocation, double perPopulation, int oldestPyramidCohortAge) {
+        BufferedReader reader;
+        String currentLine;
+        Map<Integer, Map<Integer, Double>> maleData = new HashMap<>();
+        Map<Integer, Map<Integer, Double>> femaleData = new HashMap<>();
+        Integer minAgeCohort = Integer.MAX_VALUE;
+        Integer maxAgeCohort = 0;
+        try {
+            reader = new BufferedReader(new FileReader(fileLocation));
+            List<String> headings = new ArrayList<>(Arrays.asList(reader.readLine().split(",")));
+            headings.remove(0);
+            int[] years = headings.stream().mapToInt(Integer::parseInt).toArray();
+            for (int i = 0; i < years.length; i++) {
+                maleData.put(years[i], new HashMap<>());
+                femaleData.put(years[i], new HashMap<>());
+            }
+            while ((currentLine = reader.readLine()) != null) {
+                String[] values = currentLine.split(",");
+                List<Integer> sexAgeInfo = parseAgeSexGroup(values[0]);
+                if (sexAgeInfo.get(1) < minAgeCohort) minAgeCohort = sexAgeInfo.get(1);
+                if (sexAgeInfo.get(2) > maxAgeCohort) maxAgeCohort = sexAgeInfo.get(2);
+                if (sexAgeInfo.get(0) == 0) {
+                    for (int i = 0; i < years.length; i++) {
+                        Map<Integer, Double> currentYearData = maleData.get(years[i]);
+                        for (int age = sexAgeInfo.get(1); age <= sexAgeInfo.get(2); age++) {
+                            currentYearData.put(age, Double.valueOf(values[i + 1]) / perPopulation);
+                        }
+                        maleData.put(years[i], currentYearData);
+                    }
+                } else {
+                    for (int i = 0; i < years.length; i++) {
+                        Map<Integer, Double> currentYearData = femaleData.get(years[i]);
+                        for (int j = sexAgeInfo.get(1); j <= sexAgeInfo.get(2); j++) {
+                            currentYearData.put(j, Double.valueOf(values[i + 1]) / perPopulation);
+                        }
+                        femaleData.put(years[i], currentYearData);
+                    }
+                }
+            }
+            reader.close();
+            for (int i = 0; i < years.length; i++) {
+                Map<Integer, Double> currentYearMaleData = maleData.get(years[i]);
+                Map<Integer, Double> currentYearFemaleData = femaleData.get(years[i]);
+                for (int j = 0; j < minAgeCohort; j++){
+                    currentYearMaleData.put(j, 0.0);
+                    currentYearFemaleData.put(j, 0.0);
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        //Reformat data
+        Map<Integer, double[]> reformattedMaleData = reformatEventData(maleData, oldestPyramidCohortAge);
+        Map<Integer, double[]> reformattedFemaleData = reformatEventData(femaleData, oldestPyramidCohortAge);
+        return new ParsedEventRates(reformattedMaleData, reformattedFemaleData, maxAgeCohort);
+    }
+
+    //Maximum cohort age is as entered.
     public static ParsedEventRates parseAgeSexHeadingCSV(String fileLocation, double perPopulation) {
         BufferedReader reader;
         String currentLine;
@@ -175,6 +229,51 @@ public class PopulationParameters {
         //Reformat data
         Map<Integer, double[]> reformattedMaleData = reformatEventData(maleData, maxAgeCohort);
         Map<Integer, double[]> reformattedFemaleData = reformatEventData(femaleData, maxAgeCohort);
+        return new ParsedEventRates(reformattedMaleData, reformattedFemaleData, maxAgeCohort);
+    }
+
+    //When oldest pyramid cohort age surpasses maximum cohort age, fills remaining event rates with maximum cohort age event rate
+    public static ParsedEventRates parseAgeSexHeadingCSV(String fileLocation, double perPopulation, int oldestPyramidCohortAge) {
+        BufferedReader reader;
+        String currentLine;
+        Map<Integer, Map<Integer, Double>> maleData = new HashMap<>();
+        Map<Integer, Map<Integer, Double>> femaleData = new HashMap<>();
+        Integer minAgeCohort = 1000;
+        Integer maxAgeCohort = 0;
+        try {
+            reader = new BufferedReader(new FileReader(fileLocation));
+            List<String> headings = new ArrayList<>(Arrays.asList(reader.readLine().split(",")));
+            headings.remove(0);
+            List<List<Integer>> sexAgeHeadings = headings.stream().map(x -> parseAgeSexGroup(x)).collect(Collectors.toList());
+            while ((currentLine = reader.readLine()) != null) {
+                String[] values = currentLine.split(",");
+                Map<Integer, Double> currentYearMaleData = new HashMap<>();
+                Map<Integer, Double> currentYearFemaleData = new HashMap<>();
+                for (int i = 0; i < sexAgeHeadings.size(); i++) {
+                    if (sexAgeHeadings.get(i).get(1) < minAgeCohort) minAgeCohort = sexAgeHeadings.get(i).get(1);
+                    if (sexAgeHeadings.get(i).get(2) > maxAgeCohort) maxAgeCohort = sexAgeHeadings.get(i).get(2);
+                    for (int age = sexAgeHeadings.get(i).get(1); age <= sexAgeHeadings.get(i).get(2); age++) {
+                        if (sexAgeHeadings.get(i).get(0) == 0) {
+                            currentYearMaleData.put(age, Double.valueOf(values[i + 1]) / perPopulation);
+                        } else {
+                            currentYearFemaleData.put(age, Double.valueOf(values[i + 1]) / perPopulation);
+                        }
+                    }
+                }
+                for (int i = 0; i < minAgeCohort; i++) {
+                    currentYearMaleData.put(i, 0.0);
+                    currentYearFemaleData.put(i, 0.0);
+                }
+                maleData.put(Integer.valueOf(values[0]), currentYearMaleData);
+                femaleData.put(Integer.valueOf(values[0]), currentYearFemaleData);
+            }
+            reader.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        //Reformat data
+        Map<Integer, double[]> reformattedMaleData = reformatEventData(maleData, oldestPyramidCohortAge);
+        Map<Integer, double[]> reformattedFemaleData = reformatEventData(femaleData, oldestPyramidCohortAge);
         return new ParsedEventRates(reformattedMaleData, reformattedFemaleData, maxAgeCohort);
     }
 
@@ -220,19 +319,25 @@ public class PopulationParameters {
         return new ParsedCumulativeMortality(sortedMaleData, sortedFemaleData);
     }
 
-    //Reformat event data for faster processing
-    private static Map<Integer, double[]> reformatEventData(Map<Integer, Map<Integer, Double>> data, int maxAgeCohort) {
+    //Reformat event data for faster processing. Can use a higher max cohort age than available in data if desired, in which case older entries are equal to that of the oldest event cohort age.
+    private static Map<Integer, double[]> reformatEventData(Map<Integer, Map<Integer, Double>> data, int desiredOldestCohortAge) {
          Map<Integer, double[]> reformattedData = new HashMap<>();
         for (int year : data.keySet()) {
-            double[] ageEventMap = new double[maxAgeCohort + 1];
+            double[] ageEventMap = new double[desiredOldestCohortAge + 1];
+            int oldestEventCohortAge = 0;
             for (int age : data.get(year).keySet()) {
+                if (age > oldestEventCohortAge) {
+                    oldestEventCohortAge = age;
+                }
                 ageEventMap[age] = data.get(year).get(age);
+            }
+            for (int age = oldestEventCohortAge + 1; age <= desiredOldestCohortAge; age++) {
+                ageEventMap[age] = ageEventMap[oldestEventCohortAge];
             }
             reformattedData.put(year, ageEventMap);
         }
         return reformattedData;
     }
-
 
     //Sort and reformat cumulative infant mortality for faster processing
     private static Map<Integer, double[][]> reformatCumulativeInfantMortalityData(Map<Integer, Map<Double, Double>> data) {

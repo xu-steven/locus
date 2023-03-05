@@ -28,7 +28,7 @@ public class SimAnnealingWithPermanentCenters extends SimAnnealingSearch{
         double[] minimumCasesByLevel = {(double) 10000, (double) 1000000, (double) 2000000};
         double[] servicedProportionByLevel = {0.7, 0.2, 0.1};
         int[] minimumNewCenterCountByLevel = {2, 1, 1};
-        int[] maximumNewCenterCountByLevel = {2, 5, 5};
+        int[] maximumNewCenterCountByLevel = {2, 6, 12};
         List<List<Integer>> permanentCentersByLevel = new ArrayList<>();
         permanentCentersByLevel.add(Arrays.asList(0, 1, 2, 3)); //level 0
         permanentCentersByLevel.add(Arrays.asList()); //level 1

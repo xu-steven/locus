@@ -44,7 +44,7 @@ public class SimAnnealingNeighbor {
                     }
 
                     //Merge wedges by index
-                    List<Integer> mergedWedges = mergeSortedWedges(sortedAzimuthClassLists);
+                    List<Integer> mergedWedges = mergeSortedWedges(sortedAzimuthClassLists, azimuthClassCount);
 
                     //Add sortedAlternativeSites to final output
                     currentOutput.add(mergedWedges);
@@ -137,7 +137,7 @@ public class SimAnnealingNeighbor {
 
                     //Merge wedges by index
                     List<List<Integer>> unmergedWedges = Arrays.asList(azimuthClassZeroList, azimuthClassOneList, azimuthClassTwoList, azimuthClassThreeList, azimuthClassFourList, azimuthClassFiveList);
-                    List<Integer> mergedWedges = mergeSortedWedges(unmergedWedges);
+                    List<Integer> mergedWedges = mergeSortedWedges(unmergedWedges, 6);
 
                     //Add sortedAlternativeSites to final output
                     currentOutput.add(mergedWedges);
@@ -161,11 +161,11 @@ public class SimAnnealingNeighbor {
         return output;
     }
 
-    //Classifies into 6 directional wedges from 0 to 5
+    //Classifies into azimuthClassCount directional wedges
     public static int classifyAzimuth (double forwardAzimuth, int azimuthClassCount) {
         int wedge = -1;
-        for (int i = 0; i <= 5; i++ ) {
-            if((forwardAzimuth >= i * 360 / azimuthClassCount) && (forwardAzimuth < (i + 1) * 360 / azimuthClassCount)) {
+        for (int i = 0; i < azimuthClassCount; i++ ) {
+            if((forwardAzimuth >= i * 360.0 / azimuthClassCount) && (forwardAzimuth < (i + 1) * 360.0 / azimuthClassCount)) {
                 wedge = i;
                 break;
             }
@@ -174,14 +174,14 @@ public class SimAnnealingNeighbor {
     }
 
     //For each current site, merge 6 wedges into sorted list with nth element of each wedge randomly but in sequence by index
-    public static List<Integer> mergeSortedWedges (List<List<Integer>> unmergedWedges) {
+    public static List<Integer> mergeSortedWedges (List<List<Integer>> unmergedWedges, int azimuthClassCount) {
         List<Integer> mergedWedges = new ArrayList<>();
-        List<Integer> insertionOrder = IntStream.rangeClosed(0, 5).boxed().collect(Collectors.toList());
+        List<Integer> insertionOrder = IntStream.range(0, azimuthClassCount).boxed().collect(Collectors.toList());
         //Insert by index in wedges
         for (int i = 0; i < getMaxWedgeSize(unmergedWedges); i++) {
             //Randomize insertion order of azimuth (wedge) classes for each index
             Collections.shuffle(insertionOrder);
-            for (int j = 0; j <= 5; j++) {
+            for (int j = 0; j < azimuthClassCount; j++) {
                 List<Integer> currentWedge = unmergedWedges.get(insertionOrder.get(j));
                 if (currentWedge.size() > i) {
                     mergedWedges.add(currentWedge.get(i));

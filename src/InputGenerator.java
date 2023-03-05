@@ -56,4 +56,5 @@ public abstract class InputGenerator {
         for (int i = 1; i < destinationCenterArray.size(); ++i) destinationNames.add(destinationCenterArray.get(i).get(0));
         return destinationNames;
     }
+
 }

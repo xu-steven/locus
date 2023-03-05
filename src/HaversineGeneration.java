@@ -11,7 +11,7 @@ public class HaversineGeneration extends InputGenerator{
     }
 
     public static void main(String[] args) throws Exception {
-        new HaversineGeneration("C:\\Projects\\Optimization Project\\alberta2016_test_potential_sites.csv");
+        new HaversineGeneration("M:\\Optimization Project Alpha\\alberta2021_potential_sites.csv");
         generateHaversineArray(potentialCenterArray, potentialCenterLatIndex, potentialCenterLongIndex);
     }
 

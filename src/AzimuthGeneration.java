@@ -12,7 +12,7 @@ public class AzimuthGeneration extends InputGenerator{
     }
 
     public static void main(String[] args) throws Exception {
-        new AzimuthGeneration("C:\\Projects\\Optimization Project\\alberta2016_test_potential_sites.csv");
+        new AzimuthGeneration("M:\\Optimization Project Alpha\\alberta2021_potential_sites.csv");
         System.out.println("Computing haversine between candidate to candidate sites.");
         generateAzimuthArray(potentialCenterArray, potentialCenterLatIndex, potentialCenterLongIndex);
     }

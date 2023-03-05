@@ -19,16 +19,16 @@ public class SimAnnealingWithoutPermanentCenters extends SimAnnealingSearch{
         executor = Executors.newFixedThreadPool(threadCount);
 
         //File locations
-        String censusFileLocation = "M:\\Optimization Project\\alberta2016_origins.csv";
+        String censusFileLocation = "M:\\Optimization Project Alpha\\alberta2021_origins.csv";
         String graphLocation = censusFileLocation.replace("_origins.csv", "_graph.csv");
-        String azimuthLocation = censusFileLocation.replace("_origins.csv", "_azimuth.csv");
-        String haversineLocation = censusFileLocation.replace("_origins.csv", "_haversine.csv");
+        String azimuthLocation = censusFileLocation.replace("_origins.csv", "_potential_azimuth.csv");
+        String haversineLocation = censusFileLocation.replace("_origins.csv", "_potential_haversine.csv");
 
         //Search space parameters
-        double[] minimumCasesByLevel = {(double) 10000, (double) 1000000, (double) 2000000};
-        double[] servicedProportionByLevel = {1.0, 0.0, 0.0};
-        int[] minimumCenterCountByLevel = {2, 0, 1};
-        int[] maximumCenterCountByLevel = {6, 0, 6};
+        double[] minimumCasesByLevel = {(double) 10000, (double) 200000, (double) 2000000};
+        double[] servicedProportionByLevel = {0.7, 0.2, 0.1};
+        int[] minimumCenterCountByLevel = {2, 1, 1};
+        int[] maximumCenterCountByLevel = {17, 6, 6};
         List<List<Integer>> levelSequences = new ArrayList<>();
         levelSequences.add(Arrays.asList(0, 1));
         levelSequences.add(Arrays.asList(0, 2));
