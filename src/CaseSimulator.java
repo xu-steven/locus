@@ -56,10 +56,6 @@ public class CaseSimulator {
         double[] simulatedCaseCountByOrigin = new double[originCount];
         for (int origin = 0; origin < originCount; origin++) {
             double[] malePyramid = populationByOrigin[origin].getMalePyramid();
-            if (origin == 1) {
-                System.out.println(Arrays.toString(malePyramid));
-                System.out.println(Arrays.toString(maleCaseIncidenceRate));
-            }
             double[] femalePyramid = populationByOrigin[origin].getFemalePyramid();
             double projectedCases = 0;
             for (int age = 0; age <= populationByOrigin[origin].getOldestPyramidCohortAge(); age++) {
