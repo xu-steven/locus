@@ -7,8 +7,16 @@ public class IterativePopulationProjector extends PopulationProjector {
     //Number of subgroups per age less than max age
     static int ageSubgroups;
 
-    public IterativePopulationProjector(String mortalityLocation, String infantMortalityLocation, String fertilityLocation, String migrationLocation, String migrationFormat, int oldestPyramidCohortAge, int ageSubgroups) {
-        super(mortalityLocation, infantMortalityLocation, fertilityLocation, migrationLocation, migrationFormat, oldestPyramidCohortAge, 1, 1);
+    public IterativePopulationProjector(String mortalityLocation, double mortalityPerPopulation,
+                                        String infantMortalityLocation, double infantMortalityPerPopulation,
+                                        String fertilityLocation, double fertilityPerPopulation,
+                                        String migrationLocation, double migrationPerPopulation,
+                                        String migrationFormat, int oldestPyramidCohortAge, int ageSubgroups) {
+        super(mortalityLocation, mortalityPerPopulation,
+                infantMortalityLocation, infantMortalityPerPopulation,
+                fertilityLocation, fertilityPerPopulation,
+                migrationLocation, migrationPerPopulation,
+                migrationFormat, oldestPyramidCohortAge, 1, 1);
         this.ageSubgroups = ageSubgroups;
     }
 
@@ -23,7 +31,7 @@ public class IterativePopulationProjector extends PopulationProjector {
         String infantMortalityLocation = "M:\\Optimization Project\\demographic projections\\test_alberta_infant_mortality.csv";
         String fertilityLocation = "M:\\Optimization Project\\demographic projections\\alberta_fertility.csv";
         String migrationLocation = "M:\\Optimization Project\\demographic projections\\alberta_migration.csv";
-        IterativePopulationProjector projector = new IterativePopulationProjector(mortalityLocation, infantMortalityLocation, fertilityLocation, migrationLocation, "Total migrants",
+        IterativePopulationProjector projector = new IterativePopulationProjector(mortalityLocation, 1000, infantMortalityLocation, 1000, fertilityLocation, 1000, migrationLocation, 1000, "Total migrants",
                 Population.determineOldestPyramidCohortAge(ageAndSexGroups), 5);
 
         //In final program, this will be input into projector

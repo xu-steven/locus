@@ -9,9 +9,16 @@ public class DirectPopulationProjector extends PopulationProjector{
     //Age weights do not change within a year (i.e. not time-dependent during calculations), can still change year to year
     static boolean timeIndependentAgeWeights;
 
-    public DirectPopulationProjector(String mortalityLocation, String infantMortalityLocation, String fertilityLocation, String migrationLocation, String migrationFormat,
-                                     int oldestPyramidCohortAge, int singleXCount, int xCount, int yCount, int threadCount, int taskCount) {
-        super(mortalityLocation, infantMortalityLocation, fertilityLocation, migrationLocation, migrationFormat, oldestPyramidCohortAge, threadCount, taskCount);
+    public DirectPopulationProjector(String mortalityLocation, double mortalityPerPopulation,
+                                     String infantMortalityLocation, double infantMortalityPerPopulation,
+                                     String fertilityLocation, double fertilityPerPopulation,
+                                     String migrationLocation, double migrationPerPopulation,
+                                     String migrationFormat, int oldestPyramidCohortAge, int singleXCount, int xCount, int yCount, int threadCount, int taskCount) {
+        super(mortalityLocation, mortalityPerPopulation,
+                infantMortalityLocation, infantMortalityPerPopulation,
+                fertilityLocation, fertilityPerPopulation,
+                migrationLocation, migrationPerPopulation,
+                migrationFormat, oldestPyramidCohortAge, threadCount, taskCount);
         this.singleXCount = singleXCount;
         this.xCount = xCount;
         this.yCount = yCount;
@@ -29,7 +36,7 @@ public class DirectPopulationProjector extends PopulationProjector{
         String infantMortalityLocation = "M:\\Optimization Project Alpha\\demographic projections\\alberta_infant_mortality.csv";
         String fertilityLocation = "M:\\Optimization Project Alpha\\demographic projections\\alberta_fertility_cd1.csv";
         String migrationLocation = "M:\\Optimization Project Alpha\\demographic projections\\alberta_migration_rate_cd1.csv";
-        DirectPopulationProjector projector = new DirectPopulationProjector(mortalityLocation, infantMortalityLocation, fertilityLocation, migrationLocation, "Total migrants",
+        DirectPopulationProjector projector = new DirectPopulationProjector(mortalityLocation, 1000, infantMortalityLocation, 1000, fertilityLocation, 1000, migrationLocation, 1000,"Total migrants",
                 Population.determineOldestPyramidCohortAge(ageAndSexGroups), 2000, 30, 20, 6, 6);
 
         //In final program, this will be input into projector

@@ -3,8 +3,16 @@ import java.util.List;
 import java.util.Map;
 
 public class RuralUrbanPopulationProjector extends PopulationProjector{
-    public RuralUrbanPopulationProjector(String mortalityLocation, String infantMortalityLocation, String fertilityLocation, String migrationLocation, String migrationFormat, int oldestPyramidCohortAge) {
-        super(mortalityLocation, infantMortalityLocation, fertilityLocation, migrationLocation, migrationFormat, oldestPyramidCohortAge, 1, 1);
+    public RuralUrbanPopulationProjector(String mortalityLocation, double mortalityPerPopulation,
+                                         String infantMortalityLocation, double infantMortalityPerPopulation,
+                                         String fertilityLocation, double fertilityPerPopulation,
+                                         String migrationLocation, double migrationPerPopulation,
+                                         String migrationFormat, int oldestPyramidCohortAge) {
+        super(mortalityLocation, mortalityPerPopulation,
+                infantMortalityLocation, infantMortalityPerPopulation,
+                fertilityLocation, fertilityPerPopulation,
+                migrationLocation, migrationPerPopulation,
+                migrationFormat, oldestPyramidCohortAge, 1, 1);
     }
 
     public static void main(String[] args) {
@@ -18,7 +26,7 @@ public class RuralUrbanPopulationProjector extends PopulationProjector{
         String infantMortalityLocation = "M:\\Optimization Project\\demographic projections\\test_alberta_infant_mortality.csv";
         String fertilityLocation = "M:\\Optimization Project\\demographic projections\\alberta_fertility.csv";
         String migrationLocation = "M:\\Optimization Project\\demographic projections\\alberta_migration.csv";
-        RuralUrbanPopulationProjector projector = new RuralUrbanPopulationProjector(mortalityLocation, infantMortalityLocation, fertilityLocation, migrationLocation, "Total migrants",
+        RuralUrbanPopulationProjector projector = new RuralUrbanPopulationProjector(mortalityLocation, 1000, infantMortalityLocation, 1000, fertilityLocation, 1000, migrationLocation, 1000,"Total migrants",
                 Population.determineOldestPyramidCohortAge(ageAndSexGroups));
 
         //In final program, this will be input into projector

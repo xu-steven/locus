@@ -29,9 +29,13 @@ public class PopulationParameters {
     private final Map<Integer, double[]> femaleMigration;
     private int migrationFormat; //0 if absolute migration numbers, 1 if rates per capita
 
-    public PopulationParameters(String mortalityLocation, String infantMortalityLocation, String fertilityLocation, String migrationLocation, String migrationFormat, int oldestPyramidCohortAge) {
+    public PopulationParameters(String mortalityLocation, double mortalityPerPopulation,
+                                String infantMortalityLocation, double infantMortalityPerPopulation,
+                                String fertilityLocation, double fertilityPerPopulation,
+                                String migrationLocation, double migrationPerPopulation,
+                                String migrationFormat, int oldestPyramidCohortAge) {
         //Fertility rate parsing
-        ParsedEventRates fertilityRates = parseAgeSexHeadingCSV(fertilityLocation, 1000);
+        ParsedEventRates fertilityRates = parseAgeSexHeadingCSV(fertilityLocation, fertilityPerPopulation);
         fertility = fertilityRates.getFemaleRate();
         oldestFertilityCohortAge = fertilityRates.getMaxCohortAge();
 
@@ -42,7 +46,7 @@ public class PopulationParameters {
         }
 
         //Infant cumulative mortality parsing
-        ParsedCumulativeMortality infantCumulativeMortality = parseCumulativeInfantMortalityCSV(infantMortalityLocation, 1000);
+        ParsedCumulativeMortality infantCumulativeMortality = parseCumulativeInfantMortalityCSV(infantMortalityLocation, infantMortalityPerPopulation);
         maleInfantCumulativeMortality = infantCumulativeMortality.getMaleCumulativeMortality();
         femaleInfantCumulativeMortality = infantCumulativeMortality.getFemaleCumulativeMortality();
 
@@ -57,12 +61,12 @@ public class PopulationParameters {
         }
 
         //Mortality rate parsing
-        ParsedEventRates mortalityRates = parseYearHeadingCSV(mortalityLocation, 1000, oldestPyramidCohortAge);
+        ParsedEventRates mortalityRates = parseYearHeadingCSV(mortalityLocation, mortalityPerPopulation, oldestPyramidCohortAge);
         maleMortality = mortalityRates.getMaleRate();
         femaleMortality = mortalityRates.getFemaleRate();
 
         //Migration rate parsing
-        ParsedEventRates migrationRates = parseAgeSexHeadingCSV(migrationLocation, 1000, oldestPyramidCohortAge);
+        ParsedEventRates migrationRates = parseAgeSexHeadingCSV(migrationLocation, migrationPerPopulation, oldestPyramidCohortAge);
         maleMigration = migrationRates.getMaleRate();
         femaleMigration = migrationRates.getFemaleRate();
         if (migrationFormat.contains("Rate")) {

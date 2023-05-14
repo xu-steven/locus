@@ -9,8 +9,16 @@ public abstract class PopulationProjector {
     //Multithreading configuration calculator
     public PopulationCalculator populationCalculator;
 
-    public PopulationProjector(String mortalityLocation, String infantMortalityLocation, String fertilityLocation, String migrationLocation, String migrationFormat, int oldestPyramidCohortAge, int threadCount, int taskCount) {
-        projectionParameters = new PopulationParameters(mortalityLocation, infantMortalityLocation, fertilityLocation, migrationLocation, migrationFormat, oldestPyramidCohortAge);
+    public PopulationProjector(String mortalityLocation, double mortalityPerPopulation,
+                               String infantMortalityLocation, double infantMortalityPerPopulation,
+                               String fertilityLocation, double fertilityPerPopulation,
+                               String migrationLocation, double migrationPerPopulation,
+                               String migrationFormat, int oldestPyramidCohortAge, int threadCount, int taskCount) {
+        projectionParameters = new PopulationParameters(mortalityLocation, mortalityPerPopulation,
+                infantMortalityLocation, infantMortalityPerPopulation,
+                fertilityLocation, fertilityPerPopulation,
+                migrationLocation, migrationPerPopulation,
+                migrationFormat, oldestPyramidCohortAge);
         populationCalculator = new PopulationCalculator(threadCount, taskCount);
     }
 
