@@ -44,15 +44,17 @@ public class Simulator {
         String haversineLocation = censusFileLocation.replace("_origins.csv", "_potential_haversine.csv");
 
         //Search space parameters
-        double[] minimumCasesByLevel = {(double) 0, (double) 0};
-        double[] servicedProportionByLevel = {1, 1};
-        int[] minimumCenterCountByLevel = {1, 1};
-        int[] maximumCenterCountByLevel = {1, 1};
+        double[] minimumCasesByLevel = {(double) 0, (double) 0, (double) 0};
+        double[] servicedProportionByLevel = {0.2, 0.5, 0.3};
+        int[] minimumCenterCountByLevel = {1, 1, 1};
+        int[] maximumCenterCountByLevel = {17, 6, 2};
         List<List<Integer>> levelSequences = new ArrayList<>();
+        levelSequences.add(Arrays.asList(0, 1));
+        levelSequences.add(Arrays.asList(1, 2));
 
         //Simulated annealing configuration
-        double initialTemp = 1000000;
-        double finalTemp = 1;
+        double initialTemp = 10000;
+        double finalTemp = 0.01;
         double coolingRate = 0.9995;
         int azimuthClassCount = 6;
         int finalNeighborhoodSize = -1; //Determining finalNeighborhoodSize based on number of centers to optimize if -1
@@ -68,8 +70,14 @@ public class Simulator {
                 initialTemp, finalTemp, coolingRate, azimuthClassCount, finalNeighborhoodSize, finalNeighborhoodSizeIteration, threadCount, taskCount);
 
         //Unoptimized sites
-        List<Integer> unoptimizedSites = Arrays.asList(0, 1, 2, 3);
-        List<List<Integer>> unoptimizedSitesByLevel = new ArrayList<>(Arrays.asList(unoptimizedSites, unoptimizedSites));
+        //List<Integer> unoptimizedSites = Arrays.asList(0, 1, 2, 3);
+        //List<List<Integer>> unoptimizedSitesByLevel = new ArrayList<>(Arrays.asList(unoptimizedSites, unoptimizedSites, unoptimizedSites));
+        List<Integer> academicCenters = new ArrayList<>(Arrays.asList(683, 4162)); //TBCC and CCI
+        List<Integer> regionalCenters = new ArrayList<>(academicCenters); //Regional cancer centers
+        regionalCenters.addAll(Arrays.asList(2818, 182, 55, 6179));
+        List<Integer> communityCenters = new ArrayList<>(regionalCenters); //Community cancer centers
+        communityCenters.addAll(Arrays.asList(5707, 6113, 5307, 5436, 5599, 4910, 3272, 3170, 528, 5660, 2085));
+        List<List<Integer>> unoptimizedSitesByLevel = new ArrayList<>(Arrays.asList(communityCenters, regionalCenters, academicCenters));
 
         //Configuration
         int simulations = 1;
@@ -97,14 +105,16 @@ public class Simulator {
         return minimumSolution;
     }
 
-    public static List<List<Double>> simulatedCostComparison(List<List<Integer>> unoptimizedSites, int simulations, int iterationsOfSimulatedAnnealingSearch) throws InterruptedException {
+    public static List<List<Double>> simulatedCostComparison(List<List<Integer>> unoptimizedSitesByLevel, int simulations, int iterationsOfSimulatedAnnealingSearch) throws InterruptedException {
+        //Get number of levels
+        int levels = unoptimizedSitesByLevel.size();
+
         List<List<Double>> costComparisonBySimulation = new ArrayList<>(simulations);
         for (int i = 0; i < simulations; i++) {
             //Replace with simulated case counts
             CaseCounts simulatedCaseCounts = caseSimulator.simulateCases();
-            CaseCounts[] inputCaseCounts = new CaseCounts[2];
-            inputCaseCounts[0] = simulatedCaseCounts;
-            inputCaseCounts[1] = simulatedCaseCounts;
+            CaseCounts[] inputCaseCounts = new CaseCounts[levels];
+            Arrays.fill(inputCaseCounts, simulatedCaseCounts);
             simAnnealer.searchParameters.setCaseCountsByLevel(inputCaseCounts);
 
             //Run simulated annealing
@@ -112,28 +122,29 @@ public class Simulator {
 
             //Simulate new case counts
             CaseCounts newSimulatedCaseCounts = caseSimulator.simulateCases();
-            simAnnealer.searchParameters.setCaseCountsByLevel(inputCaseCounts);
-            inputCaseCounts[0] = newSimulatedCaseCounts;
-            inputCaseCounts[1] = newSimulatedCaseCounts;
+            Arrays.fill(inputCaseCounts, newSimulatedCaseCounts);
             simAnnealer.searchParameters.setCaseCountsByLevel(inputCaseCounts);
 
             //Compute cost of optimized configuration
             double optimizedTotalCost = cost(minimumConfiguration.getSitesByLevel(), simAnnealer.searchParameters, taskCount, simAnnealer.executor);
 
             //Non-optimized sites to compare
-            double unoptimizedTotalCost = cost(unoptimizedSites, simAnnealer.searchParameters, taskCount, simAnnealer.executor);
+            double unoptimizedTotalCost = cost(unoptimizedSitesByLevel, simAnnealer.searchParameters, taskCount, simAnnealer.executor);
 
             //Add pair (simulated annealing cost, unoptimized cost) to cost comparison by simulation
-            costComparisonBySimulation.add(new ArrayList<>(Arrays.asList(optimizedTotalCost, unoptimizedTotalCost)));
+            costComparisonBySimulation.add(new ArrayList<>(Arrays.asList(optimizedTotalCost, unoptimizedTotalCost, ArrayOperations.sumDoubleArray(simulatedCaseCounts.caseCountByOrigin))));
         }
         return costComparisonBySimulation;
     }
 
-    public static ExpectedCostComparisonResult expectedCostComparison(List<List<Integer>> unoptimizedSitesByLevel, int simulations, int iterationsOfSimulatedAnnealingSearch) throws InterruptedException {
+    public static ExpectedCostComparisonResult expectedCostComparison(List<List<Integer>> unoptimizedSitesByLevel, int iterationsOfSimulatedAnnealingSearch) throws InterruptedException {
+        //Get number of levels
+        int levels = unoptimizedSitesByLevel.size();
+
         //Replace with expected case counts
         CaseCounts expectedCaseCounts = caseSimulator.expectedCases();
-        CaseCounts[] inputCaseCounts = new CaseCounts[1];
-        inputCaseCounts[0] = expectedCaseCounts;
+        CaseCounts[] inputCaseCounts = new CaseCounts[levels];
+        Arrays.fill(inputCaseCounts, expectedCaseCounts);
         simAnnealer.searchParameters.setCaseCountsByLevel(inputCaseCounts);
         simAnnealer.searchParameters.setOneTimepoint();
 
