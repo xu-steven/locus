@@ -8,20 +8,20 @@ import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 public class Visualizer {
-    private static List<List<String>> graphArray = FileUtils.parseCSV("M:\\Optimization Project\\alberta2016_graph.csv");
-    private static List<List<String>> censusArray = FileUtils.parseCSV("M:\\Optimization Project\\alberta2016_origins.csv");
+    private static List<List<String>> graphArray = FileUtils.parseCSV("M:\\Optimization Project Alpha\\alberta2021_graph.csv");
+    private static List<List<String>> censusArray = FileUtils.parseCSV("M:\\Optimization Project Alpha\\alberta2021_origins.csv");
     private static double minimumCases = 10000;
 
     //Manually create overlay
     public static void main(String[] args) {
-        List<Integer> sites = replacePermanents(Arrays.asList(5344, 5345, 5346, 5347, 2052, 1985));
+        List<Integer> sites = replacePermanents(Arrays.asList(206, 1222, 5181));
         List<Integer> level2 = replacePermanents(Arrays.asList(5346, 1985));
         List<Integer> level3 = replacePermanents(Arrays.asList(1985, 5346));
         sites = sites.stream().map(x -> x + 1).collect(Collectors.toList());
         level2 = level2.stream().map(x -> x + 1).collect(Collectors.toList());
         level3 = level3.stream().map(x -> x + 1).collect(Collectors.toList());
         //System.out.println("Cost " + totalCost(sites, graphArray, censusArray));
-        double costSites = totalCost(sites, graphArray, censusArray, 10000) * 0.7;
+        double costSites = totalCost(sites, graphArray, censusArray, 10000) * 1.0;
         double costSites2 = totalCost(level2, graphArray, censusArray, 1000000) * 0.2;
         double costSites3 = totalCost(level3, graphArray, censusArray, 2000000) * 0.1;
         System.out.println("Cost " + (costSites + costSites2 + costSites3) + " with " + Arrays.asList(costSites, costSites2, costSites3));

@@ -342,6 +342,18 @@ public class SearchSpace {
         return permanentCentersCountByLevel;
     }
 
+    //Set case counts by level to directly inputted caseCounts
+    public void setCaseCountsByLevel(CaseCounts[] caseCountsByLevel){
+        this.caseCountsByLevel = caseCountsByLevel;
+    }
+
+    //Use one timepoint
+    public void setOneTimepoint() {
+        this.timepointCount = 1;
+        this.timepointWeights = new double[1];
+        this.timepointWeights[0] = 1;
+    }
+
     //Arrays of positions and corresponding costs by origin
     private record PositionsAndCostsByLevelAndOrigin(int[][] positionsByLevelAndOrigin, double[][] costsByLevelAndOrigin) {
         public int[][] getPositionsByLevelAndOrigin() {

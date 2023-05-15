@@ -1,6 +1,6 @@
 public class CaseCounts {
-    public static double[] caseCountByOrigin; //Does not have to be static
-    public static int originCount; //Does not have to be static
+    public double[] caseCountByOrigin; //Does not have to be static
+    public int originCount; //Does not have to be static
 
     //Stores 2D array as 1D array for speed.
     //This does impose a size limit of timepointCount * originCount <= 2.147 billion. If exceeded, revert to 2D array.
@@ -15,7 +15,7 @@ public class CaseCounts {
         }
     }
 
-    public static double getCaseCount(int timepoint, int origin) {
+    public double getCaseCount(int timepoint, int origin) {
         return caseCountByOrigin[timepoint * originCount + origin];
     }
 }

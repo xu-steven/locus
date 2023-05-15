@@ -1,49 +1,205 @@
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.DoubleStream;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 
 public class Simulator {
-    public static int iterations = 50;
+    //Simulated annealing instance
+    static SimAnnealingWithoutPermanentCenters simAnnealer;
 
-    public static void main(String[] args) {
+    //Simulates case by origin
+    static CaseSimulator caseSimulator;
+
+    //Number of tasks should be >= threads
+    static int taskCount;
+
+    public Simulator(String demographicsLocation, String caseIncidenceRateLocation, String censusFileLocation, String graphLocation, String azimuthLocation, String haversineLocation,
+                     double[] minimumCasesByLevel, double[] servicedProportionByLevel, int[] minimumCenterCountByLevel, int[] maximumCenterCountByLevel, List<List<Integer>> levelSequences,
+                     double initialTemp, double finalTemp, double coolingRate, int azimuthClassCount, int finalNeighborhoodSize, int finalNeighborhoodSizeIteration, int threadCount, int taskCount) {
+        //Create simulated annealing instance
+        this.simAnnealer = new SimAnnealingWithoutPermanentCenters(censusFileLocation, graphLocation, azimuthLocation, haversineLocation,
+                minimumCasesByLevel, servicedProportionByLevel, minimumCenterCountByLevel, maximumCenterCountByLevel, levelSequences,
+                initialTemp, finalTemp, coolingRate, azimuthClassCount, finalNeighborhoodSize, finalNeighborhoodSizeIteration, taskCount, threadCount);
+        this.simAnnealer.searchParameters.setOneTimepoint();
+
+        //Create a case simulator to simulate cases in population
+        this.caseSimulator = new CaseSimulator(demographicsLocation, caseIncidenceRateLocation);
+
+        //Task count
+        this.taskCount = taskCount;
+    }
+
+    public static void main(String[] args) throws InterruptedException {
         //Demographics file
         String demographicsLocation = "M:\\Optimization Project Alpha\\demographic projections\\alberta2021_demographics.csv";
 
         //Case incidence rate file
         String caseIncidenceRateLocation = "M:\\Optimization Project Alpha\\cancer projection\\alberta_cancer_incidence.csv";
 
-        CaseSimulator caseSimulator = new CaseSimulator(demographicsLocation, caseIncidenceRateLocation);
-        CaseCounts simulatedCaseCounts = caseSimulator.simulateCases();
+        //File locations
+        String censusFileLocation = "M:\\Optimization Project Alpha\\alberta2021_origins.csv";
+        String graphLocation = censusFileLocation.replace("_origins.csv", "_graph.csv");
+        String azimuthLocation = censusFileLocation.replace("_origins.csv", "_potential_azimuth.csv");
+        String haversineLocation = censusFileLocation.replace("_origins.csv", "_potential_haversine.csv");
 
-        //Test against expected cases but computing mean simulated cases by origin, for total of testIterations simulations
-        int testIterations = 0; //use 0 to eliminate comparisons
-        double[] sumOfSimulations = simulatedCaseCounts.caseCountByOrigin;
-        for (int i = 1; i < testIterations; i++) {
-            simulatedCaseCounts = caseSimulator.simulateCases();
-            sumOfSimulations = addArrays(sumOfSimulations, simulatedCaseCounts.caseCountByOrigin);
-        }
-        if (testIterations > 0) {
-            double[] averageSimulatedCaseCounts = DoubleStream.of(sumOfSimulations).map(d -> d / testIterations).toArray();
-            //Compute expected case counts
-            CaseCounts expectedCaseCounts = caseSimulator.expectedCases();
-            //Compare difference of average simulated and expected case counts
-            double[] differenceInCaseCounts = subtractArrays(averageSimulatedCaseCounts, expectedCaseCounts.caseCountByOrigin);
-            System.out.println("Difference in cases counts by origin " + Arrays.toString(differenceInCaseCounts));
-            //Compare average of differences
-            System.out.println("Average difference of " + averageArray(differenceInCaseCounts));
-        }
+        //Search space parameters
+        double[] minimumCasesByLevel = {(double) 0, (double) 0};
+        double[] servicedProportionByLevel = {1, 1};
+        int[] minimumCenterCountByLevel = {1, 1};
+        int[] maximumCenterCountByLevel = {1, 1};
+        List<List<Integer>> levelSequences = new ArrayList<>();
 
-        //List<List<Double>> costDifference = simulatedCostComparison(caseSimulator, iterations); //can use array but no practical speed difference here
+        //Simulated annealing configuration
+        double initialTemp = 1000000;
+        double finalTemp = 1;
+        double coolingRate = 0.9995;
+        int azimuthClassCount = 6;
+        int finalNeighborhoodSize = -1; //Determining finalNeighborhoodSize based on number of centers to optimize if -1
+        int finalNeighborhoodSizeIteration = 20000;
 
-        //System.out.println("Costs " + costDifference.get(0) + " for optimized locations versus " + costDifference.get(1) + " for actual locations.");
+        //Multithreading configuration
+        int threadCount = 18;
+        int taskCount = 18;
+
+        //Create a simulator
+        new Simulator(demographicsLocation, caseIncidenceRateLocation, censusFileLocation, graphLocation, azimuthLocation, haversineLocation,
+                minimumCasesByLevel, servicedProportionByLevel, minimumCenterCountByLevel, maximumCenterCountByLevel, levelSequences,
+                initialTemp, finalTemp, coolingRate, azimuthClassCount, finalNeighborhoodSize, finalNeighborhoodSizeIteration, threadCount, taskCount);
+
+        //Unoptimized sites
+        List<Integer> unoptimizedSites = Arrays.asList(0, 1, 2, 3);
+        List<List<Integer>> unoptimizedSitesByLevel = new ArrayList<>(Arrays.asList(unoptimizedSites, unoptimizedSites));
+
+        //Configuration
+        int simulations = 1;
+        int iterationsOfSimulatedAnnealingSearch = 2;
+
+        //Compare with optimized cases
+        System.out.println("Comparison result " + simulatedCostComparison(unoptimizedSitesByLevel, simulations, iterationsOfSimulatedAnnealingSearch));
+
+        simAnnealer.executor.shutdown();
+        return;
     }
 
-    public static List<Double> simulatedCosts(CaseSimulator caseSimulator, int iterations) {
-        return null;
+    public static LeveledSiteConfiguration optimizeCentersWithSimulatedCases(int iterationsOfSimulatedAnnealingSearch) throws InterruptedException {
+        //Run simulated annealing with expected case counts
+        LeveledSiteConfiguration minimumSolution = null;
+        for (int i = 0; i < iterationsOfSimulatedAnnealingSearch; i++) {//take best of n runs
+            LeveledSiteConfiguration solution = simAnnealer.leveledOptimizeCenters(taskCount);
+            System.out.println("Final cost is " + solution.getCost() + " on centers " + solution.getSitesByLevel());
+            if (minimumSolution == null) {
+                minimumSolution = solution;
+            } else if (solution.getCost() < minimumSolution.getCost()) {
+                minimumSolution = solution;
+            }
+        }
+        return minimumSolution;
     }
 
-    public static List<List<Double>> simulatedCostComparison(CaseSimulator caseSimulator, int iterations){
-        return null;
+    public static List<List<Double>> simulatedCostComparison(List<List<Integer>> unoptimizedSites, int simulations, int iterationsOfSimulatedAnnealingSearch) throws InterruptedException {
+        List<List<Double>> costComparisonBySimulation = new ArrayList<>(simulations);
+        for (int i = 0; i < simulations; i++) {
+            //Replace with simulated case counts
+            CaseCounts simulatedCaseCounts = caseSimulator.simulateCases();
+            CaseCounts[] inputCaseCounts = new CaseCounts[2];
+            inputCaseCounts[0] = simulatedCaseCounts;
+            inputCaseCounts[1] = simulatedCaseCounts;
+            simAnnealer.searchParameters.setCaseCountsByLevel(inputCaseCounts);
+
+            //Run simulated annealing
+            LeveledSiteConfiguration minimumConfiguration = optimizeCentersWithSimulatedCases(iterationsOfSimulatedAnnealingSearch);
+
+            //Simulate new case counts
+            CaseCounts newSimulatedCaseCounts = caseSimulator.simulateCases();
+            simAnnealer.searchParameters.setCaseCountsByLevel(inputCaseCounts);
+            inputCaseCounts[0] = newSimulatedCaseCounts;
+            inputCaseCounts[1] = newSimulatedCaseCounts;
+            simAnnealer.searchParameters.setCaseCountsByLevel(inputCaseCounts);
+
+            //Compute cost of optimized configuration
+            double optimizedTotalCost = cost(minimumConfiguration.getSitesByLevel(), simAnnealer.searchParameters, taskCount, simAnnealer.executor);
+
+            //Non-optimized sites to compare
+            double unoptimizedTotalCost = cost(unoptimizedSites, simAnnealer.searchParameters, taskCount, simAnnealer.executor);
+
+            //Add pair (simulated annealing cost, unoptimized cost) to cost comparison by simulation
+            costComparisonBySimulation.add(new ArrayList<>(Arrays.asList(optimizedTotalCost, unoptimizedTotalCost)));
+        }
+        return costComparisonBySimulation;
+    }
+
+    public static ExpectedCostComparisonResult expectedCostComparison(List<List<Integer>> unoptimizedSitesByLevel, int simulations, int iterationsOfSimulatedAnnealingSearch) throws InterruptedException {
+        //Replace with expected case counts
+        CaseCounts expectedCaseCounts = caseSimulator.expectedCases();
+        CaseCounts[] inputCaseCounts = new CaseCounts[1];
+        inputCaseCounts[0] = expectedCaseCounts;
+        simAnnealer.searchParameters.setCaseCountsByLevel(inputCaseCounts);
+        simAnnealer.searchParameters.setOneTimepoint();
+
+        //Run simulated annealing with expected case counts
+        LeveledSiteConfiguration minimumConfiguration = optimizeCentersWithSimulatedCases(iterationsOfSimulatedAnnealingSearch);
+
+        //Non-optimized sites to compare
+        double unoptimizedTotalCost = cost(unoptimizedSitesByLevel, simAnnealer.searchParameters, taskCount, simAnnealer.executor);
+
+        //Return pair (simulated annealing cost, unoptimized cost)
+        List<Double> costComparison = new ArrayList<>(Arrays.asList(minimumConfiguration.getCost(),unoptimizedTotalCost));
+        return new ExpectedCostComparisonResult(minimumConfiguration.getSitesByLevel(), costComparison);
+    }
+
+    //Compute cost
+    public static double cost(List<List<Integer>> sitesByLevel, SearchSpace searchParameters, int taskCount, ExecutorService executor) {
+        //Compute initial cost
+        CasesAndCostMap[] costMapByLevel = new CasesAndCostMap[searchParameters.getCenterLevels()];
+        for (int level = 0; level < searchParameters.getCenterLevels(); ++level) {
+            CostMapAndPositions initialResult = createCostMap(sitesByLevel.get(level), searchParameters.getTimepointCount(), searchParameters.getOriginCount(), searchParameters.getCaseCountsByLevel()[level], searchParameters.getGraphArray(),
+                    taskCount, searchParameters.getStartingOrigins(), searchParameters.getEndingOrigins(), executor);
+            costMapByLevel[level] = initialResult.getCasesAndCostMap();
+        }
+        return CostCalculator.computeCost(costMapByLevel, sitesByLevel, searchParameters.getMinimumCasesByLevel(), searchParameters.getServicedProportionByLevel(), searchParameters.getTimepointCount(), searchParameters.getTimepointWeights(), executor);
+    }
+
+    //Cost function of configuration with given cancer center positions, graph, expected case count. Technically does not optimize for case where one permits travel to further cancer center to lower cost.
+    public static CostMapAndPositions createCostMap(List<Integer> sites, int timepointCount, int originCount, CaseCounts caseCountByOrigin, Graph graphArray,
+                                                    int taskCount, int[] startingOrigins, int[] endingOrigins, ExecutorService executor) {
+        int siteCount = sites.size();
+        if (siteCount == 0) {
+            return new CostMapAndPositions(null, null);
+        }
+
+        CountDownLatch latch = new CountDownLatch(taskCount);
+        int[] minimumCostPositionsByOrigin = new int[originCount];
+        CasesAndCostMap[] partitionedMinimumCostMap = new CasesAndCostMap[taskCount];
+        for (int i = 0; i < taskCount; i++) {
+            int finalI = i;
+            executor.execute(() -> {
+                CasesAndCostMap partitionMinimumCostMap = new CasesAndCostMap(timepointCount, siteCount);
+                for (int j = startingOrigins[finalI]; j < endingOrigins[finalI]; j++) {
+                    int minimumCostPosition = 0;
+                    double minimumCostUnadjusted = graphArray.getEdgeLength(j, sites.get(0)); //Closest center travel cost, not adjusted for population or cancer center scaling
+                    for (int k = 1; k < siteCount; ++k) {
+                        double currentCostUnadjusted = graphArray.getEdgeLength(j, sites.get(k));
+                        if (currentCostUnadjusted < minimumCostUnadjusted) {
+                            minimumCostPosition = k;
+                            minimumCostUnadjusted = currentCostUnadjusted;
+                        }
+                    }
+                    minimumCostPositionsByOrigin[j] = minimumCostPosition;
+                    partitionMinimumCostMap.updateCasesAndCost(minimumCostPosition, minimumCostUnadjusted, j, caseCountByOrigin);
+                }
+                partitionedMinimumCostMap[finalI] = partitionMinimumCostMap;
+                latch.countDown();
+            });
+        }
+        try {
+            latch.await();
+        } catch (InterruptedException e){
+            throw new AssertionError("Unexpected interruption", e);
+        }
+        //HashMap<Integer, CasesAndCost> combinedMinimumCostMap = MultithreadingUtils.combinePartitionedMinimumCostMap(partitionedMinimumCostMap, siteCount, taskCount);
+        CasesAndCostMap combinedMinimumCostMap = new CasesAndCostMap(partitionedMinimumCostMap, timepointCount, siteCount, taskCount);
+        return new CostMapAndPositions(combinedMinimumCostMap, minimumCostPositionsByOrigin);
     }
 
     //Add arrays together
@@ -75,5 +231,8 @@ public class Simulator {
             sum += d;
         }
         return sum / array.length;
+    }
+
+    public record ExpectedCostComparisonResult(List<List<Integer>> optimizedSitesByLevel, List<Double> costComparison) {
     }
 }

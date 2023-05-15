@@ -5,18 +5,26 @@ import java.util.stream.IntStream;
 
 public class SimAnnealingWithPermanentCenters extends SimAnnealingSearch{
 
-    public SimAnnealingWithPermanentCenters() {
-        //Simulated annealing configuration
-        initialTemp = 1000000;
-        finalTemp = 10;
-        coolingRate = 0.9995;
-        finalNeighborhoodSize = -1; //Determining finalNeighborhoodSize based on number of centers to optimize if -1
-        finalNeighborhoodSizeIteration = 2000;
-
+    public SimAnnealingWithPermanentCenters(String censusFileLocation, String permanentGraphLocation, String potentialGraphLocation, String azimuthLocation, String haversineLocation,
+                                            double[] minimumCasesByLevel, double[] servicedProportionByLevel, int[] minimumNewCenterCountByLevel, int[] maximumNewCenterCountByLevel, List<List<Integer>> levelSequences, List<List<Integer>> permanentCentersByLevel,
+                                            double initialTemp, double finalTemp, double coolingRate, int azimuthClassCount, int finalNeighborhoodSize, int finalNeighborhoodSizeIteration, int taskCount, int threadCount) {
         //Multithreading configuration
-        int threadCount = 6;
         executor = Executors.newFixedThreadPool(threadCount);
 
+        //Search space parameters, multithreaded, requires executor
+        searchParameters = new SearchSpace(minimumNewCenterCountByLevel, maximumNewCenterCountByLevel, permanentCentersByLevel,
+                minimumCasesByLevel, servicedProportionByLevel, levelSequences, azimuthClassCount,
+                censusFileLocation, permanentGraphLocation, potentialGraphLocation, azimuthLocation, haversineLocation, taskCount, executor);
+
+        //Simulated annealing configuration
+        this.initialTemp = initialTemp;
+        this.finalTemp = finalTemp;
+        this.coolingRate = coolingRate;
+        this.finalNeighborhoodSize = finalNeighborhoodSize; //Determining finalNeighborhoodSize based on number of centers to optimize if -1
+        this.finalNeighborhoodSizeIteration = finalNeighborhoodSizeIteration;
+    }
+
+    public static void main(String[] args) throws InterruptedException {
         //File locations
         String censusFileLocation = "M:\\Optimization Project\\alberta2016_origins.csv";
         String permanentGraphLocation = censusFileLocation.replace("_origins.csv", "_permanent_graph.csv");
@@ -36,13 +44,25 @@ public class SimAnnealingWithPermanentCenters extends SimAnnealingSearch{
         List<List<Integer>> levelSequences = new ArrayList<>();
         levelSequences.add(Arrays.asList(0, 1));
         levelSequences.add(Arrays.asList(0, 2));
-        searchParameters = new SearchSpace(minimumNewCenterCountByLevel, maximumNewCenterCountByLevel, permanentCentersByLevel,
-                minimumCasesByLevel, servicedProportionByLevel, levelSequences, 6,
-                censusFileLocation, permanentGraphLocation, potentialGraphLocation, azimuthLocation, haversineLocation, 6, executor);
-    }
 
-    public static void main(String[] args) throws InterruptedException {
-        new SimAnnealingWithPermanentCenters();
+        //Simulated annealing configuration
+        double initialTemp = 1000000;
+        double finalTemp = 10;
+        double coolingRate = 0.9995;
+        int azimuthClassCount = 6;
+        int finalNeighborhoodSize = -1; //Determining finalNeighborhoodSize based on number of centers to optimize if -1
+        int finalNeighborhoodSizeIteration = 2000;
+
+        //Multithreading configuration
+        int threadCount = 18;
+        int taskCount = 18;
+
+        //Create simulated annealing instance with permanent centers
+        new SimAnnealingWithPermanentCenters(censusFileLocation, permanentGraphLocation, potentialGraphLocation, azimuthLocation, haversineLocation,
+                minimumCasesByLevel, servicedProportionByLevel, minimumNewCenterCountByLevel, maximumNewCenterCountByLevel, levelSequences, permanentCentersByLevel,
+                initialTemp, finalTemp, coolingRate, azimuthClassCount, finalNeighborhoodSize, finalNeighborhoodSizeIteration, taskCount, threadCount);
+
+        //Begin optimization
         System.out.println("Starting optimization algorithm"); //development only
         //This can be multithreaded with each thread working on a different number n.
         LeveledSiteConfigurationForPermanentCenters minimumSolution = null;
@@ -50,7 +70,7 @@ public class SimAnnealingWithPermanentCenters extends SimAnnealingSearch{
         long runtime = 0;
         for (int i = 0; i < 20; i++) {//dev
             long startTime = System.currentTimeMillis();
-            LeveledSiteConfigurationForPermanentCenters solution = leveledOptimizeCenters(searchParameters.getMinNewCentersByLevel(), searchParameters.getMaxNewCentersByLevel(), 6);
+            LeveledSiteConfigurationForPermanentCenters solution = leveledOptimizeCenters(taskCount);
             System.out.println("Iteration cost is " + solution.getCost() + " on centers " + solution.getSitesByLevel());
             if (minimumSolution == null) {
                 minimumSolution = solution;
@@ -70,7 +90,7 @@ public class SimAnnealingWithPermanentCenters extends SimAnnealingSearch{
     }
 
     //Multithreading variant of leveledOptimizeCenters
-    public static LeveledSiteConfigurationForPermanentCenters leveledOptimizeCenters(int[] minimumNewCenterCountByLevel, int[] maximumNewCenterCountByLevel, int taskCount) throws InterruptedException {
+    public static LeveledSiteConfigurationForPermanentCenters leveledOptimizeCenters(int taskCount) throws InterruptedException {
         long timer = System.currentTimeMillis(); // development only
         Random random = new Random();
 
@@ -78,7 +98,7 @@ public class SimAnnealingWithPermanentCenters extends SimAnnealingSearch{
         List<Integer> allPotentialSites = IntStream.range(0, searchParameters.getPotentialSitesCount()).boxed().collect(Collectors.toList());
         int[] localFinalNeighborhoodSizeByLevel = new int[searchParameters.getCenterLevels()];
         for (int i = 0; i < searchParameters.getCenterLevels(); i++) {
-            localFinalNeighborhoodSizeByLevel[i] = SimAnnealingNeighbor.getFinalNeighborhoodSize(searchParameters.getPotentialSitesCount(), maximumNewCenterCountByLevel[i] + searchParameters.getPermanentCentersCountByLevel()[i], finalNeighborhoodSize);
+            localFinalNeighborhoodSizeByLevel[i] = SimAnnealingNeighbor.getFinalNeighborhoodSize(searchParameters.getPotentialSitesCount(), searchParameters.getMaxNewCentersByLevel()[i] + searchParameters.getPermanentCentersCountByLevel()[i], finalNeighborhoodSize);
         }
 
         //Acceptance probability when comparing new target level cost to total cost to compute other level costs for new total to total cost comparison
@@ -141,7 +161,7 @@ public class SimAnnealingWithPermanentCenters extends SimAnnealingSearch{
                 for (int level = 0; level < searchParameters.getCenterLevels(); level++) {
                     int currentCenterCount = currentSiteConfiguration.getSitesCount(level);
                     double adjustmentType = Math.random();
-                    if ((adjustmentType < 0.5 || currentCenterCount == minimumNewCenterCountByLevel[level] + searchParameters.getPermanentCentersCountByLevel()[level]) && currentCenterCount < maximumNewCenterCountByLevel[level] + searchParameters.getPermanentCentersCountByLevel()[level]) { //attempt to add unrestricted site unless number of sites is already maximal
+                    if ((adjustmentType < 0.5 || currentCenterCount == searchParameters.getMinNewCentersByLevel()[level] + searchParameters.getPermanentCentersCountByLevel()[level]) && currentCenterCount < searchParameters.getMaxNewCentersByLevel()[level] + searchParameters.getPermanentCentersCountByLevel()[level]) { //attempt to add unrestricted site unless number of sites is already maximal
                         if (searchParameters.getSuperlevelsByLevel()[level].length == 0) {
                             currentSiteConfiguration.tryAddSiteWithoutSuperlevels(level, pickRandomAddableSite(currentSiteConfiguration.getSites(level), allPotentialSites, random), searchParameters, temp, taskCount, executor);
                         } else if (adjustmentType < 0.3) {
@@ -164,11 +184,11 @@ public class SimAnnealingWithPermanentCenters extends SimAnnealingSearch{
                                 currentSiteConfiguration.tryAddSite(level, pickRandomSite(restrictedAddableSuperlevelSites, random), searchParameters, temp, targetLevelThresholdProbability, taskCount, executor);
                             } //size == 0 implies that there are restricting superlevels and that their intersection is equal to the original sites, i.e. adding a site is not permissible
                         }
-                    } else if (currentCenterCount > minimumNewCenterCountByLevel[level] + searchParameters.getPermanentCentersCountByLevel()[level]) { //try to remove site
+                    } else if (currentCenterCount > searchParameters.getMinNewCentersByLevel()[level] + searchParameters.getPermanentCentersCountByLevel()[level]) { //try to remove site
                         if (searchParameters.getSublevelsByLevel().length == 0) {
                             currentSiteConfiguration.tryRemovePositionWithoutSublevels(level, random.nextInt(currentSiteConfiguration.getSitesCount(level)), searchParameters, temp, taskCount, executor);
                         } else {
-                            List<Integer> candidateRemovalSites = currentSiteConfiguration.getCandidateRemovalSites(level, searchParameters.getSublevelsByLevel()[level], minimumNewCenterCountByLevel, searchParameters.getPermanentCentersCountByLevel());
+                            List<Integer> candidateRemovalSites = currentSiteConfiguration.getCandidateRemovalSites(level, searchParameters.getSublevelsByLevel()[level], searchParameters.getMinNewCentersByLevel(), searchParameters.getPermanentCentersCountByLevel());
                             if (candidateRemovalSites.size() > 0) {
                                 currentSiteConfiguration.tryRemoveSite(level, pickRandomSite(candidateRemovalSites, random), searchParameters, temp, targetLevelThresholdProbability, taskCount, executor);
                             }
@@ -195,6 +215,7 @@ public class SimAnnealingWithPermanentCenters extends SimAnnealingSearch{
         return currentSiteConfiguration;
     }
 
+    //Pick random integer from list of integers
     public static Integer pickRandomSite(List<Integer> potentialSites, Random random) {
         return potentialSites.get(random.nextInt(potentialSites.size()));
     }
