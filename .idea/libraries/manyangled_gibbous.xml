@@ -1,0 +1,11 @@
+<component name="libraryTable">
+  <library name="manyangled.gibbous" type="repository">
+    <properties maven-id="com.manyangled:gibbous:0.3.0" />
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/lib/gibbous-0.3.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/commons-math3-3.6.1.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

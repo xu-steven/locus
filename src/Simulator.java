@@ -32,13 +32,13 @@ public class Simulator {
 
     public static void main(String[] args) throws InterruptedException {
         //Demographics file
-        String demographicsLocation = "M:\\Optimization Project Alpha\\demographic projections\\alberta2021_demographics.csv";
+        String demographicsLocation = "C:\\Users\\Steven\\IdeaProjects\\Optimization Project Alpha\\demographic projections\\alberta2021_demographics.csv";
 
         //Case incidence rate file
-        String caseIncidenceRateLocation = "M:\\Optimization Project Alpha\\cancer projection\\alberta_cancer_incidence.csv";
+        String caseIncidenceRateLocation = "C:\\Users\\Steven\\IdeaProjects\\Optimization Project Alpha\\cancer projection\\alberta_cancer_incidence.csv";
 
         //File locations
-        String censusFileLocation = "M:\\Optimization Project Alpha\\alberta2021_origins.csv";
+        String censusFileLocation = "C:\\Users\\Steven\\IdeaProjects\\Optimization Project Alpha\\alberta2021_origins.csv";
         String graphLocation = censusFileLocation.replace("_origins.csv", "_graph.csv");
         String azimuthLocation = censusFileLocation.replace("_origins.csv", "_potential_azimuth.csv");
         String haversineLocation = censusFileLocation.replace("_origins.csv", "_potential_haversine.csv");
@@ -61,8 +61,8 @@ public class Simulator {
         int finalNeighborhoodSizeIteration = 20000;
 
         //Multithreading configuration
-        int threadCount = 18;
-        int taskCount = 18;
+        int threadCount = 24;
+        int taskCount = 24;
 
         //Create a simulator
         new Simulator(demographicsLocation, caseIncidenceRateLocation, censusFileLocation, graphLocation, azimuthLocation, haversineLocation,
@@ -80,7 +80,7 @@ public class Simulator {
         List<List<Integer>> unoptimizedSitesByLevel = new ArrayList<>(Arrays.asList(communityCenters, regionalCenters, academicCenters));
 
         //Configuration
-        int simulations = 1;
+        int simulations = 2;
         int iterationsOfSimulatedAnnealingSearch = 2;
 
         //Compare with optimized cases
@@ -131,7 +131,7 @@ public class Simulator {
             //Non-optimized sites to compare
             double unoptimizedTotalCost = cost(unoptimizedSitesByLevel, simAnnealer.searchParameters, taskCount, simAnnealer.executor);
 
-            //Add pair (simulated annealing cost, unoptimized cost) to cost comparison by simulation
+            //Add triplet (simulated annealing optimized cost, unoptimized cost, total simulated case count) to cost comparison by simulation
             costComparisonBySimulation.add(new ArrayList<>(Arrays.asList(optimizedTotalCost, unoptimizedTotalCost, ArrayOperations.sumDoubleArray(simulatedCaseCounts.caseCountByOrigin))));
         }
         return costComparisonBySimulation;

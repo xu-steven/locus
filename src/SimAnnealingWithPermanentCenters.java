@@ -26,7 +26,7 @@ public class SimAnnealingWithPermanentCenters extends SimAnnealingSearch{
 
     public static void main(String[] args) throws InterruptedException {
         //File locations
-        String censusFileLocation = "M:\\Optimization Project\\alberta2016_origins.csv";
+        String censusFileLocation = "C:\\Users\\Steven\\IdeaProjects\\Optimization Project Alpha\\alberta2016_origins.csv";
         String permanentGraphLocation = censusFileLocation.replace("_origins.csv", "_permanent_graph.csv");
         String potentialGraphLocation = censusFileLocation.replace("_origins.csv", "_potential_graph.csv");
         String azimuthLocation = censusFileLocation.replace("_origins.csv", "_potential_azimuth.csv");

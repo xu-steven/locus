@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="jsoniter-0.9.24-FEMTO">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/lib/jsoniter-0.9.24-FEMTO.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
