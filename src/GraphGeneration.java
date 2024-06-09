@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.CountDownLatch;
@@ -18,12 +19,13 @@ public class GraphGeneration extends InputGenerator{
     static String outputFileLocation;
 
     //Starting origin (inclusive) and ending origin (not inclusive)
-    private static int startOrigin = 2;
-    private static int endOrigin = 18; //put 0 for censusArray.size();
+    private static int startOrigin = 1;
+    private static int endOrigin = 0; //put 0 for censusArray.size();
     private static int startPort = 8080;
+    private static boolean changePorts = false;
 
     //Thread count
-    private static int threadCount = 5;
+    private static int threadCount = 23;
     private static ExecutorService executor = Executors.newFixedThreadPool(threadCount);
 
     public GraphGeneration(String censusFileLocation, String potentialCenterFileLocation) throws Exception {
@@ -37,7 +39,8 @@ public class GraphGeneration extends InputGenerator{
     }
 
     public static void main(String[] args) throws Exception {
-        new GraphGeneration("M:\\Optimization Project Alpha\\alberta2021_origins.csv", "M:\\Optimization Project Alpha\\alberta2021_potential_sites.csv");
+        new GraphGeneration("C:\\Users\\Steven\\IdeaProjects\\Optimization Project Alpha\\alberta_cancer_registry_origins.csv",
+                "C:\\Users\\Steven\\IdeaProjects\\Optimization Project Alpha\\alberta2021_potential_sites_brief.csv");
         if (permanentCenterArray != null) {
             System.out.println("Generating graph from origins to permanent centers.");
             generateGraph(permanentCenterArray, permanentCenterLatIndex, permanentCenterLongIndex);
@@ -78,29 +81,44 @@ public class GraphGeneration extends InputGenerator{
                     nextRow = new ArrayList<>();
                     nextRow.add(censusArray.get(j).get(0));
                     for (int k = 1; k < destinationArray.size(); ++k) {
-                        if (j == k) {
+                        if ((Double.valueOf(censusArray.get(j).get(censusLatIndex)).equals(Double.valueOf(destinationArray.get(k).get(destinationLatIndex))))
+                                && (Double.valueOf(censusArray.get(j).get(censusLongIndex)).equals(Double.valueOf(destinationArray.get(k).get(destinationLongIndex))))) {
+                            System.out.println("j = k");
                             nextRow.add("0");
                             continue;
                         }
-                        List<Double> routeStatistics = getOrsRouteStatistics(Double.valueOf(censusArray.get(j).get(censusLatIndex)), Double.valueOf(censusArray.get(j).get(censusLongIndex)), Double.valueOf(destinationArray.get(k).get(destinationLatIndex)), Double.valueOf(destinationArray.get(k).get(destinationLongIndex)), startPort + finalI);
+                        int port = startPort;
+                        if (changePorts) {
+                            port = startPort + finalI;
+                        }
+                        List<Double> routeStatistics = getOrsRouteStatistics(Double.valueOf(censusArray.get(j).get(censusLatIndex)), Double.valueOf(censusArray.get(j).get(censusLongIndex)),
+                                Double.valueOf(destinationArray.get(k).get(destinationLatIndex)), Double.valueOf(destinationArray.get(k).get(destinationLongIndex)), port);
                         if(routeStatistics.size() == 0) {
                             System.out.println("Failed to obtain driving distance from " + censusArray.get(j).get(0) + " to " + destinationArray.get(k).get(0));
+                            nextRow.add("");
                         } else {
                             nextRow.add(String.valueOf(routeStatistics.get(1)));
                         }
-                        if (k % 100 == 0) {
-                            System.out.println("Done column " + String.valueOf(k) + " in row " + String.valueOf(j) + ". There are a total of " + (censusArray.size() - 1) + " DAs.");
+                        if (k % 1000 == 0) {
+                        //    System.out.println("Done column " + String.valueOf(k) + " in row " + String.valueOf(j) + ". There are a total of " + (censusArray.size() - 1) + " DAs.");
                         }
                     }
                     outputArray.add(nextRow);
-                    if (j % 1 == 0) {
-                        System.out.println("Done row " + String.valueOf(j) + " of " + (censusArray.size() - 1));
+                    if ((j - partitionedOrigins[finalI][0] + 1) % 1000 == 0) {
+                        System.out.println("Done row " + String.valueOf(j - partitionedOrigins[finalI][0] + 1) + " of " + partitionedOrigins[finalI].length + " on thread " + finalI);
                         try {
                             FileUtils.writeCSV(partitionOutputLocation, outputArray);
                         } catch (IOException e) {
                             e.printStackTrace();
                         }
                         outputArray = new ArrayList<>();
+                    }
+                }
+                if (outputArray.size() != 0) {
+                    try {
+                        FileUtils.writeCSV(partitionOutputLocation, outputArray);
+                    } catch (IOException e) {
+                        e.printStackTrace();
                     }
                 }
                 latch.countDown();
